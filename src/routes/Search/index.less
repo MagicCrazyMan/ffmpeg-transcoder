@@ -1,0 +1,49 @@
+.container {
+  height: 100%;
+
+  display: grid;
+
+  grid-template-columns: 20rem min-content auto;
+  grid-template-rows: min-content min-content auto min-content min-content;
+  grid-template-areas:
+    "io io io"
+    "extension divider table"
+    "regular divider table"
+    "codec divider table"
+    "submit divider table";
+}
+
+.io {
+  grid-area: io;
+}
+
+.divider {
+  grid-area: divider;
+
+  height: auto;
+}
+
+.extension {
+  grid-area: extension;
+}
+
+.regular {
+  grid-area: regular;
+
+  .regular-filter-item-checkbox {
+    margin: 0;
+    padding: 0;
+  }
+}
+
+.codec {
+  grid-area: codec;
+}
+
+.submit {
+  grid-area: submit;
+}
+
+.table {
+  grid-area: table;
+}
