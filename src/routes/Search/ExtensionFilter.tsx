@@ -1,11 +1,11 @@
-import { Divider, Radio, InputTag } from "@arco-design/web-react";
-import { ExtensionFilterStatus } from "./constants";
+import { Divider, InputTag, Radio } from "@arco-design/web-react";
+import { ExtensionFilterState } from "./constants";
 
 type ExtensionFilterProps = {
   extensions: string[];
   onExtensionsChanged: (extensions: string[]) => void;
-  filterStatus: ExtensionFilterStatus;
-  onFilterStatusChanged: (type: ExtensionFilterStatus) => void;
+  filterState: ExtensionFilterState;
+  onFilterStateChanged: (type: ExtensionFilterState) => void;
   className?: string;
 };
 
@@ -16,8 +16,8 @@ type ExtensionFilterProps = {
 export default function ExtensionFilter({
   extensions,
   onExtensionsChanged,
-  filterStatus,
-  onFilterStatusChanged,
+  filterState,
+  onFilterStateChanged,
   className,
 }: ExtensionFilterProps) {
   const setLowercaseExtensions = (extensions: string[]) => {
@@ -34,12 +34,12 @@ export default function ExtensionFilter({
       <Radio.Group
         type="button"
         className="mb-4"
-        value={filterStatus}
-        onChange={onFilterStatusChanged}
+        value={filterState}
+        onChange={onFilterStateChanged}
       >
-        <Radio value={ExtensionFilterStatus.Whitelist}>Whitelist</Radio>
-        <Radio value={ExtensionFilterStatus.Disabled}>Disabled</Radio>
-        <Radio value={ExtensionFilterStatus.Blacklist}>Blacklist</Radio>
+        <Radio value={ExtensionFilterState.Whitelist}>Whitelist</Radio>
+        <Radio value={ExtensionFilterState.Disabled}>Disabled</Radio>
+        <Radio value={ExtensionFilterState.Blacklist}>Blacklist</Radio>
       </Radio.Group>
       <InputTag
         allowClear
@@ -47,7 +47,7 @@ export default function ExtensionFilter({
         placeholder="Extensions"
         value={extensions}
         onChange={setLowercaseExtensions}
-        readOnly={filterStatus === ExtensionFilterStatus.Disabled}
+        readOnly={filterState === ExtensionFilterState.Disabled}
       ></InputTag>
     </div>
   );

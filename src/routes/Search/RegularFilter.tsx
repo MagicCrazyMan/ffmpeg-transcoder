@@ -10,11 +10,11 @@ import {
 } from "@arco-design/web-react/icon";
 import { useMemo } from "react";
 import { v4 } from "uuid";
-import { RegularFilterValue } from "./constants";
+import { RegularFilterData } from "./constants";
 
 type RegularFilterItemProps = {
-  filter: RegularFilterValue;
-  onChanged: (filter: RegularFilterValue) => void;
+  filter: RegularFilterData;
+  onChanged: (filter: RegularFilterData) => void;
   onDeleted: () => void;
   onAdded: () => void;
 };
@@ -107,8 +107,8 @@ const RegularFilterItem = ({ filter, onChanged, onAdded, onDeleted }: RegularFil
 type RegularFilterProps = {
   enabled: boolean;
   onEnabled: (enabled: boolean) => void;
-  filters: RegularFilterValue[];
-  onChanged: (filters: RegularFilterValue[]) => void;
+  filters: RegularFilterData[];
+  onChanged: (filters: RegularFilterData[]) => void;
   className?: string;
 };
 
@@ -126,7 +126,7 @@ export default function RegularFilter({
   const items = useMemo(() => {
     return filters.map((filter, index) => {
       // a function that update filter in current index
-      const setFilter = (filter: RegularFilterValue) => {
+      const setFilter = (filter: RegularFilterData) => {
         // new filters list where a target filter had changed
         const changedFilters = filters.map((f) => {
           if (f.id === filter.id) {
@@ -141,7 +141,7 @@ export default function RegularFilter({
 
       // add new filter
       const add = () => {
-        const addedFilters: RegularFilterValue[] = [
+        const addedFilters: RegularFilterData[] = [
           ...filters.slice(0, index - 1),
           {
             id: v4(),
@@ -150,7 +150,7 @@ export default function RegularFilter({
             regex: false,
             applyDirectory: true,
             applyFile: true,
-          } as RegularFilterValue,
+          } as RegularFilterData,
           ...filters.slice(index),
         ];
         onChanged(addedFilters);

@@ -48,16 +48,11 @@ export default function InputOutputDirectory({
   };
 
   /**
-   * Reset input error message when input directory changed
-   */
-  useEffect(() => {
-    setInputValidate({ status: undefined, msg: "" });
-  }, [inputDirectory]);
-
-  /**
    * Fetch target files via Tauri when input directory changed
    */
   useEffect(() => {
+    setInputValidate({ status: undefined, msg: "" });
+
     if (!onInputFilesChanged) return;
 
     // clear existing immediately

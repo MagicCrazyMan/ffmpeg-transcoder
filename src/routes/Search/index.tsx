@@ -6,7 +6,7 @@ import { TargetFile } from "../../tauri/fs";
 import ExtensionFilter from "./ExtensionFilter";
 import InputOutputDirectory from "./InputOutputDirectory";
 import RegularFilter from "./RegularFilter";
-import { ExtensionFilterStatus, RegularFilterValue } from "./constants";
+import { ExtensionFilterState, RegularFilterData } from "./constants";
 import "./index.less";
 import OutputCodecs from "./OutputCodecs";
 
@@ -21,13 +21,13 @@ export default function SearchPage() {
   const [outputDirectory, setOutputDirectory] = useState("");
   const [inputFiles, setInputFiles] = useState<TargetFile[]>([]);
 
-  const [extensionFilterStatus, setExtensionFilterStatus] = useState(
-    ExtensionFilterStatus.Disabled
+  const [extensionFilterState, setExtensionFilterState] = useState(
+    ExtensionFilterState.Disabled
   );
   const [extensions, setExtensions] = useState<string[]>([]);
 
   const [regularFiltersEnabled, setRegularFiltersEnabled] = useState(true);
-  const [regularFilters, setRegularFilters] = useState<RegularFilterValue[]>([
+  const [regularFilters, setRegularFilters] = useState<RegularFilterData[]>([
     {
       id: v4(),
       value: "sdfsdfs",
@@ -93,8 +93,8 @@ export default function SearchPage() {
       <ExtensionFilter
         extensions={extensions}
         onExtensionsChanged={setExtensions}
-        filterStatus={extensionFilterStatus}
-        onFilterStatusChanged={setExtensionFilterStatus}
+        filterState={extensionFilterState}
+        onFilterStateChanged={setExtensionFilterState}
         className="extension"
       />
 
