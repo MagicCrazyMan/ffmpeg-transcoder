@@ -1,6 +1,6 @@
 use std::process::Output;
 
-use tokio::{process::Command, sync::watch::Sender};
+use tokio::process::Command;
 
 use crate::handlers::error::{Error, ErrorKind};
 
@@ -33,11 +33,7 @@ impl<T> IntoResult<T> for std::io::Result<T> {
 
 /// Invokes ffmpeg in child process and
 /// streaming reading output from stdout & stderr.
-pub async fn stream_ffmpeg(
-    ffmpeg: &str,
-    args: &[&str],
-    notifier: Sender<String>,
-) -> Result<(), Error> {
+pub async fn stream_ffmpeg(ffmpeg: &str, args: &[&str]) -> Result<(), Error> {
     let mut child = Command::new(ffmpeg).args(args).spawn().into_result()?;
 
     child.wait().await.into_result()?;

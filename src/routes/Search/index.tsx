@@ -3,12 +3,11 @@ import { useEffect, useMemo, useState } from "react";
 import { v4 } from "uuid";
 import { useAppStore } from "../../store";
 import { TargetFile } from "../../tauri/fs";
+import DirectoryIO from "./DirectoryIO";
 import ExtensionFilter from "./ExtensionFilter";
-import InputOutputDirectory from "./InputOutputDirectory";
 import RegularFilter from "./RegularFilter";
 import { ExtensionFilterState, RegularFilterData } from "./constants";
 import "./index.less";
-import OutputCodecs from "./OutputCodecs";
 
 /**
  * A page for searching files from a input directory
@@ -21,9 +20,7 @@ export default function SearchPage() {
   const [outputDirectory, setOutputDirectory] = useState("");
   const [inputFiles, setInputFiles] = useState<TargetFile[]>([]);
 
-  const [extensionFilterState, setExtensionFilterState] = useState(
-    ExtensionFilterState.Disabled
-  );
+  const [extensionFilterState, setExtensionFilterState] = useState(ExtensionFilterState.Disabled);
   const [extensions, setExtensions] = useState<string[]>([]);
 
   const [regularFiltersEnabled, setRegularFiltersEnabled] = useState(true);
@@ -77,7 +74,7 @@ export default function SearchPage() {
   return (
     <div className="container">
       {/* Input & Output Directories Selector */}
-      <InputOutputDirectory
+      <DirectoryIO
         className="io"
         inputDirectory={inputDirectory}
         onInputDirectoryChanged={setInputDirectory}
@@ -107,9 +104,6 @@ export default function SearchPage() {
         className="regular"
       ></RegularFilter>
 
-      {/* Output Codec Parameters */}
-      <OutputCodecs className="codec"></OutputCodecs>
-
       {/* Files Table */}
       <Table
         stripe
@@ -120,7 +114,9 @@ export default function SearchPage() {
       ></Table>
 
       {/* Submit */}
-      <Button type="primary" className="submit">Add to Queue</Button>
+      <Button type="primary" className="submit">
+        Add to Queue
+      </Button>
     </div>
   );
 }

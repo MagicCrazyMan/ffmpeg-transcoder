@@ -7,9 +7,14 @@ use app::{
     config::Config,
     result::{AppResult, IntoAppResult},
 };
+use handlers::store::TranscodingStore;
 use tauri_plugin_log::LogTarget;
 
-use crate::handlers::commands::{fs::files_from_directory, particulars::system_particulars};
+use crate::handlers::commands::{
+    fs::files_from_directory,
+    particulars::system_particulars,
+    transcode::{pause_transcode, start_transcode, stop_transcode},
+};
 
 pub mod app;
 pub mod handlers;
@@ -28,9 +33,13 @@ fn start_app() -> AppResult<()> {
                 .build(),
         )
         .manage(Config::from_file_or_default()?)
+        .manage(TranscodingStore::new())
         .invoke_handler(tauri::generate_handler![
             system_particulars,
             files_from_directory,
+            start_transcode,
+            stop_transcode,
+            pause_transcode
         ])
         .run(tauri::generate_context!())
         .into_app_result()?;

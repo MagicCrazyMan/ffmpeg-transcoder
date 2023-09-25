@@ -4,12 +4,11 @@
   display: grid;
 
   grid-template-columns: 20rem min-content auto;
-  grid-template-rows: min-content min-content auto min-content min-content;
+  grid-template-rows: min-content min-content auto min-content;
   grid-template-areas:
     "io io io"
     "extension divider table"
     "regular divider table"
-    "codec divider table"
     "submit divider table";
 }
 
@@ -34,10 +33,6 @@
     margin: 0;
     padding: 0;
   }
-}
-
-.codec {
-  grid-area: codec;
 }
 
 .submit {
