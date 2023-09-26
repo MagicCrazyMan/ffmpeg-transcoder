@@ -309,7 +309,7 @@ impl TranscodeJob {
                 }
             };
 
-            let stdout = match process.stderr.as_mut() {
+            let stdout = match process.stdout.as_mut() {
                 Some(stdout) => stdout,
                 None => {
                     Self::kill_inner(process, &id, &store).await;
