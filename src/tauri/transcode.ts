@@ -26,3 +26,7 @@ export const stopTranscode = async (id: string) => {
 export const pauseTranscode = async (id: string) => {
   return await invoke<void>("pause_transcode", { id });
 };
+
+export const resumeTranscode = async (id: string) => {
+  return await invoke<void>("resume_transcode", { id });
+};

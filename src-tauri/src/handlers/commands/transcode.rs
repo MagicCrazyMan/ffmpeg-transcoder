@@ -1,5 +1,7 @@
 use std::{borrow::Cow, str::FromStr};
 
+use serde_with::{serde_as, NoneAsEmptyString};
+
 use crate::{
     app::config::Config,
     handlers::{error::Error, store::TranscodeStore},
@@ -32,7 +34,10 @@ impl TranscodeItem {
                 .params
                 .into_iter()
                 .map(|param| Cow::Owned(param))
-                .chain([Cow::Owned(format!("\"{}\"", output.path))])
+                .chain([match output.path {
+                    Some(path) => Cow::Owned(format!("\"{}\"", path)),
+                    None => Cow::Borrowed(""),
+                }])
         });
         let append_args = [Cow::Borrowed("-y")];
         let args = prepend_args
@@ -54,9 +59,13 @@ pub struct InputParams {
     params: Vec<String>,
 }
 
+#[serde_as]
 #[derive(Debug, serde::Deserialize)]
 pub struct OutputParams {
-    path: String,
+    /// Output path could be None in some situation,
+    /// such as exports to null.
+    #[serde_as(as = "NoneAsEmptyString")]
+    path: Option<String>,
     #[serde(default = "Vec::new")]
     params: Vec<String>,
 }

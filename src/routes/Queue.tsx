@@ -1,8 +1,8 @@
 import { Button, Table, TableColumnProps } from "@arco-design/web-react";
 import { IconPause, IconPlayArrow, IconRecordStop } from "@arco-design/web-react/icon";
-import { pauseTranscode, startTranscode, stopTranscode } from "../tauri/transcode";
+import { pauseTranscode, resumeTranscode, startTranscode, stopTranscode } from "../tauri/transcode";
 import { listen } from "@tauri-apps/api/event";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function QueuePage() {
   const tableCols: TableColumnProps[] = [
@@ -21,6 +21,7 @@ export default function QueuePage() {
   ];
 
   const transcodeId = useRef("");
+  const [transcodePaused, setTranscodePaused] = useState(false);
   const start = async () => {
     const { id } = await startTranscode({
       inputs: [{ path: "D:\\Captures\\2023-09-10 23-35-22.mp4" }],
@@ -56,6 +57,13 @@ export default function QueuePage() {
     if (!transcodeId.current) return;
 
     await pauseTranscode(transcodeId.current);
+    setTranscodePaused(true);
+  };
+  const resume = async () => {
+    if (!transcodeId.current) return;
+
+    await resumeTranscode(transcodeId.current);
+    setTranscodePaused(false);
   };
 
   useEffect(() => {
@@ -90,7 +98,7 @@ export default function QueuePage() {
           status="warning"
           type="primary"
           icon={<IconPause />}
-          onClick={pause}
+          onClick={transcodePaused ? resume : pause}
         ></Button>
         <Button
           className="mr-2"
