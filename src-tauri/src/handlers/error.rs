@@ -114,3 +114,21 @@ impl Display for Error {
         }
     }
 }
+
+/// A generic trait wrapping all error result into [`Error`] result
+/// with [`ErrorKind::Internal`] and without keywords.
+pub trait IntoInternalResult<T> {
+    fn into_internal_result(self) -> Result<T, Error>;
+}
+
+impl<T, E> IntoInternalResult<T> for std::result::Result<T, E>
+where
+    E: std::error::Error + 'static,
+{
+    fn into_internal_result(self) -> Result<T, Error> {
+        match self {
+            Ok(v) => Ok(v),
+            Err(err) => Err(Error::from_raw_error(err, ErrorKind::Internal)),
+        }
+    }
+}

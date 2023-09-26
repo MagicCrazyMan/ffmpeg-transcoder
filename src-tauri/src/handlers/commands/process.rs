@@ -31,16 +31,6 @@ impl<T> IntoResult<T> for std::io::Result<T> {
     }
 }
 
-/// Invokes ffmpeg in child process and
-/// streaming reading output from stdout & stderr.
-pub async fn stream_ffmpeg(ffmpeg: &str, args: &[&str]) -> Result<(), Error> {
-    let mut child = Command::new(ffmpeg).args(args).spawn().into_result()?;
-
-    child.wait().await.into_result()?;
-
-    Ok(())
-}
-
 /// Invokes ffmpeg in child process and returns output result after process end.
 pub async fn invoke_ffmpeg(ffmpeg: &str, args: &[&str]) -> Result<Output, Error> {
     let output = Command::new(ffmpeg)

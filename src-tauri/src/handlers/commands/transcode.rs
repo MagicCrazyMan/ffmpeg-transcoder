@@ -1,14 +1,8 @@
-use std::{borrow::Cow, process::Stdio, str::FromStr};
-
-use log::{debug, info};
-use tokio::process::Command;
+use std::{borrow::Cow, str::FromStr};
 
 use crate::{
     app::config::Config,
-    handlers::{
-        error::Error,
-        store::{Transcoding, TranscodingStore},
-    },
+    handlers::{error::Error, store::TranscodeStore},
     with_default_args,
 };
 
@@ -16,6 +10,41 @@ use crate::{
 pub struct TranscodeItem {
     inputs: Vec<InputParams>,
     outputs: Vec<OutputParams>,
+}
+
+impl TranscodeItem {
+    fn into_args(self) -> Vec<String> {
+        let prepend_args = with_default_args!("-progress", "-", "-nostats")
+            .iter()
+            .map(|str| Cow::Borrowed(*str));
+        let input_args = self.inputs.into_iter().flat_map(|input| {
+            input
+                .params
+                .into_iter()
+                .map(|param| Cow::Owned(param))
+                .chain([
+                    Cow::Borrowed("-i"),
+                    Cow::Owned(format!("\"{}\"", input.path)),
+                ])
+        });
+        let output_args = self.outputs.into_iter().flat_map(|output| {
+            output
+                .params
+                .into_iter()
+                .map(|param| Cow::Owned(param))
+                .chain([Cow::Owned(format!("\"{}\"", output.path))])
+        });
+        let append_args = [Cow::Borrowed("-y")];
+        let args = prepend_args
+            .chain(input_args)
+            .chain(output_args)
+            .chain(append_args)
+            .filter(|arg| !arg.is_empty())
+            .map(|arg| arg.to_string())
+            .collect::<Vec<_>>();
+
+        args
+    }
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -41,86 +70,36 @@ pub struct TranscodeId {
 pub async fn start_transcode(
     app_handle: tauri::AppHandle,
     config: tauri::State<'_, Config>,
-    transcode_store: tauri::State<'_, TranscodingStore>,
+    transcode_store: tauri::State<'_, TranscodeStore>,
     item: TranscodeItem,
 ) -> Result<TranscodeId, Error> {
-    let args = with_default_args!("-progress", "-", "-nostats")
-        .iter()
-        .map(|str| *str)
-        .chain(item.inputs.iter().flat_map(|input| {
-            input
-                .params
-                .iter()
-                .map(|param| param.as_str())
-                .chain(["-i", input.path.as_str()])
-        }))
-        .chain(item.outputs.iter().flat_map(|output| {
-            output
-                .params
-                .iter()
-                .map(|param| param.as_str())
-                .chain([output.path.as_str()])
-        }))
-        .chain(["-y"])
-        .filter(|arg| !arg.is_empty())
-        .collect::<Vec<_>>();
-
-    info!(
-        "Start transcode with arguments: {} {}",
-        config.binary().ffmpeg(),
-        args.join(" ")
-    );
-
-    let child = Command::new(config.binary().ffmpeg())
-        .args(args)
-        .stdin(Stdio::piped())
-        .stderr(Stdio::piped())
-        .stdout(Stdio::piped())
-        .spawn()
-        .unwrap();
-    let pid = child.id();
-
-    let id = uuid::Uuid::new_v4();
-    transcode_store
-        .add(id, Transcoding::new(child, app_handle))
+    let id = transcode_store
+        .add_and_start(
+            app_handle,
+            config.binary().ffmpeg().to_string(),
+            item.into_args(),
+        )
         .await;
-
-    debug!(
-        "Start transcoding: {}, OS-assigned PID: {}",
-        id,
-        pid.map(|id| Cow::Owned(id.to_string()))
-            .unwrap_or(Cow::Borrowed("unknown"))
-    );
 
     Ok(TranscodeId { id: id.to_string() })
 }
 
 #[tauri::command]
 pub async fn stop_transcode(
-    transcode_store: tauri::State<'_, TranscodingStore>,
+    transcode_store: tauri::State<'_, TranscodeStore>,
     id: String,
 ) -> Result<(), ()> {
     let id = uuid::Uuid::from_str(&id).unwrap();
-
-    debug!("Stopping transcoding: {}", id);
-
     transcode_store.stop(&id).await;
-
-    debug!("Stopped transcoding: {}", id);
     Ok(())
 }
 
 #[tauri::command]
 pub async fn pause_transcode(
-    transcode_store: tauri::State<'_, TranscodingStore>,
+    transcode_store: tauri::State<'_, TranscodeStore>,
     id: String,
 ) -> Result<(), ()> {
     let id = uuid::Uuid::from_str(&id).unwrap();
-
-    debug!("Pausing transcoding: {}", id);
-
     transcode_store.pause(&id).await;
-
-    debug!("Paused transcoding: {}", id);
     Ok(())
 }
