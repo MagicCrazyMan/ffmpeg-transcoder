@@ -1,10 +1,13 @@
-use std::{borrow::Cow, str::FromStr};
+use std::str::FromStr;
 
 use serde_with::{serde_as, NoneAsEmptyString};
 
 use crate::{
     app::config::Config,
-    handlers::{error::Error, store::TranscodeStore},
+    handlers::{
+        error::{Error, ErrorKind},
+        store::TranscodeStore,
+    },
     with_default_args,
 };
 
@@ -18,28 +21,22 @@ impl TranscodeItem {
     fn into_args(self) -> Vec<String> {
         let prepend_args = with_default_args!("-progress", "-", "-nostats")
             .iter()
-            .map(|str| Cow::Borrowed(*str));
-        let input_args = self.inputs.into_iter().flat_map(|input| {
+            .map(|str| *str);
+        let input_args = self.inputs.iter().flat_map(|input| {
             input
                 .params
-                .into_iter()
-                .map(|param| Cow::Owned(param))
-                .chain([
-                    Cow::Borrowed("-i"),
-                    Cow::Owned(format!("\"{}\"", input.path)),
-                ])
+                .iter()
+                .map(|param| param.as_str())
+                .chain(["-i", input.path.as_str()])
         });
-        let output_args = self.outputs.into_iter().flat_map(|output| {
+        let output_args = self.outputs.iter().flat_map(|output| {
             output
                 .params
-                .into_iter()
-                .map(|param| Cow::Owned(param))
-                .chain([match output.path {
-                    Some(path) => Cow::Owned(format!("\"{}\"", path)),
-                    None => Cow::Borrowed(""),
-                }])
+                .iter()
+                .map(|param| param.as_str())
+                .chain([output.path.as_ref().map(|path| path.as_str()).unwrap_or("")])
         });
-        let append_args = [Cow::Borrowed("-y")];
+        let append_args = [("-y")];
         let args = prepend_args
             .chain(input_args)
             .chain(output_args)
@@ -99,8 +96,8 @@ pub async fn start_transcode(
 pub async fn stop_transcode(
     transcode_store: tauri::State<'_, TranscodeStore>,
     id: String,
-) -> Result<(), ()> {
-    let id = uuid::Uuid::from_str(&id).unwrap();
+) -> Result<(), Error> {
+    let id = uuid::Uuid::from_str(&id).try_into_uuid()?;
     transcode_store.stop(&id).await;
     Ok(())
 }
@@ -110,8 +107,8 @@ pub async fn stop_transcode(
 pub async fn pause_transcode(
     transcode_store: tauri::State<'_, TranscodeStore>,
     id: String,
-) -> Result<(), ()> {
-    let id = uuid::Uuid::from_str(&id).unwrap();
+) -> Result<(), Error> {
+    let id = uuid::Uuid::from_str(&id).try_into_uuid()?;
     transcode_store.pause(&id).await;
     Ok(())
 }
@@ -121,8 +118,21 @@ pub async fn pause_transcode(
 pub async fn resume_transcode(
     transcode_store: tauri::State<'_, TranscodeStore>,
     id: String,
-) -> Result<(), ()> {
-    let id = uuid::Uuid::from_str(&id).unwrap();
+) -> Result<(), Error> {
+    let id = uuid::Uuid::from_str(&id).try_into_uuid()?;
     transcode_store.resume(&id).await;
     Ok(())
+}
+
+trait TryIntoUuid {
+    fn try_into_uuid(self) -> Result<uuid::Uuid, Error>;
+}
+
+impl TryIntoUuid for Result<uuid::Uuid, uuid::Error> {
+    fn try_into_uuid(self) -> Result<uuid::Uuid, Error> {
+        match self {
+            Ok(uuid) => Ok(uuid),
+            Err(err) => Err(Error::from_raw_error(err, ErrorKind::IncorrectJobId)),
+        }
+    }
 }

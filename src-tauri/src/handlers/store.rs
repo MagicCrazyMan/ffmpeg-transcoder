@@ -4,7 +4,7 @@ use std::{
     sync::{Arc, Weak},
 };
 
-use log::{debug, error, info, trace, warn};
+use log::{debug, error, info, warn};
 use tauri::Manager;
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
@@ -309,7 +309,7 @@ impl TranscodeJob {
                 }
             };
 
-            let stdout = match process.stdout.as_mut() {
+            let stdout = match process.stderr.as_mut() {
                 Some(stdout) => stdout,
                 None => {
                     Self::kill_inner(process, &id, &store).await;
@@ -348,10 +348,12 @@ impl TranscodeJob {
                     }
                 };
 
-                // skip if read nothing
+                // reach eof
                 if len == 0 {
-                    continue;
+                    break;
                 }
+
+                debug!("[{}] capture output: {}", id, line);
 
                 // store raw message
                 message.raw.push(line.trim().to_string());
@@ -416,13 +418,14 @@ impl TranscodeJob {
                                         id, err
                                     );
                                 } else {
-                                    trace!("[{}] send message to frontend", id)
+                                    debug!("[{}] send message to frontend", id)
                                 }
 
                                 message.clear();
                             }
                         }
-                        _ => {}
+                        _ => {
+                        }
                     }
                 };
 
