@@ -2,7 +2,8 @@ use crate::{app::config::Config, handlers::error::Error, with_default_args};
 
 use super::process::invoke_ffprobe;
 
-/// Gets media properties using ffprobe.
+/// A command returns media properties using ffprobe.
+///
 /// Preventing unnecessary conversion between json object and plain text,
 /// this command return plain json text from stdout directly without serializing to json object.
 #[tauri::command]

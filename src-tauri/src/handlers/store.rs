@@ -34,7 +34,7 @@ impl TranscodeStore {
         app_handle: tauri::AppHandle,
         program: String,
         args: Vec<String>,
-    ) -> uuid::Uuid {
+    ) -> Result<uuid::Uuid, Error> {
         let id = uuid::Uuid::new_v4();
         let mut job = TranscodeJob::new(
             id.clone(),
@@ -44,16 +44,17 @@ impl TranscodeStore {
             args,
         );
 
-        job.start();
+        job.start().await?;
         self.store.lock().await.insert(id.clone(), job);
 
-        id
+        Ok(id)
     }
 
     /// Stops a transcode job.
     pub async fn stop(&self, id: &uuid::Uuid) {
         let mut store = self.store.lock().await;
         let Some(job) = store.get_mut(id) else {
+            warn!("jon id {} not found", id);
             return;
         };
 
@@ -64,6 +65,7 @@ impl TranscodeStore {
     pub async fn pause(&self, id: &uuid::Uuid) {
         let mut store = self.store.lock().await;
         let Some(job) = store.get_mut(id) else {
+            warn!("jon id {} not found", id);
             return;
         };
 
@@ -74,6 +76,7 @@ impl TranscodeStore {
     pub async fn resume(&self, id: &uuid::Uuid) {
         let mut store = self.store.lock().await;
         let Some(job) = store.get_mut(id) else {
+            warn!("jon id {} not found", id);
             return;
         };
 

@@ -22,6 +22,7 @@ pub struct FFmpegParticulars {
     codecs: Vec<FFmpegCodec>,
 }
 
+/// A command returns current system and ffmpeg particulars.
 #[tauri::command]
 pub async fn system_particulars(
     config: tauri::State<'_, Config>,

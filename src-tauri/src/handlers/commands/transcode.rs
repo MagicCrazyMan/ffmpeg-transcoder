@@ -66,6 +66,7 @@ pub struct TranscodeId {
     id: String,
 }
 
+/// A command starts a new transcode job.
 #[tauri::command]
 pub async fn start_transcode(
     app_handle: tauri::AppHandle,
@@ -79,11 +80,12 @@ pub async fn start_transcode(
             config.binary().ffmpeg().to_string(),
             item.into_args(),
         )
-        .await;
+        .await?;
 
     Ok(TranscodeId { id: id.to_string() })
 }
 
+/// A command stops a new transcode job.
 #[tauri::command]
 pub async fn stop_transcode(
     transcode_store: tauri::State<'_, TranscodeStore>,
@@ -94,6 +96,7 @@ pub async fn stop_transcode(
     Ok(())
 }
 
+/// A command pauses a new transcode job.
 #[tauri::command]
 pub async fn pause_transcode(
     transcode_store: tauri::State<'_, TranscodeStore>,
@@ -101,5 +104,16 @@ pub async fn pause_transcode(
 ) -> Result<(), ()> {
     let id = uuid::Uuid::from_str(&id).unwrap();
     transcode_store.pause(&id).await;
+    Ok(())
+}
+
+/// A command resumes a new transcode job.
+#[tauri::command]
+pub async fn resume_transcode(
+    transcode_store: tauri::State<'_, TranscodeStore>,
+    id: String,
+) -> Result<(), ()> {
+    let id = uuid::Uuid::from_str(&id).unwrap();
+    transcode_store.resume(&id).await;
     Ok(())
 }

@@ -13,7 +13,7 @@ use tauri_plugin_log::LogTarget;
 use crate::handlers::commands::{
     fs::files_from_directory,
     particulars::system_particulars,
-    transcode::{pause_transcode, start_transcode, stop_transcode},
+    transcode::{pause_transcode, resume_transcode, start_transcode, stop_transcode},
 };
 
 pub mod app;
@@ -39,7 +39,8 @@ fn start_app() -> AppResult<()> {
             files_from_directory,
             start_transcode,
             stop_transcode,
-            pause_transcode
+            pause_transcode,
+            resume_transcode,
         ])
         .run(tauri::generate_context!())
         .into_app_result()?;

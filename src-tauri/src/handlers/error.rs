@@ -12,6 +12,7 @@ pub enum ErrorKind {
     FFmpegUnavailable = 3,
     FFprobeUnavailable = 4,
     DirectoryNotFound = 5,
+    IncorrectJobId = 6,
 }
 
 /// An error that aims to send error information to frontend.
@@ -106,6 +107,13 @@ impl Display for Error {
             ErrorKind::FFprobeUnavailable => f.write_str("ffprobe binary unavailable"),
             ErrorKind::DirectoryNotFound => f.write_fmt(format_args!(
                 "directory \"{}\" not found",
+                self.keywords
+                    .get(0)
+                    .map(|d| d.as_str())
+                    .unwrap_or("unknown")
+            )),
+            ErrorKind::IncorrectJobId => f.write_fmt(format_args!(
+                "job with id {} not found",
                 self.keywords
                     .get(0)
                     .map(|d| d.as_str())
