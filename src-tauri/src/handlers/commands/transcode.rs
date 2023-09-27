@@ -4,7 +4,7 @@ use serde_with::{serde_as, NoneAsEmptyString};
 
 use crate::{
     app::config::Config,
-    handlers::{error::Error, store::TaskStore},
+    handlers::{error::Error, task::store::TaskStore},
     with_default_args,
 };
 

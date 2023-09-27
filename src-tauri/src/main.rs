@@ -7,7 +7,7 @@ use app::{
     config::Config,
     result::{AppResult, IntoAppResult},
 };
-use handlers::store::TaskStore;
+use handlers::task::store::TaskStore;
 use log::error;
 use tauri_plugin_log::LogTarget;
 
