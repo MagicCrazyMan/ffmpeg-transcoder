@@ -4,7 +4,7 @@ use serde_with::{serde_as, NoneAsEmptyString};
 
 use crate::{
     app::config::Config,
-    handlers::{error::Error, store::TranscodeStore},
+    handlers::{error::Error, store::TaskStore},
     with_default_args,
 };
 
@@ -76,7 +76,7 @@ pub struct TranscodeId {
 pub async fn start_transcode(
     app_handle: tauri::AppHandle,
     config: tauri::State<'_, Config>,
-    transcode_store: tauri::State<'_, TranscodeStore>,
+    transcode_store: tauri::State<'_, TaskStore>,
     item: TranscodeItem,
 ) -> Result<TranscodeId, Error> {
     let id = transcode_store
@@ -93,7 +93,7 @@ pub async fn start_transcode(
 /// A command stops a new transcode job.
 #[tauri::command]
 pub async fn stop_transcode(
-    transcode_store: tauri::State<'_, TranscodeStore>,
+    transcode_store: tauri::State<'_, TaskStore>,
     id: String,
 ) -> Result<(), Error> {
     let id = id.try_into_uuid()?;
@@ -104,7 +104,7 @@ pub async fn stop_transcode(
 /// A command pauses a new transcode job.
 #[tauri::command]
 pub async fn pause_transcode(
-    transcode_store: tauri::State<'_, TranscodeStore>,
+    transcode_store: tauri::State<'_, TaskStore>,
     id: String,
 ) -> Result<(), Error> {
     let id = id.try_into_uuid()?;
@@ -115,7 +115,7 @@ pub async fn pause_transcode(
 /// A command resumes a new transcode job.
 #[tauri::command]
 pub async fn resume_transcode(
-    transcode_store: tauri::State<'_, TranscodeStore>,
+    transcode_store: tauri::State<'_, TaskStore>,
     id: String,
 ) -> Result<(), Error> {
     let id = id.try_into_uuid()?;

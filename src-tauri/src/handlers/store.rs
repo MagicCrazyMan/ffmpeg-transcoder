@@ -16,11 +16,11 @@ use tokio_util::sync::CancellationToken;
 
 use super::error::Error;
 
-pub struct TranscodeStore {
-    store: Arc<Mutex<HashMap<uuid::Uuid, TranscodeTask>>>,
+pub struct TaskStore {
+    store: Arc<Mutex<HashMap<uuid::Uuid, Task>>>,
 }
 
-impl TranscodeStore {
+impl TaskStore {
     /// Creates a new transcode store.
     pub fn new() -> Self {
         Self {
@@ -37,7 +37,7 @@ impl TranscodeStore {
         args: Vec<String>,
     ) -> Result<uuid::Uuid, Error> {
         let id = uuid::Uuid::new_v4();
-        let mut task = TranscodeTask::new(
+        let mut task = Task::new(
             id.clone(),
             Arc::downgrade(&self.store),
             app_handle,
@@ -85,35 +85,34 @@ impl TranscodeStore {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
-#[repr(u8)]
-pub enum TranscodeTaskState {
-    Idle = 0,
-    Running = 1,
-    Pausing = 2,
-    Stopped = 3,
-    Finished = 4,
-    Errored = 5,
+#[derive(Debug, PartialEq, Eq)]
+pub enum TaskState {
+    Idle,
+    Running,
+    Pausing,
+    Stopped,
+    Finished,
+    Errored(String),
 }
 
 /// A transcode task.
 #[derive(Debug)]
-pub struct TranscodeTask {
+pub struct Task {
     id: uuid::Uuid,
-    store: Weak<Mutex<HashMap<uuid::Uuid, TranscodeTask>>>,
+    store: Weak<Mutex<HashMap<uuid::Uuid, Task>>>,
     program: String,
     args: Vec<String>,
     app_handle: tauri::AppHandle,
-    state: Arc<Mutex<TranscodeTaskState>>,
+    state: Arc<Mutex<TaskState>>,
     process: Arc<Mutex<Option<Child>>>,
     capture_cancellations: Arc<Mutex<Option<(CancellationToken, CancellationToken)>>>,
 }
 
-impl TranscodeTask {
+impl Task {
     /// Creates a new transcode task.
     fn new(
         id: uuid::Uuid,
-        store: Weak<Mutex<HashMap<uuid::Uuid, TranscodeTask>>>,
+        store: Weak<Mutex<HashMap<uuid::Uuid, Task>>>,
         app_handle: tauri::AppHandle,
         program: String,
         args: Vec<String>,
@@ -124,7 +123,7 @@ impl TranscodeTask {
             program: program.into(),
             args: args.into(),
             app_handle,
-            state: Arc::new(Mutex::new(TranscodeTaskState::Idle)),
+            state: Arc::new(Mutex::new(TaskState::Idle)),
             process: Arc::new(Mutex::new(None)),
             capture_cancellations: Arc::new(Mutex::new(None)),
         }
@@ -134,7 +133,7 @@ impl TranscodeTask {
     async fn start(&mut self) -> Result<(), Error> {
         let mut process = self.process.lock().await;
         let mut state = self.state.lock().await;
-        if *state != TranscodeTaskState::Idle {
+        if *state != TaskState::Idle {
             debug!("[{}] attempting to start a started task", self.id);
             return Ok(());
         }
@@ -156,7 +155,7 @@ impl TranscodeTask {
         };
 
         *process = Some(child);
-        *state = TranscodeTaskState::Running;
+        *state = TaskState::Running;
         drop(state);
         drop(process);
 
@@ -184,12 +183,12 @@ impl TranscodeTask {
     async fn pause(&self) {
         let capture_cancellations = self.capture_cancellations.lock().await;
         let mut state = self.state.lock().await;
-        if *state != TranscodeTaskState::Running {
+        if *state != TaskState::Running {
             warn!("[{}] attempting to pause a not running task", self.id);
             return;
         }
 
-        *state = TranscodeTaskState::Pausing;
+        *state = TaskState::Pausing;
         let capture_cancellations = capture_cancellations.as_ref().unwrap(); // safely unwrap
         capture_cancellations.0.cancel();
         capture_cancellations.1.cancel();
@@ -199,7 +198,7 @@ impl TranscodeTask {
     async fn resume(&mut self) {
         let mut process = self.process.lock().await;
         let mut state = self.state.lock().await;
-        if *state != TranscodeTaskState::Pausing {
+        if *state != TaskState::Pausing {
             warn!("[{}] attempting to resume a not pausing task", self.id);
             return;
         }
@@ -226,7 +225,7 @@ impl TranscodeTask {
             };
         }
 
-        *state = TranscodeTaskState::Running;
+        *state = TaskState::Running;
         drop(state);
         drop(process);
 
@@ -242,21 +241,21 @@ impl TranscodeTask {
         let mut state = self.state.lock().await;
 
         match *state {
-            TranscodeTaskState::Idle => {
-                *state = TranscodeTaskState::Stopped;
+            TaskState::Idle => {
+                *state = TaskState::Stopped;
                 Self::clean(process, capture_cancellations, &self.id, &self.store).await;
             }
-            TranscodeTaskState::Running => {
-                *state = TranscodeTaskState::Stopped;
+            TaskState::Running => {
+                *state = TaskState::Stopped;
                 let capture_cancellations = capture_cancellations.as_ref().unwrap(); // safely unwrap
                 capture_cancellations.0.cancel();
                 capture_cancellations.1.cancel();
             }
-            TranscodeTaskState::Pausing => {
+            TaskState::Pausing => {
                 Self::kill_and_clean(process, capture_cancellations, &self.id, &self.store).await;
                 info!("[{}] task killed and stopped", self.id);
 
-                *state = TranscodeTaskState::Stopped;
+                *state = TaskState::Stopped;
             }
             _ => {
                 debug!(
@@ -271,7 +270,7 @@ impl TranscodeTask {
         mut process: MutexGuard<'_, Option<Child>>,
         capture_cancellations: MutexGuard<'_, Option<(CancellationToken, CancellationToken)>>,
         id: &uuid::Uuid,
-        store: &Weak<Mutex<HashMap<uuid::Uuid, TranscodeTask>>>,
+        store: &Weak<Mutex<HashMap<uuid::Uuid, Task>>>,
     ) {
         if let Some(process) = process.as_mut() {
             Self::kill(process, id).await;
@@ -309,7 +308,7 @@ impl TranscodeTask {
         mut process: MutexGuard<'_, Option<Child>>,
         mut capture_cancellations: MutexGuard<'_, Option<(CancellationToken, CancellationToken)>>,
         id: &uuid::Uuid,
-        store: &Weak<Mutex<HashMap<uuid::Uuid, TranscodeTask>>>,
+        store: &Weak<Mutex<HashMap<uuid::Uuid, Task>>>,
     ) {
         *process = None;
         *capture_cancellations = None;
@@ -327,13 +326,10 @@ impl TranscodeTask {
     async fn start_capture(
         id: uuid::Uuid,
         app_handle: tauri::AppHandle,
-        state: Arc<Mutex<TranscodeTaskState>>,
+        state: Arc<Mutex<TaskState>>,
         process: Arc<Mutex<Option<Child>>>,
         capture_cancellations: Arc<Mutex<Option<(CancellationToken, CancellationToken)>>>,
-    ) -> (
-        tokio::task::JoinHandle<tokio::process::ChildStdout>,
-        tokio::task::JoinHandle<tokio::process::ChildStderr>,
-    ) {
+    ) -> (JoinHandle<ChildStdout>, JoinHandle<ChildStderr>) {
         let mut process = process.lock().await;
         let mut capture_cancellations = capture_cancellations.lock().await;
 
@@ -348,10 +344,10 @@ impl TranscodeTask {
         let stdout_handle = tokio::spawn(async move {
             let mut line = String::new();
             let mut reader = BufReader::new(stdout);
-            let mut message = TranscodingMessage::new(&id);
+            let mut message = TaskRunningMessage::new(id.to_string());
             loop {
                 // check state
-                if *state_cloned.lock().await != TranscodeTaskState::Running {
+                if *state_cloned.lock().await != TaskState::Running {
                     break;
                 }
 
@@ -364,11 +360,7 @@ impl TranscodeTask {
                         match len {
                             Ok(len) =>  (false, len),
                             Err(err) => {
-                                *state_cloned.lock().await = TranscodeTaskState::Errored;
-                                error!(
-                                    "[{}] error occurred while reading subprocess output {}",
-                                    id, err
-                                );
+                                *state_cloned.lock().await = TaskState::Errored(err.to_string());
                                 (true, 0)
                             }
                         }
@@ -425,26 +417,21 @@ impl TranscodeTask {
                             }
                         }
                         "progress" => {
-                            let send = match value {
-                                "continue" => {
-                                    message.progress = TranscodeTaskState::Running;
-                                    true
-                                }
-                                "end" => {
-                                    message.progress = TranscodeTaskState::Finished;
-                                    true
-                                }
-                                _ => false,
+                            let msg = match value {
+                                "continue" => Some(TaskMessage::running(&message)),
+                                "end" => Some(TaskMessage::finished(id.to_string())),
+                                _ => None,
                             };
 
                             // send message if a single frame collected
-                            if send {
-                                match app_handle.emit_all(TRANSCODING_MESSAGE_EVENT, &message) {
+                            if let Some(msg) = msg {
+                                match app_handle.emit_all(TASK_MESSAGE_EVENT, &msg) {
                                     Ok(_) => debug!("[{}] send message to frontend", id),
-                                    Err(err) => error!(
-                                        "[{}] error occurred while emit event to frontend: {}",
-                                        id, err
-                                    ),
+                                    Err(err) => {
+                                        *state_cloned.lock().await =
+                                            TaskState::Errored(err.to_string());
+                                        break;
+                                    }
                                 }
 
                                 message.clear();
@@ -466,44 +453,33 @@ impl TranscodeTask {
         let stderr_handle = tokio::spawn(async move {
             let mut line = String::new();
             let mut reader = BufReader::new(stderr);
-            loop {
-                // check state
-                if *state_cloned.lock().await != TranscodeTaskState::Running {
-                    break;
-                }
 
-                // read from stdout
-                let (should_stop, len) = tokio::select! {
-                    _ = stderr_cancellation_cloned.cancelled() => {
-                        (true, 0)
-                    }
-                    len = reader.read_line(&mut line) => {
-                        match len {
-                            Ok(len) =>  (false, len),
-                            Err(err) => {
-                                *state_cloned.lock().await = TranscodeTaskState::Errored;
-                                error!(
-                                    "[{}] error occurred while reading subprocess output {}",
-                                    id, err
-                                );
-                                (true, 0)
-                            }
+            // read from stdout
+            let (should_stop, len) = tokio::select! {
+                _ = stderr_cancellation_cloned.cancelled() => {
+                    (true, 0)
+                }
+                len = reader.read_line(&mut line) => {
+                    match len {
+                        Ok(len) =>  (false, len),
+                        Err(err) => {
+                            *state_cloned.lock().await = TaskState::Errored(err.to_string());;
+                            (true, 0)
                         }
                     }
-                };
-
-                // should stop or reach eof
-                if should_stop || len == 0 {
-                    break;
                 }
+            };
 
-                error!("[{}] capture stderr output: {}", id, line.trim());
-                *state_cloned.lock().await = TranscodeTaskState::Errored;
+            // should stop or reach eof
+            if should_stop || len == 0 {
+                reader.into_inner()
+            } else {
+                let line = line.trim().to_string();
+                error!("[{}] capture stderr output: {}", id, line);
+                *state_cloned.lock().await = TaskState::Errored(line);
 
-                line.clear();
+                reader.into_inner()
             }
-
-            reader.into_inner()
         });
 
         *capture_cancellations = Some((stdout_cancellation, stderr_cancellation));
@@ -511,13 +487,13 @@ impl TranscodeTask {
         (stdout_handle, stderr_handle)
     }
 
-    async fn wait_and_stop_capture(
+    async fn capturing(
         id: uuid::Uuid,
-        store: Weak<Mutex<HashMap<uuid::Uuid, TranscodeTask>>>,
+        store: Weak<Mutex<HashMap<uuid::Uuid, Task>>>,
         _app_handle: tauri::AppHandle,
         stdout_handle: JoinHandle<ChildStdout>,
         stderr_handle: JoinHandle<ChildStderr>,
-        state: Arc<Mutex<TranscodeTaskState>>,
+        state: Arc<Mutex<TaskState>>,
         process: Arc<Mutex<Option<Child>>>,
         capture_cancellations: Arc<Mutex<Option<(CancellationToken, CancellationToken)>>>,
     ) {
@@ -541,10 +517,10 @@ impl TranscodeTask {
         };
 
         let process_ref = process.as_mut().unwrap();
-        match *state {
-            TranscodeTaskState::Idle => unreachable!(),
-            TranscodeTaskState::Running => unreachable!(),
-            TranscodeTaskState::Pausing => {
+        match &*state {
+            TaskState::Idle => unreachable!(),
+            TaskState::Running => unreachable!(),
+            TaskState::Pausing => {
                 // okay, for windows, pausing the ffmpeg process,
                 // it is only have to write a '\r'(Carriage Return, `0xd` in ASCII table)
                 // character to ffmpeg subprocess via stdin.
@@ -560,11 +536,7 @@ impl TranscodeTask {
                         .await
                     {
                         Self::kill_and_clean(process, capture_cancellations, &id, &store).await;
-                        *state = TranscodeTaskState::Errored;
-                        error!(
-                            "[{}] error occurred while writing to stdin: {}, interrupt task",
-                            id, err
-                        );
+                        *state = TaskState::Errored(err.to_string());
                         return;
                     };
                 }
@@ -576,15 +548,15 @@ impl TranscodeTask {
                 process_ref.stderr = Some(stderr);
                 info!("[{}] task paused", id);
             }
-            TranscodeTaskState::Stopped => {
+            TaskState::Stopped => {
                 Self::kill_and_clean(process, capture_cancellations, &id, &store).await;
                 info!("[{}] task killed and stopped", id);
             }
-            TranscodeTaskState::Finished => {
+            TaskState::Finished => {
                 Self::clean(process, capture_cancellations, &id, &store).await;
                 info!("[{}] task finished", id);
             }
-            TranscodeTaskState::Errored => {
+            TaskState::Errored(err) => {
                 Self::kill_and_clean(process, capture_cancellations, &id, &store).await;
                 info!("[{}] task errored and stopped", id);
             }
@@ -620,7 +592,7 @@ impl TranscodeTask {
             .await;
 
             // waits until capturing threads exit, and do cleanup then.
-            Self::wait_and_stop_capture(
+            Self::capturing(
                 id,
                 store,
                 app_handle,
@@ -635,13 +607,12 @@ impl TranscodeTask {
     }
 }
 
-static TRANSCODING_MESSAGE_EVENT: &'static str = "transcoding";
+static TASK_MESSAGE_EVENT: &'static str = "transcoding";
 
-/// A message structure transferring transcode progress to frontend
 #[derive(Debug, Clone, serde::Serialize)]
-pub struct TranscodingMessage {
+pub struct TaskRunningMessage {
     id: String,
-    progress: TranscodeTaskState,
+    raw: Vec<String>,
     frame: Option<usize>,
     fps: Option<f64>,
     bitrate: Option<f64>,
@@ -650,14 +621,12 @@ pub struct TranscodingMessage {
     dup_frames: Option<usize>,
     drop_frames: Option<usize>,
     speed: Option<f64>,
-    raw: Vec<String>,
 }
 
-impl TranscodingMessage {
-    pub fn new(id: &uuid::Uuid) -> Self {
+impl TaskRunningMessage {
+    fn new(id: String) -> Self {
         Self {
             id: id.to_string(),
-            progress: TranscodeTaskState::Idle,
             raw: Vec::with_capacity(20),
             frame: None,
             fps: None,
@@ -670,7 +639,7 @@ impl TranscodingMessage {
         }
     }
 
-    pub fn clear(&mut self) {
+    fn clear(&mut self) {
         self.frame = None;
         self.fps = None;
         self.bitrate = None;
@@ -679,5 +648,37 @@ impl TranscodingMessage {
         self.dup_frames = None;
         self.drop_frames = None;
         self.raw.clear();
+    }
+}
+
+/// Task message informing task situation.
+#[derive(Debug, Clone, serde::Serialize)]
+pub enum TaskMessage<'a> {
+    Running(&'a TaskRunningMessage),
+    Paused { id: String },
+    Stopped { id: String },
+    Finished { id: String },
+    Errored { id: String, reason: String },
+}
+
+impl<'a> TaskMessage<'a> {
+    pub fn running(msg: &'a TaskRunningMessage) -> Self {
+        Self::Running(msg)
+    }
+
+    pub fn paused(id: String) -> Self {
+        Self::Paused { id }
+    }
+
+    pub fn stopped(id: String) -> Self {
+        Self::Stopped { id }
+    }
+
+    pub fn finished(id: String) -> Self {
+        Self::Finished { id }
+    }
+
+    pub fn errored(id: String, reason: String) -> Self {
+        Self::Errored { id, reason }
     }
 }

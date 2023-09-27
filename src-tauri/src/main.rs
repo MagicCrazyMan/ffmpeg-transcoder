@@ -7,7 +7,7 @@ use app::{
     config::Config,
     result::{AppResult, IntoAppResult},
 };
-use handlers::store::TranscodeStore;
+use handlers::store::TaskStore;
 use log::error;
 use tauri_plugin_log::LogTarget;
 
@@ -34,7 +34,7 @@ fn start_app() -> AppResult<()> {
                 .build(),
         )
         .manage(Config::from_file_or_default()?)
-        .manage(TranscodeStore::new())
+        .manage(TaskStore::new())
         .invoke_handler(tauri::generate_handler![
             system_particulars,
             files_from_directory,
