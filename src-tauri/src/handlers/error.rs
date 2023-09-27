@@ -1,7 +1,5 @@
 use std::{borrow::Cow, fmt::Display};
 
-use crate::handler_error;
-
 /// Error kinds of [`Error`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde_repr::Serialize_repr)]
 #[repr(u8)]
@@ -68,8 +66,6 @@ impl Error {
             kind,
             keywords,
         };
-
-        handler_error!("{}", error);
 
         error
     }

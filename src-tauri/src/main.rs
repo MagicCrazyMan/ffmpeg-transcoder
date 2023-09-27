@@ -8,6 +8,7 @@ use app::{
     result::{AppResult, IntoAppResult},
 };
 use handlers::store::TranscodeStore;
+use log::error;
 use tauri_plugin_log::LogTarget;
 
 use crate::handlers::commands::{
@@ -50,6 +51,6 @@ fn start_app() -> AppResult<()> {
 
 fn main() {
     if let Err(e) = start_app() {
-        app_error!("{e}");
+        error!("error occurred while starting up app: {e}");
     }
 }

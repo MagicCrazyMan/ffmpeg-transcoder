@@ -1,6 +1,8 @@
 use std::{env::current_dir, fs};
 
-use crate::{app::result::IntoAppResult, app_info};
+use log::info;
+
+use crate::app::result::IntoAppResult;
 
 use super::result::AppResult;
 
@@ -17,12 +19,12 @@ impl Config {
 
         let config_path = current_dir().into_app_result()?.join(CONFIG_FILENAME);
         let config = if config_path.is_file() {
-            app_info!("read config from file {}", config_path.to_string_lossy());
+            info!("read config from file {}", config_path.to_string_lossy());
 
             let config_str = fs::read_to_string(config_path).into_app_result()?;
             toml::from_str(&config_str).into_app_result()?
         } else {
-            app_info!("config file not found, using default configs");
+            info!("config file not found, using default configs");
 
             let config = Config::default();
 
