@@ -22,6 +22,7 @@ pub struct TranscodeStore {
 }
 
 impl TranscodeStore {
+    /// Creates a new transcode store.
     pub fn new() -> Self {
         Self {
             store: Arc::new(Mutex::new(HashMap::new())),
@@ -131,12 +132,6 @@ impl TranscodeJob {
     }
 
     /// Starts the job.
-    ///
-    /// After job started, never try to take the mutex lock of the `process` field.
-    /// Because the capturing thread holds the mutex lock during its whole life,
-    /// which meaning that it is impossible to get the mutex lock outside the capturing thread.
-    /// Changing `next_state` field is the only way to stop or pause the subprocess,
-    /// capturing thread will do the clean up itself after subprocess ended.
     async fn start(&mut self) -> Result<(), Error> {
         let mut state = self.state.lock().await;
         if *state != TranscodeJobState::Idle {
@@ -169,6 +164,7 @@ impl TranscodeJob {
 
     /// Pauses the job.
     async fn pause(&self) {
+        let capture_cancellations = self.capture_cancellations.lock().await;
         let mut state = self.state.lock().await;
         if *state != TranscodeJobState::Running {
             warn!("[{}] attempting to pause a not running job", self.id);
@@ -176,6 +172,9 @@ impl TranscodeJob {
         }
 
         *state = TranscodeJobState::Pausing;
+        let capture_cancellations = capture_cancellations.as_ref().unwrap(); // safely unwrap
+        capture_cancellations.0.cancel();
+        capture_cancellations.1.cancel();
     }
 
     /// Resumes the job.
@@ -302,7 +301,10 @@ impl TranscodeJob {
         };
     }
 
-    /// Starts watchdog watching around the
+    /// Starts watchdog watching around the subprocess.
+    ///
+    /// stdout and stderr of subprocess are taken out and send to capturing threads,
+    /// do not try to use them when watchdog running.
     fn start_watchdog(&mut self) {
         let id = self.id.clone();
         let app_handle = self.app_handle.clone();
@@ -325,7 +327,7 @@ impl TranscodeJob {
                 let stderr = process.stderr.take().unwrap(); // safely unwrap
 
                 // spawn a thread to capture stdout
-                let stdout_state = Arc::clone(&state);
+                let state_cloned = Arc::clone(&state);
                 let stdout_cancellation = CancellationToken::new();
                 let stdout_cancellation_cloned = stdout_cancellation.clone();
                 let stdout_handle = tokio::spawn(async move {
@@ -334,7 +336,7 @@ impl TranscodeJob {
                     let mut message = TranscodingMessage::new(&id);
                     loop {
                         // check state
-                        if *stdout_state.lock().await != TranscodeJobState::Running {
+                        if *state_cloned.lock().await != TranscodeJobState::Running {
                             break;
                         }
 
@@ -347,7 +349,7 @@ impl TranscodeJob {
                                 match len {
                                     Ok(len) =>  (false, len),
                                     Err(err) => {
-                                        *stdout_state.lock().await = TranscodeJobState::Errored;
+                                        *state_cloned.lock().await = TranscodeJobState::Errored;
                                         error!(
                                             "[{}] error occurred while reading subprocess output {}",
                                             id, err
@@ -363,7 +365,6 @@ impl TranscodeJob {
                             break;
                         }
 
-                        let line = &line[..len];
                         debug!("[{}] capture stdout output: {}", id, line);
 
                         // store raw message
@@ -437,13 +438,15 @@ impl TranscodeJob {
                                 }
                                 _ => {}
                             }
+
+                            line.clear();
                         };
                     }
 
                     reader.into_inner()
                 });
                 // spawn a thread to capture stderr
-                let stderr_state: Arc<Mutex<TranscodeJobState>> = Arc::clone(&state);
+                let state_cloned = Arc::clone(&state);
                 let stderr_cancellation = CancellationToken::new();
                 let stderr_cancellation_cloned = stderr_cancellation.clone();
                 let stderr_handle = tokio::spawn(async move {
@@ -451,7 +454,7 @@ impl TranscodeJob {
                     let mut reader = BufReader::new(stderr);
                     loop {
                         // check state
-                        if *stderr_state.lock().await != TranscodeJobState::Running {
+                        if *state_cloned.lock().await != TranscodeJobState::Running {
                             break;
                         }
 
@@ -464,7 +467,7 @@ impl TranscodeJob {
                                 match len {
                                     Ok(len) =>  (false, len),
                                     Err(err) => {
-                                        *stderr_state.lock().await = TranscodeJobState::Errored;
+                                        *state_cloned.lock().await = TranscodeJobState::Errored;
                                         error!(
                                             "[{}] error occurred while reading subprocess output {}",
                                             id, err
@@ -480,12 +483,14 @@ impl TranscodeJob {
                             break;
                         }
 
-                        let line = &line[..len];
-                        error!("[{}] capture stderr output: {}", id, line);
+                        error!("[{}] capture stderr output: {}", id, line.trim());
+
+                        line.clear();
                     }
 
                     reader.into_inner()
                 });
+
                 *capture_cancellations = Some((stdout_cancellation, stderr_cancellation));
 
                 (stdout_handle, stderr_handle)
@@ -495,7 +500,7 @@ impl TranscodeJob {
             let (stdout_handle_result, stderr_handle_result) =
                 tokio::join!(stdout_handle, stderr_handle);
 
-            // do clean up, return stdout and stderr to subprocess
+            // do clean up, return stdout and stderr back to subprocess
             {
                 let mut process = process.lock().await;
                 let mut state = state.lock().await;
