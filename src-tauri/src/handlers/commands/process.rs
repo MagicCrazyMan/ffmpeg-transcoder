@@ -7,11 +7,11 @@ use crate::handlers::error::{Error, ErrorKind};
 #[macro_export]
 macro_rules! with_default_args {
     () => {
-        &["-hide_banner"]
+        &["-hide_banner", "-loglevel", "error"]
     };
 
     ($($args:expr),+) => {
-        &["-hide_banner", $($args),+]
+        &["-hide_banner", "-loglevel", "error", $($args),+]
     };
 }
 

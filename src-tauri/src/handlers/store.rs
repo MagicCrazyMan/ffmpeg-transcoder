@@ -484,6 +484,7 @@ impl TranscodeJob {
                         }
 
                         error!("[{}] capture stderr output: {}", id, line.trim());
+                        *state_cloned.lock().await = TranscodeJobState::Errored;
 
                         line.clear();
                     }
