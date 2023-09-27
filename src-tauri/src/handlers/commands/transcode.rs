@@ -79,15 +79,17 @@ pub async fn start_transcode(
     transcode_store: tauri::State<'_, TaskStore>,
     item: TranscodeItem,
 ) -> Result<TranscodeId, Error> {
-    let id = transcode_store
-        .add_and_start(
-            app_handle,
-            config.binary().ffmpeg().to_string(),
-            item.to_args(),
-        )
-        .await?;
+    // let id = transcode_store
+    //     .add_and_start(
+    //         app_handle,
+    //         config.binary().ffmpeg().to_string(),
+    //         item.to_args(),
+    //     )
+    //     .await?;
 
-    Ok(TranscodeId { id: id.to_string() })
+    // Ok(TranscodeId { id: id.to_string() })
+
+    todo!()
 }
 
 /// A command stops a new transcode job.
@@ -97,7 +99,7 @@ pub async fn stop_transcode(
     id: String,
 ) -> Result<(), Error> {
     let id = id.try_into_uuid()?;
-    transcode_store.stop(&id).await;
+    // transcode_store.stop(&id).await;
     Ok(())
 }
 
@@ -108,7 +110,7 @@ pub async fn pause_transcode(
     id: String,
 ) -> Result<(), Error> {
     let id = id.try_into_uuid()?;
-    transcode_store.pause(&id).await;
+    // transcode_store.pause(&id).await;
     Ok(())
 }
 
@@ -119,7 +121,7 @@ pub async fn resume_transcode(
     id: String,
 ) -> Result<(), Error> {
     let id = id.try_into_uuid()?;
-    transcode_store.resume(&id).await;
+    // transcode_store.resume(&id).await;
     Ok(())
 }
 
