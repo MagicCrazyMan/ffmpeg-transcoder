@@ -22,6 +22,42 @@ pub struct FFmpegParticulars {
     codecs: Vec<FFmpegCodec>,
 }
 
+/// FFmpeg banner information.
+#[derive(Debug, serde::Serialize)]
+pub struct FFmpegBanner {
+    version: Option<String>,
+    copyright: Option<String>,
+    compiler: Option<String>,
+    build_configurations: Vec<String>,
+    libraries: HashMap<String, [usize; 6]>,
+}
+
+/// Codec types supported by FFmpeg.
+#[derive(Debug, serde_repr::Serialize_repr)]
+#[repr(u8)]
+pub enum FFmpegCodecType {
+    Video = 0,
+    Audio = 1,
+    Subtitle = 2,
+    Data = 3,
+    Attachment = 4,
+}
+
+/// Codec supported by FFmpeg.
+#[derive(Debug, serde::Serialize)]
+pub struct FFmpegCodec {
+    name: String,
+    description: String,
+    decoders: Vec<String>,
+    encoders: Vec<String>,
+    r#type: FFmpegCodecType,
+    decode: bool,
+    encode: bool,
+    intra: bool,
+    lossy: bool,
+    lossless: bool,
+}
+
 /// A command returns current system and ffmpeg particulars.
 #[tauri::command]
 pub async fn system_particulars(
@@ -41,16 +77,6 @@ pub async fn system_particulars(
     };
 
     Ok(system_particulars)
-}
-
-/// FFmpeg banner information.
-#[derive(Debug, serde::Serialize)]
-pub struct FFmpegBanner {
-    version: Option<String>,
-    copyright: Option<String>,
-    compiler: Option<String>,
-    build_configurations: Vec<String>,
-    libraries: HashMap<String, [usize; 6]>,
 }
 
 /// Extracts ffmpeg basic information from banner and wraps them into [`Banner`].
@@ -191,32 +217,6 @@ async fn ffmpeg_banner(ffmpeg: &str) -> Result<FFmpegBanner, Error> {
 
 //     Ok(formats)
 // }
-
-/// Codec types supported by FFmpeg.
-#[derive(Debug, serde_repr::Serialize_repr)]
-#[repr(u8)]
-pub enum FFmpegCodecType {
-    Video = 0,
-    Audio = 1,
-    Subtitle = 2,
-    Data = 3,
-    Attachment = 4,
-}
-
-/// Codec supported by FFmpeg.
-#[derive(Debug, serde::Serialize)]
-pub struct FFmpegCodec {
-    name: String,
-    description: String,
-    decoders: Vec<String>,
-    encoders: Vec<String>,
-    r#type: FFmpegCodecType,
-    decode: bool,
-    encode: bool,
-    intra: bool,
-    lossy: bool,
-    lossless: bool,
-}
 
 /// Extracts ffmpeg codecs and wraps into [`Codec`].
 async fn ffmpeg_codecs(ffmpeg: &str) -> Result<Vec<FFmpegCodec>, Error> {
