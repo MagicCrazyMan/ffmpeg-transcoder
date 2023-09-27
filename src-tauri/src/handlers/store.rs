@@ -4,12 +4,13 @@ use std::{
     sync::{Arc, Weak},
 };
 
-use log::{debug, error, info, warn};
+use log::{debug, error, info, warn, trace};
 use tauri::Manager;
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
-    process::{Child, Command},
+    process::{Child, ChildStderr, ChildStdout, Command},
     sync::{Mutex, MutexGuard},
+    task::JoinHandle,
 };
 use tokio_util::sync::CancellationToken;
 
@@ -156,7 +157,15 @@ impl TranscodeJob {
             "[{}] start job with command: {} {}",
             self.id,
             self.program,
-            self.args.join(" ")
+            self.args
+                .iter()
+                .map(|arg| if arg.contains(" ") {
+                    format!("\"{arg}\"")
+                } else {
+                    arg.to_string()
+                })
+                .collect::<Vec<_>>()
+                .join(" ")
         );
 
         Ok(())
@@ -218,22 +227,24 @@ impl TranscodeJob {
     }
 
     /// Stops the job.
-    ///
-    /// This function does different job for different state:
-    /// -
     async fn stop(&self) {
+        let process = self.process.lock().await;
+        let capture_cancellations = self.capture_cancellations.lock().await;
         let mut state = self.state.lock().await;
+
         match *state {
-            TranscodeJobState::Idle => *state = TranscodeJobState::Stopped,
-            TranscodeJobState::Running => *state = TranscodeJobState::Stopped,
+            TranscodeJobState::Idle => {
+                *state = TranscodeJobState::Stopped;
+                Self::clean(process, capture_cancellations, &self.id, &self.store).await;
+            }
+            TranscodeJobState::Running => {
+                *state = TranscodeJobState::Stopped;
+                let capture_cancellations = capture_cancellations.as_ref().unwrap(); // safely unwrap
+                capture_cancellations.0.cancel();
+                capture_cancellations.1.cancel();
+            }
             TranscodeJobState::Pausing => {
-                Self::kill_and_clean(
-                    self.process.lock().await,
-                    self.capture_cancellations.lock().await,
-                    &self.id,
-                    &self.store,
-                )
-                .await;
+                Self::kill_and_clean(process, capture_cancellations, &self.id, &self.store).await;
                 info!("[{}] job killed and stopped", self.id);
 
                 *state = TranscodeJobState::Stopped;
@@ -301,6 +312,275 @@ impl TranscodeJob {
         };
     }
 
+    async fn start_capture(
+        id: uuid::Uuid,
+        app_handle: tauri::AppHandle,
+        state: Arc<Mutex<TranscodeJobState>>,
+        process: Arc<Mutex<Option<Child>>>,
+        capture_cancellations: Arc<Mutex<Option<(CancellationToken, CancellationToken)>>>,
+    ) -> (
+        tokio::task::JoinHandle<tokio::process::ChildStdout>,
+        tokio::task::JoinHandle<tokio::process::ChildStderr>,
+    ) {
+        let mut process = process.lock().await;
+        let mut capture_cancellations = capture_cancellations.lock().await;
+
+        let process = process.as_mut().unwrap(); // safely unwrap
+        let stdout = process.stdout.take().unwrap(); // safely unwrap
+        let stderr = process.stderr.take().unwrap(); // safely unwrap
+
+        // spawn a thread to capture stdout
+        let state_cloned = Arc::clone(&state);
+        let stdout_cancellation = CancellationToken::new();
+        let stdout_cancellation_cloned = stdout_cancellation.clone();
+        let stdout_handle = tokio::spawn(async move {
+            let mut line = String::new();
+            let mut reader = BufReader::new(stdout);
+            let mut message = TranscodingMessage::new(&id);
+            loop {
+                // check state
+                if *state_cloned.lock().await != TranscodeJobState::Running {
+                    break;
+                }
+
+                // read from stdout
+                let (should_stop, len) = tokio::select! {
+                    _ = stdout_cancellation_cloned.cancelled() => {
+                        (true, 0)
+                    }
+                    len = reader.read_line(&mut line) => {
+                        match len {
+                            Ok(len) =>  (false, len),
+                            Err(err) => {
+                                *state_cloned.lock().await = TranscodeJobState::Errored;
+                                error!(
+                                    "[{}] error occurred while reading subprocess output {}",
+                                    id, err
+                                );
+                                (true, 0)
+                            }
+                        }
+                    }
+                };
+
+                // should stop or reach eof
+                if should_stop || len == 0 {
+                    break;
+                }
+
+                let trimmed_line = line.trim();
+                trace!("[{}] capture stdout output: {}", id, trimmed_line);
+
+                // store raw message
+                message.raw.push(trimmed_line.to_string());
+
+                // extract key value
+                let mut splitted = trimmed_line.split("=");
+                if let (Some(key), Some(value)) = (splitted.next(), splitted.next()) {
+                    let key = key.trim();
+                    let value = value.trim();
+                    match key {
+                        "frame" => {
+                            message.frame = value.parse::<usize>().ok();
+                        }
+                        "fps" => {
+                            message.fps = value.parse::<f64>().ok();
+                        }
+                        "bitrate" => {
+                            if value == "N/A" {
+                                message.bitrate = None;
+                            } else {
+                                message.bitrate = value[..value.len() - 7].parse::<f64>().ok();
+                            }
+                        }
+                        "total_size" => {
+                            message.total_size = value.parse::<usize>().ok();
+                        }
+                        "out_time_ms" => {
+                            message.output_time_ms = value.parse::<usize>().ok();
+                        }
+                        "dup_frames" => {
+                            message.dup_frames = value.parse::<usize>().ok();
+                        }
+                        "drop_frames" => {
+                            message.drop_frames = value.parse::<usize>().ok();
+                        }
+                        "speed" => {
+                            if value == "N/A" {
+                                message.speed = None;
+                            } else {
+                                message.speed = value[..value.len() - 1].parse::<f64>().ok();
+                            }
+                        }
+                        "progress" => {
+                            let send = match value {
+                                "continue" => {
+                                    message.progress = TranscodeJobState::Running;
+                                    true
+                                }
+                                "end" => {
+                                    message.progress = TranscodeJobState::Finished;
+                                    true
+                                }
+                                _ => false,
+                            };
+
+                            // send message if a single frame collected
+                            if send {
+                                match app_handle.emit_all(TRANSCODING_MESSAGE_EVENT, &message) {
+                                    Ok(_) => debug!("[{}] send message to frontend", id),
+                                    Err(err) => error!(
+                                        "[{}] error occurred while emit event to frontend: {}",
+                                        id, err
+                                    ),
+                                }
+
+                                message.clear();
+                            }
+                        }
+                        _ => {}
+                    }
+
+                    line.clear();
+                };
+            }
+
+            reader.into_inner()
+        });
+        // spawn a thread to capture stderr
+        let state_cloned = Arc::clone(&state);
+        let stderr_cancellation = CancellationToken::new();
+        let stderr_cancellation_cloned = stderr_cancellation.clone();
+        let stderr_handle = tokio::spawn(async move {
+            let mut line = String::new();
+            let mut reader = BufReader::new(stderr);
+            loop {
+                // check state
+                if *state_cloned.lock().await != TranscodeJobState::Running {
+                    break;
+                }
+
+                // read from stdout
+                let (should_stop, len) = tokio::select! {
+                    _ = stderr_cancellation_cloned.cancelled() => {
+                        (true, 0)
+                    }
+                    len = reader.read_line(&mut line) => {
+                        match len {
+                            Ok(len) =>  (false, len),
+                            Err(err) => {
+                                *state_cloned.lock().await = TranscodeJobState::Errored;
+                                error!(
+                                    "[{}] error occurred while reading subprocess output {}",
+                                    id, err
+                                );
+                                (true, 0)
+                            }
+                        }
+                    }
+                };
+
+                // should stop or reach eof
+                if should_stop || len == 0 {
+                    break;
+                }
+
+                error!("[{}] capture stderr output: {}", id, line.trim());
+                *state_cloned.lock().await = TranscodeJobState::Errored;
+
+                line.clear();
+            }
+
+            reader.into_inner()
+        });
+
+        *capture_cancellations = Some((stdout_cancellation, stderr_cancellation));
+
+        (stdout_handle, stderr_handle)
+    }
+
+    async fn wait_and_stop_capture(
+        id: uuid::Uuid,
+        store: Weak<Mutex<HashMap<uuid::Uuid, TranscodeJob>>>,
+        _app_handle: tauri::AppHandle,
+        stdout_handle: JoinHandle<ChildStdout>,
+        stderr_handle: JoinHandle<ChildStderr>,
+        state: Arc<Mutex<TranscodeJobState>>,
+        process: Arc<Mutex<Option<Child>>>,
+        capture_cancellations: Arc<Mutex<Option<(CancellationToken, CancellationToken)>>>,
+    ) {
+        let (stdout_handle_result, stderr_handle_result) =
+            tokio::join!(stdout_handle, stderr_handle);
+
+        let mut process = process.lock().await;
+        let mut state = state.lock().await;
+        let capture_cancellations = capture_cancellations.lock().await;
+
+        let (stdout, stderr) = match (stdout_handle_result, stderr_handle_result) {
+            (Ok(stdout), Ok(stderr)) => (stdout, stderr),
+            _ => {
+                Self::kill_and_clean(process, capture_cancellations, &id, &store).await;
+                error!(
+                    "[{}] error occurred while stdout capturing thread exiting, interrupt job",
+                    id
+                );
+                return;
+            }
+        };
+
+        let process_ref = process.as_mut().unwrap();
+        match *state {
+            TranscodeJobState::Idle => unreachable!(),
+            TranscodeJobState::Running => unreachable!(),
+            TranscodeJobState::Pausing => {
+                // okay, for windows, pausing the ffmpeg process,
+                // it is only have to write a '\r'(Carriage Return, `0xd` in ASCII table)
+                // character to ffmpeg subprocess via stdin.
+                // And for resuming, write a '\n'(Line Feed, `0xa` in ASCII table) character
+                // to ffmpeg subprocess via stdin could simply make it work.
+                #[cfg(windows)]
+                {
+                    if let Err(err) = process_ref
+                        .stdin
+                        .as_mut()
+                        .unwrap() // safely unwrap
+                        .write_all(&[0xd])
+                        .await
+                    {
+                        Self::kill_and_clean(process, capture_cancellations, &id, &store).await;
+                        *state = TranscodeJobState::Errored;
+                        error!(
+                            "[{}] error occurred while writing to stdin: {}, interrupt job",
+                            id, err
+                        );
+                        return;
+                    };
+                }
+
+                #[cfg(not(windows))]
+                {}
+
+                process_ref.stdout = Some(stdout);
+                process_ref.stderr = Some(stderr);
+                info!("[{}] job paused", id);
+            }
+            TranscodeJobState::Stopped => {
+                Self::kill_and_clean(process, capture_cancellations, &id, &store).await;
+                info!("[{}] job killed and stopped", id);
+            }
+            TranscodeJobState::Finished => {
+                Self::clean(process, capture_cancellations, &id, &store).await;
+                info!("[{}] job finished", id);
+            }
+            TranscodeJobState::Errored => {
+                Self::kill_and_clean(process, capture_cancellations, &id, &store).await;
+                info!("[{}] job errored and stopped", id);
+            }
+        }
+
+        info!("[{}] stop subprocess output capturing", id);
+    }
+
     /// Starts watchdog watching around the subprocess.
     ///
     /// stdout and stderr of subprocess are taken out and send to capturing threads,
@@ -318,260 +598,27 @@ impl TranscodeJob {
 
             // spawns threads to capture log from stdout and stderr.
             // stdout and stdin are taken out from subprocess
-            let (stdout_handle, stderr_handle) = {
-                let mut process = process.lock().await;
-                let mut capture_cancellations = capture_cancellations.lock().await;
+            let (stdout_handle, stderr_handle) = Self::start_capture(
+                id.clone(),
+                app_handle.clone(),
+                Arc::clone(&state),
+                Arc::clone(&process),
+                Arc::clone(&capture_cancellations),
+            )
+            .await;
 
-                let process = process.as_mut().unwrap(); // safely unwrap
-                let stdout = process.stdout.take().unwrap(); // safely unwrap
-                let stderr = process.stderr.take().unwrap(); // safely unwrap
-
-                // spawn a thread to capture stdout
-                let state_cloned = Arc::clone(&state);
-                let stdout_cancellation = CancellationToken::new();
-                let stdout_cancellation_cloned = stdout_cancellation.clone();
-                let stdout_handle = tokio::spawn(async move {
-                    let mut line = String::new();
-                    let mut reader = BufReader::new(stdout);
-                    let mut message = TranscodingMessage::new(&id);
-                    loop {
-                        // check state
-                        if *state_cloned.lock().await != TranscodeJobState::Running {
-                            break;
-                        }
-
-                        // read from stdout
-                        let (should_stop, len) = tokio::select! {
-                            _ = stdout_cancellation_cloned.cancelled() => {
-                                (true, 0)
-                            }
-                            len = reader.read_line(&mut line) => {
-                                match len {
-                                    Ok(len) =>  (false, len),
-                                    Err(err) => {
-                                        *state_cloned.lock().await = TranscodeJobState::Errored;
-                                        error!(
-                                            "[{}] error occurred while reading subprocess output {}",
-                                            id, err
-                                        );
-                                        (true, 0)
-                                    }
-                                }
-                            }
-                        };
-
-                        // should stop or reach eof
-                        if should_stop || len == 0 {
-                            break;
-                        }
-
-                        debug!("[{}] capture stdout output: {}", id, line);
-
-                        // store raw message
-                        message.raw.push(line.trim().to_string());
-
-                        // extract key value
-                        let mut splitted = line.split("=");
-                        if let (Some(key), Some(value)) = (splitted.next(), splitted.next()) {
-                            let key = key.trim();
-                            let value = value.trim();
-                            match key {
-                                "frame" => {
-                                    message.frame = value.parse::<usize>().ok();
-                                }
-                                "fps" => {
-                                    message.fps = value.parse::<f64>().ok();
-                                }
-                                "bitrate" => {
-                                    if value == "N/A" {
-                                        message.bitrate = None;
-                                    } else {
-                                        message.bitrate =
-                                            value[..value.len() - 7].parse::<f64>().ok();
-                                    }
-                                }
-                                "total_size" => {
-                                    message.total_size = value.parse::<usize>().ok();
-                                }
-                                "out_time_ms" => {
-                                    message.output_time_ms = value.parse::<usize>().ok();
-                                }
-                                "dup_frames" => {
-                                    message.dup_frames = value.parse::<usize>().ok();
-                                }
-                                "drop_frames" => {
-                                    message.drop_frames = value.parse::<usize>().ok();
-                                }
-                                "speed" => {
-                                    if value == "N/A" {
-                                        message.speed = None;
-                                    } else {
-                                        message.speed =
-                                            value[..value.len() - 1].parse::<f64>().ok();
-                                    }
-                                }
-                                "progress" => {
-                                    let send = match value {
-                                        "continue" => {
-                                            message.progress = TranscodeJobState::Running;
-                                            true
-                                        }
-                                        "end" => {
-                                            message.progress = TranscodeJobState::Finished;
-                                            true
-                                        }
-                                        _ => false,
-                                    };
-
-                                    // send message if a single frame collected
-                                    if send {
-                                        match app_handle.emit_all(TRANSCODING_MESSAGE_EVENT, &message) {
-                                            Ok(_) => debug!("[{}] send message to frontend", id),
-                                            Err(err) => error!(
-                                                "[{}] error occurred while emit event to frontend: {}",
-                                                id, err
-                                            ),
-                                        }
-
-                                        message.clear();
-                                    }
-                                }
-                                _ => {}
-                            }
-
-                            line.clear();
-                        };
-                    }
-
-                    reader.into_inner()
-                });
-                // spawn a thread to capture stderr
-                let state_cloned = Arc::clone(&state);
-                let stderr_cancellation = CancellationToken::new();
-                let stderr_cancellation_cloned = stderr_cancellation.clone();
-                let stderr_handle = tokio::spawn(async move {
-                    let mut line = String::new();
-                    let mut reader = BufReader::new(stderr);
-                    loop {
-                        // check state
-                        if *state_cloned.lock().await != TranscodeJobState::Running {
-                            break;
-                        }
-
-                        // read from stdout
-                        let (should_stop, len) = tokio::select! {
-                            _ = stderr_cancellation_cloned.cancelled() => {
-                                (true, 0)
-                            }
-                            len = reader.read_line(&mut line) => {
-                                match len {
-                                    Ok(len) =>  (false, len),
-                                    Err(err) => {
-                                        *state_cloned.lock().await = TranscodeJobState::Errored;
-                                        error!(
-                                            "[{}] error occurred while reading subprocess output {}",
-                                            id, err
-                                        );
-                                        (true, 0)
-                                    }
-                                }
-                            }
-                        };
-
-                        // should stop or reach eof
-                        if should_stop || len == 0 {
-                            break;
-                        }
-
-                        error!("[{}] capture stderr output: {}", id, line.trim());
-                        *state_cloned.lock().await = TranscodeJobState::Errored;
-
-                        line.clear();
-                    }
-
-                    reader.into_inner()
-                });
-
-                *capture_cancellations = Some((stdout_cancellation, stderr_cancellation));
-
-                (stdout_handle, stderr_handle)
-            };
-
-            // waits for both handles exit
-            let (stdout_handle_result, stderr_handle_result) =
-                tokio::join!(stdout_handle, stderr_handle);
-
-            // do clean up, return stdout and stderr back to subprocess
-            {
-                let mut process = process.lock().await;
-                let mut state = state.lock().await;
-                let capture_cancellations = capture_cancellations.lock().await;
-
-                let (stdout, stderr) = match (stdout_handle_result, stderr_handle_result) {
-                    (Ok(stdout), Ok(stderr)) => (stdout, stderr),
-                    _ => {
-                        Self::kill_and_clean(process, capture_cancellations, &id, &store).await;
-                        error!(
-                            "[{}] error occurred while stdout capturing thread exiting, interrupt job",
-                            id
-                        );
-                        return;
-                    }
-                };
-
-                let process_ref = process.as_mut().unwrap();
-                match *state {
-                    TranscodeJobState::Idle => unreachable!(),
-                    TranscodeJobState::Running => unreachable!(),
-                    TranscodeJobState::Pausing => {
-                        // okay, for windows, pausing the ffmpeg process,
-                        // it is only have to write a '\r'(Carriage Return, `0xd` in ASCII table)
-                        // character to ffmpeg subprocess via stdin.
-                        // And for resuming, write a '\n'(Line Feed, `0xa` in ASCII table) character
-                        // to ffmpeg subprocess via stdin could simply make it work.
-                        #[cfg(windows)]
-                        {
-                            if let Err(err) = process_ref
-                                .stdin
-                                .as_mut()
-                                .unwrap() // safely unwrap
-                                .write_all(&[0xd])
-                                .await
-                            {
-                                Self::kill_and_clean(process, capture_cancellations, &id, &store)
-                                    .await;
-                                *state = TranscodeJobState::Errored;
-                                error!(
-                                    "[{}] error occurred while writing to stdin: {}, interrupt job",
-                                    id, err
-                                );
-                                return;
-                            };
-                        }
-
-                        #[cfg(not(windows))]
-                        {}
-
-                        process_ref.stdout = Some(stdout);
-                        process_ref.stderr = Some(stderr);
-                        info!("[{}] job paused", id);
-                    }
-                    TranscodeJobState::Stopped => {
-                        Self::kill_and_clean(process, capture_cancellations, &id, &store).await;
-                        info!("[{}] job killed and stopped", id);
-                    }
-                    TranscodeJobState::Finished => {
-                        Self::clean(process, capture_cancellations, &id, &store).await;
-                        info!("[{}] job finished", id);
-                    }
-                    TranscodeJobState::Errored => {
-                        Self::kill_and_clean(process, capture_cancellations, &id, &store).await;
-                        info!("[{}] job errored and stopped", id);
-                    }
-                }
-
-                info!("[{}] stop subprocess output capturing", id);
-            }
+            // waits until capturing threads exit, and do cleanup then.
+            Self::wait_and_stop_capture(
+                id,
+                store,
+                app_handle,
+                stdout_handle,
+                stderr_handle,
+                state,
+                process,
+                capture_cancellations,
+            )
+            .await;
         });
     }
 }

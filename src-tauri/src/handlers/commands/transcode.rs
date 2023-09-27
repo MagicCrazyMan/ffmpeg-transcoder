@@ -11,6 +11,7 @@ use crate::{
     with_default_args,
 };
 
+/// A structure receiving ffmpeg command line arguments.
 #[derive(Debug, serde::Deserialize)]
 pub struct TranscodeItem {
     inputs: Vec<InputParams>,
@@ -18,7 +19,8 @@ pub struct TranscodeItem {
 }
 
 impl TranscodeItem {
-    fn into_args(self) -> Vec<String> {
+    /// Converts to ffmpeg command line arguments.
+    fn to_args(&self) -> Vec<String> {
         let prepend_args = with_default_args!("-progress", "-", "-nostats")
             .iter()
             .map(|str| *str);
@@ -84,7 +86,7 @@ pub async fn start_transcode(
         .add_and_start(
             app_handle,
             config.binary().ffmpeg().to_string(),
-            item.into_args(),
+            item.to_args(),
         )
         .await?;
 
