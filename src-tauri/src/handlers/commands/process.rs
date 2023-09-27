@@ -2,7 +2,7 @@ use std::process::Output;
 
 use tokio::process::Command;
 
-use crate::handlers::error::{Error, ErrorKind};
+use crate::handlers::error::Error;
 
 #[macro_export]
 macro_rules! with_default_args {
@@ -20,7 +20,10 @@ async fn invoke(program: &str, args: &[&str]) -> Result<Output, Error> {
 
     match output {
         Ok(output) => Ok(output),
-        Err(err) => Err(Error::from_raw_error(err, ErrorKind::Internal)),
+        Err(err) => match err.kind() {
+            std::io::ErrorKind::NotFound => Err(Error::ffmpeg_not_found(program)),
+            _ => Err(Error::ffmpeg_unavailable(program, err)),
+        },
     }
 }
 

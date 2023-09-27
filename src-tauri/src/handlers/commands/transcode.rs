@@ -4,10 +4,7 @@ use serde_with::{serde_as, NoneAsEmptyString};
 
 use crate::{
     app::config::Config,
-    handlers::{
-        error::{Error, ErrorKind},
-        store::TranscodeStore,
-    },
+    handlers::{error::Error, store::TranscodeStore},
     with_default_args,
 };
 
@@ -99,7 +96,7 @@ pub async fn stop_transcode(
     transcode_store: tauri::State<'_, TranscodeStore>,
     id: String,
 ) -> Result<(), Error> {
-    let id = uuid::Uuid::from_str(&id).try_into_uuid()?;
+    let id = id.try_into_uuid()?;
     transcode_store.stop(&id).await;
     Ok(())
 }
@@ -110,7 +107,7 @@ pub async fn pause_transcode(
     transcode_store: tauri::State<'_, TranscodeStore>,
     id: String,
 ) -> Result<(), Error> {
-    let id = uuid::Uuid::from_str(&id).try_into_uuid()?;
+    let id = id.try_into_uuid()?;
     transcode_store.pause(&id).await;
     Ok(())
 }
@@ -121,7 +118,7 @@ pub async fn resume_transcode(
     transcode_store: tauri::State<'_, TranscodeStore>,
     id: String,
 ) -> Result<(), Error> {
-    let id = uuid::Uuid::from_str(&id).try_into_uuid()?;
+    let id = id.try_into_uuid()?;
     transcode_store.resume(&id).await;
     Ok(())
 }
@@ -130,11 +127,15 @@ trait TryIntoUuid {
     fn try_into_uuid(self) -> Result<uuid::Uuid, Error>;
 }
 
-impl TryIntoUuid for Result<uuid::Uuid, uuid::Error> {
+impl<S> TryIntoUuid for S
+where
+    S: Into<String> + 'static,
+{
     fn try_into_uuid(self) -> Result<uuid::Uuid, Error> {
-        match self {
+        let raw = self.into();
+        match uuid::Uuid::from_str(&raw) {
             Ok(uuid) => Ok(uuid),
-            Err(err) => Err(Error::from_raw_error(err, ErrorKind::IncorrectJobId)),
+            Err(_) => Err(Error::task_id_unavailable(raw)),
         }
     }
 }

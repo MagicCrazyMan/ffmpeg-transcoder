@@ -4,7 +4,7 @@ use std::{
     sync::{Arc, Weak},
 };
 
-use log::{debug, error, info, warn, trace};
+use log::{debug, error, info, trace, warn};
 use tauri::Manager;
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
@@ -14,12 +14,10 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 
-use crate::handlers::error::IntoInternalResult;
-
 use super::error::Error;
 
 pub struct TranscodeStore {
-    store: Arc<Mutex<HashMap<uuid::Uuid, TranscodeJob>>>,
+    store: Arc<Mutex<HashMap<uuid::Uuid, TranscodeTask>>>,
 }
 
 impl TranscodeStore {
@@ -30,8 +28,8 @@ impl TranscodeStore {
         }
     }
 
-    /// Adds and starts a new transcode job.
-    /// returning an identifier point to current job.
+    /// Adds and starts a new transcode task.
+    /// returning an identifier point to current task.
     pub async fn add_and_start(
         &self,
         app_handle: tauri::AppHandle,
@@ -39,7 +37,7 @@ impl TranscodeStore {
         args: Vec<String>,
     ) -> Result<uuid::Uuid, Error> {
         let id = uuid::Uuid::new_v4();
-        let mut job = TranscodeJob::new(
+        let mut task = TranscodeTask::new(
             id.clone(),
             Arc::downgrade(&self.store),
             app_handle,
@@ -47,49 +45,49 @@ impl TranscodeStore {
             args,
         );
 
-        job.start().await?;
-        self.store.lock().await.insert(id.clone(), job);
+        task.start().await?;
+        self.store.lock().await.insert(id.clone(), task);
 
         Ok(id)
     }
 
-    /// Stops a transcode job.
+    /// Stops a transcode task.
     pub async fn stop(&self, id: &uuid::Uuid) {
         let mut store = self.store.lock().await;
-        let Some(job) = store.get_mut(id) else {
+        let Some(task) = store.get_mut(id) else {
             warn!("jon id {} not found", id);
             return;
         };
 
-        job.stop().await;
+        task.stop().await;
     }
 
-    /// Pauses a transcode job.
+    /// Pauses a transcode task.
     pub async fn pause(&self, id: &uuid::Uuid) {
         let mut store = self.store.lock().await;
-        let Some(job) = store.get_mut(id) else {
+        let Some(task) = store.get_mut(id) else {
             warn!("jon id {} not found", id);
             return;
         };
 
-        job.pause().await;
+        task.pause().await;
     }
 
-    /// Resumes a transcode job.
+    /// Resumes a transcode task.
     pub async fn resume(&self, id: &uuid::Uuid) {
         let mut store = self.store.lock().await;
-        let Some(job) = store.get_mut(id) else {
+        let Some(task) = store.get_mut(id) else {
             warn!("jon id {} not found", id);
             return;
         };
 
-        job.resume().await;
+        task.resume().await;
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 #[repr(u8)]
-pub enum TranscodeJobState {
+pub enum TranscodeTaskState {
     Idle = 0,
     Running = 1,
     Pausing = 2,
@@ -98,24 +96,24 @@ pub enum TranscodeJobState {
     Errored = 5,
 }
 
-/// A transcode job.
+/// A transcode task.
 #[derive(Debug)]
-pub struct TranscodeJob {
+pub struct TranscodeTask {
     id: uuid::Uuid,
-    store: Weak<Mutex<HashMap<uuid::Uuid, TranscodeJob>>>,
+    store: Weak<Mutex<HashMap<uuid::Uuid, TranscodeTask>>>,
     program: String,
     args: Vec<String>,
     app_handle: tauri::AppHandle,
-    state: Arc<Mutex<TranscodeJobState>>,
+    state: Arc<Mutex<TranscodeTaskState>>,
     process: Arc<Mutex<Option<Child>>>,
     capture_cancellations: Arc<Mutex<Option<(CancellationToken, CancellationToken)>>>,
 }
 
-impl TranscodeJob {
-    /// Creates a new transcode job.
+impl TranscodeTask {
+    /// Creates a new transcode task.
     fn new(
         id: uuid::Uuid,
-        store: Weak<Mutex<HashMap<uuid::Uuid, TranscodeJob>>>,
+        store: Weak<Mutex<HashMap<uuid::Uuid, TranscodeTask>>>,
         app_handle: tauri::AppHandle,
         program: String,
         args: Vec<String>,
@@ -126,35 +124,46 @@ impl TranscodeJob {
             program: program.into(),
             args: args.into(),
             app_handle,
-            state: Arc::new(Mutex::new(TranscodeJobState::Idle)),
+            state: Arc::new(Mutex::new(TranscodeTaskState::Idle)),
             process: Arc::new(Mutex::new(None)),
             capture_cancellations: Arc::new(Mutex::new(None)),
         }
     }
 
-    /// Starts the job.
+    /// Starts the task.
     async fn start(&mut self) -> Result<(), Error> {
+        let mut process = self.process.lock().await;
         let mut state = self.state.lock().await;
-        if *state != TranscodeJobState::Idle {
-            debug!("[{}] attempting to start a started job", self.id);
+        if *state != TranscodeTaskState::Idle {
+            debug!("[{}] attempting to start a started task", self.id);
             return Ok(());
         }
 
-        let child = Command::new(&self.program)
+        let child = match Command::new(&self.program)
             .args(&self.args)
             .stdin(Stdio::piped())
             .stderr(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()
-            .into_internal_result()?;
-        self.process = Arc::new(Mutex::new(Some(child)));
-        *state = TranscodeJobState::Running;
+        {
+            Ok(child) => child,
+            Err(err) => {
+                return match err.kind() {
+                    std::io::ErrorKind::NotFound => Err(Error::ffmpeg_not_found(&self.program)),
+                    _ => Err(Error::ffmpeg_unavailable(&self.program, err)),
+                }
+            }
+        };
+
+        *process = Some(child);
+        *state = TranscodeTaskState::Running;
         drop(state);
+        drop(process);
 
         self.start_watchdog();
 
         info!(
-            "[{}] start job with command: {} {}",
+            "[{}] start task with command: {} {}",
             self.id,
             self.program,
             self.args
@@ -171,27 +180,27 @@ impl TranscodeJob {
         Ok(())
     }
 
-    /// Pauses the job.
+    /// Pauses the task.
     async fn pause(&self) {
         let capture_cancellations = self.capture_cancellations.lock().await;
         let mut state = self.state.lock().await;
-        if *state != TranscodeJobState::Running {
-            warn!("[{}] attempting to pause a not running job", self.id);
+        if *state != TranscodeTaskState::Running {
+            warn!("[{}] attempting to pause a not running task", self.id);
             return;
         }
 
-        *state = TranscodeJobState::Pausing;
+        *state = TranscodeTaskState::Pausing;
         let capture_cancellations = capture_cancellations.as_ref().unwrap(); // safely unwrap
         capture_cancellations.0.cancel();
         capture_cancellations.1.cancel();
     }
 
-    /// Resumes the job.
+    /// Resumes the task.
     async fn resume(&mut self) {
         let mut process = self.process.lock().await;
         let mut state = self.state.lock().await;
-        if *state != TranscodeJobState::Pausing {
-            warn!("[{}] attempting to resume a not pausing job", self.id);
+        if *state != TranscodeTaskState::Pausing {
+            warn!("[{}] attempting to resume a not pausing task", self.id);
             return;
         }
 
@@ -209,7 +218,7 @@ impl TranscodeJob {
                 .await
             {
                 error!(
-                    "[{}] error occurred while writing to stdin: {}, interrupt job",
+                    "[{}] error occurred while writing to stdin: {}, interrupt task",
                     self.id, err
                 );
                 self.stop().await;
@@ -217,40 +226,43 @@ impl TranscodeJob {
             };
         }
 
-        *state = TranscodeJobState::Running;
+        *state = TranscodeTaskState::Running;
         drop(state);
         drop(process);
 
         self.start_watchdog();
 
-        info!("[{}] resume job", self.id);
+        info!("[{}] resume task", self.id);
     }
 
-    /// Stops the job.
+    /// Stops the task.
     async fn stop(&self) {
         let process = self.process.lock().await;
         let capture_cancellations = self.capture_cancellations.lock().await;
         let mut state = self.state.lock().await;
 
         match *state {
-            TranscodeJobState::Idle => {
-                *state = TranscodeJobState::Stopped;
+            TranscodeTaskState::Idle => {
+                *state = TranscodeTaskState::Stopped;
                 Self::clean(process, capture_cancellations, &self.id, &self.store).await;
             }
-            TranscodeJobState::Running => {
-                *state = TranscodeJobState::Stopped;
+            TranscodeTaskState::Running => {
+                *state = TranscodeTaskState::Stopped;
                 let capture_cancellations = capture_cancellations.as_ref().unwrap(); // safely unwrap
                 capture_cancellations.0.cancel();
                 capture_cancellations.1.cancel();
             }
-            TranscodeJobState::Pausing => {
+            TranscodeTaskState::Pausing => {
                 Self::kill_and_clean(process, capture_cancellations, &self.id, &self.store).await;
-                info!("[{}] job killed and stopped", self.id);
+                info!("[{}] task killed and stopped", self.id);
 
-                *state = TranscodeJobState::Stopped;
+                *state = TranscodeTaskState::Stopped;
             }
             _ => {
-                debug!("[{}] attempting to kill a stopped or finished job", self.id);
+                debug!(
+                    "[{}] attempting to kill a stopped or finished task",
+                    self.id
+                );
             }
         };
     }
@@ -259,7 +271,7 @@ impl TranscodeJob {
         mut process: MutexGuard<'_, Option<Child>>,
         capture_cancellations: MutexGuard<'_, Option<(CancellationToken, CancellationToken)>>,
         id: &uuid::Uuid,
-        store: &Weak<Mutex<HashMap<uuid::Uuid, TranscodeJob>>>,
+        store: &Weak<Mutex<HashMap<uuid::Uuid, TranscodeTask>>>,
     ) {
         if let Some(process) = process.as_mut() {
             Self::kill(process, id).await;
@@ -297,7 +309,7 @@ impl TranscodeJob {
         mut process: MutexGuard<'_, Option<Child>>,
         mut capture_cancellations: MutexGuard<'_, Option<(CancellationToken, CancellationToken)>>,
         id: &uuid::Uuid,
-        store: &Weak<Mutex<HashMap<uuid::Uuid, TranscodeJob>>>,
+        store: &Weak<Mutex<HashMap<uuid::Uuid, TranscodeTask>>>,
     ) {
         *process = None;
         *capture_cancellations = None;
@@ -315,7 +327,7 @@ impl TranscodeJob {
     async fn start_capture(
         id: uuid::Uuid,
         app_handle: tauri::AppHandle,
-        state: Arc<Mutex<TranscodeJobState>>,
+        state: Arc<Mutex<TranscodeTaskState>>,
         process: Arc<Mutex<Option<Child>>>,
         capture_cancellations: Arc<Mutex<Option<(CancellationToken, CancellationToken)>>>,
     ) -> (
@@ -339,7 +351,7 @@ impl TranscodeJob {
             let mut message = TranscodingMessage::new(&id);
             loop {
                 // check state
-                if *state_cloned.lock().await != TranscodeJobState::Running {
+                if *state_cloned.lock().await != TranscodeTaskState::Running {
                     break;
                 }
 
@@ -352,7 +364,7 @@ impl TranscodeJob {
                         match len {
                             Ok(len) =>  (false, len),
                             Err(err) => {
-                                *state_cloned.lock().await = TranscodeJobState::Errored;
+                                *state_cloned.lock().await = TranscodeTaskState::Errored;
                                 error!(
                                     "[{}] error occurred while reading subprocess output {}",
                                     id, err
@@ -415,11 +427,11 @@ impl TranscodeJob {
                         "progress" => {
                             let send = match value {
                                 "continue" => {
-                                    message.progress = TranscodeJobState::Running;
+                                    message.progress = TranscodeTaskState::Running;
                                     true
                                 }
                                 "end" => {
-                                    message.progress = TranscodeJobState::Finished;
+                                    message.progress = TranscodeTaskState::Finished;
                                     true
                                 }
                                 _ => false,
@@ -456,7 +468,7 @@ impl TranscodeJob {
             let mut reader = BufReader::new(stderr);
             loop {
                 // check state
-                if *state_cloned.lock().await != TranscodeJobState::Running {
+                if *state_cloned.lock().await != TranscodeTaskState::Running {
                     break;
                 }
 
@@ -469,7 +481,7 @@ impl TranscodeJob {
                         match len {
                             Ok(len) =>  (false, len),
                             Err(err) => {
-                                *state_cloned.lock().await = TranscodeJobState::Errored;
+                                *state_cloned.lock().await = TranscodeTaskState::Errored;
                                 error!(
                                     "[{}] error occurred while reading subprocess output {}",
                                     id, err
@@ -486,7 +498,7 @@ impl TranscodeJob {
                 }
 
                 error!("[{}] capture stderr output: {}", id, line.trim());
-                *state_cloned.lock().await = TranscodeJobState::Errored;
+                *state_cloned.lock().await = TranscodeTaskState::Errored;
 
                 line.clear();
             }
@@ -501,11 +513,11 @@ impl TranscodeJob {
 
     async fn wait_and_stop_capture(
         id: uuid::Uuid,
-        store: Weak<Mutex<HashMap<uuid::Uuid, TranscodeJob>>>,
+        store: Weak<Mutex<HashMap<uuid::Uuid, TranscodeTask>>>,
         _app_handle: tauri::AppHandle,
         stdout_handle: JoinHandle<ChildStdout>,
         stderr_handle: JoinHandle<ChildStderr>,
-        state: Arc<Mutex<TranscodeJobState>>,
+        state: Arc<Mutex<TranscodeTaskState>>,
         process: Arc<Mutex<Option<Child>>>,
         capture_cancellations: Arc<Mutex<Option<(CancellationToken, CancellationToken)>>>,
     ) {
@@ -521,7 +533,7 @@ impl TranscodeJob {
             _ => {
                 Self::kill_and_clean(process, capture_cancellations, &id, &store).await;
                 error!(
-                    "[{}] error occurred while stdout capturing thread exiting, interrupt job",
+                    "[{}] error occurred while stdout capturing thread exiting, interrupt task",
                     id
                 );
                 return;
@@ -530,9 +542,9 @@ impl TranscodeJob {
 
         let process_ref = process.as_mut().unwrap();
         match *state {
-            TranscodeJobState::Idle => unreachable!(),
-            TranscodeJobState::Running => unreachable!(),
-            TranscodeJobState::Pausing => {
+            TranscodeTaskState::Idle => unreachable!(),
+            TranscodeTaskState::Running => unreachable!(),
+            TranscodeTaskState::Pausing => {
                 // okay, for windows, pausing the ffmpeg process,
                 // it is only have to write a '\r'(Carriage Return, `0xd` in ASCII table)
                 // character to ffmpeg subprocess via stdin.
@@ -548,9 +560,9 @@ impl TranscodeJob {
                         .await
                     {
                         Self::kill_and_clean(process, capture_cancellations, &id, &store).await;
-                        *state = TranscodeJobState::Errored;
+                        *state = TranscodeTaskState::Errored;
                         error!(
-                            "[{}] error occurred while writing to stdin: {}, interrupt job",
+                            "[{}] error occurred while writing to stdin: {}, interrupt task",
                             id, err
                         );
                         return;
@@ -562,19 +574,19 @@ impl TranscodeJob {
 
                 process_ref.stdout = Some(stdout);
                 process_ref.stderr = Some(stderr);
-                info!("[{}] job paused", id);
+                info!("[{}] task paused", id);
             }
-            TranscodeJobState::Stopped => {
+            TranscodeTaskState::Stopped => {
                 Self::kill_and_clean(process, capture_cancellations, &id, &store).await;
-                info!("[{}] job killed and stopped", id);
+                info!("[{}] task killed and stopped", id);
             }
-            TranscodeJobState::Finished => {
+            TranscodeTaskState::Finished => {
                 Self::clean(process, capture_cancellations, &id, &store).await;
-                info!("[{}] job finished", id);
+                info!("[{}] task finished", id);
             }
-            TranscodeJobState::Errored => {
+            TranscodeTaskState::Errored => {
                 Self::kill_and_clean(process, capture_cancellations, &id, &store).await;
-                info!("[{}] job errored and stopped", id);
+                info!("[{}] task errored and stopped", id);
             }
         }
 
@@ -629,7 +641,7 @@ static TRANSCODING_MESSAGE_EVENT: &'static str = "transcoding";
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct TranscodingMessage {
     id: String,
-    progress: TranscodeJobState,
+    progress: TranscodeTaskState,
     frame: Option<usize>,
     fps: Option<f64>,
     bitrate: Option<f64>,
@@ -645,7 +657,7 @@ impl TranscodingMessage {
     pub fn new(id: &uuid::Uuid) -> Self {
         Self {
             id: id.to_string(),
-            progress: TranscodeJobState::Idle,
+            progress: TranscodeTaskState::Idle,
             raw: Vec::with_capacity(20),
             frame: None,
             fps: None,

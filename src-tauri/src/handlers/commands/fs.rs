@@ -5,7 +5,7 @@ use std::{
 
 use tokio::fs;
 
-use crate::handlers::error::{Error, ErrorKind};
+use crate::handlers::error::Error;
 
 #[derive(Debug, serde::Serialize)]
 pub struct TargetFile {
@@ -48,10 +48,7 @@ pub async fn files_from_directory(dir: String) -> Result<Vec<TargetFile>, Error>
     let path = PathBuf::from(&dir);
     let canonicalized_path = path.canonicalize().map(|p| p.to_string_lossy().to_string());
     if !path.is_dir() || canonicalized_path.is_err() {
-        return Err(Error::new_with_keywords(
-            ErrorKind::DirectoryNotFound,
-            vec![dir],
-        ));
+        return Err(Error::directory_not_found(dir));
     }
 
     let canonicalized_path = format!("{}{}", canonicalized_path.unwrap(), MAIN_SEPARATOR);

@@ -1,88 +1,152 @@
-use std::{borrow::Cow, fmt::Display};
-
-/// Error kinds of [`Error`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde_repr::Serialize_repr)]
-#[repr(u8)]
-pub enum ErrorKind {
-    Internal = 0,
-    FFmpegNotFound = 1,
-    FFprobeNotFound = 2,
-    FFmpegUnavailable = 3,
-    FFprobeUnavailable = 4,
-    DirectoryNotFound = 5,
-    IncorrectJobId = 6,
-}
+use std::fmt::Display;
 
 /// An error that aims to send error information to frontend.
 /// For i18n purpose, when an error thrown, it does not send text to frontend,
 /// otherwise, it send only an [`ErrorKind`] and some necessary keywords.
 /// Then, frontend will buildup messages for different language itself.
 #[derive(Debug, serde::Serialize)]
-pub struct Error {
-    kind: ErrorKind,
-    keywords: Vec<String>,
-    #[serde(skip_serializing)]
-    raw_error: Option<Box<dyn std::error::Error>>,
+#[non_exhaustive]
+pub enum Error {
+    /// Fallback error
+    Internal {
+        code: usize,
+        #[serde(skip_serializing)]
+        raw_error: Box<dyn std::error::Error>,
+    },
+    FFmpegNotFound {
+        code: usize,
+        #[serde(skip_serializing)]
+        program: String,
+    },
+    FFprobeNotFound {
+        code: usize,
+        #[serde(skip_serializing)]
+        program: String,
+    },
+    FFmpegUnavailable {
+        code: usize,
+        #[serde(skip_serializing)]
+        program: String,
+        #[serde(skip_serializing)]
+        raw_error: Box<dyn std::error::Error>,
+    },
+    FFprobeUnavailable {
+        code: usize,
+        #[serde(skip_serializing)]
+        program: String,
+        #[serde(skip_serializing)]
+        raw_error: Box<dyn std::error::Error>,
+    },
+    DirectoryNotFound {
+        code: usize,
+        path: String,
+    },
+    TaskIdUnavailable {
+        code: usize,
+        id: String,
+    },
+    TaskNotFound {
+        code: usize,
+        id: String,
+    },
 }
 
 impl Error {
-    /// Creates a new error with specified [`ErrorKind`].
-    pub fn new(kind: ErrorKind) -> Self {
-        Self::new_with_keywords(kind, Vec::new())
-    }
-
-    /// Creates a new error with specified [`ErrorKind`] and keywords.
-    pub fn new_with_keywords(kind: ErrorKind, keywords: Vec<String>) -> Self {
-        Self::new_inner(None, kind, keywords)
-    }
-
-    /// Creates a new error with specified [`ErrorKind`] containing a raw error.
-    pub fn from_raw_error<E>(raw_error: E, kind: ErrorKind) -> Self
+    pub fn internal<E>(raw_error: E) -> Self
     where
         E: std::error::Error + 'static,
     {
-        Self::from_raw_error_with_keywords(raw_error, kind, Vec::new())
+        Self::Internal {
+            code: 0,
+            raw_error: Box::new(raw_error),
+        }
     }
 
-    /// Creates a new error with specified [`ErrorKind`] and keywords containing a raw error.
-    pub fn from_raw_error_with_keywords<E>(
-        raw_error: E,
-        kind: ErrorKind,
-        keywords: Vec<String>,
-    ) -> Self
+    pub fn ffmpeg_not_found<S>(program: S) -> Self
     where
+        S: Into<String>,
+    {
+        Self::FFmpegNotFound {
+            code: 1,
+            program: program.into(),
+        }
+    }
+
+    pub fn ffprobe_not_found<S>(program: S) -> Self
+    where
+        S: Into<String>,
+    {
+        Self::FFprobeNotFound {
+            code: 2,
+            program: program.into(),
+        }
+    }
+
+    pub fn ffmpeg_unavailable<S, E>(program: S, raw_error: E) -> Self
+    where
+        S: Into<String>,
         E: std::error::Error + 'static,
     {
-        Self::new_inner(Some(Box::new(raw_error)), kind, keywords)
+        Self::FFmpegUnavailable {
+            code: 3,
+            program: program.into(),
+            raw_error: Box::new(raw_error),
+        }
     }
 
-    fn new_inner(
-        raw_error: Option<Box<dyn std::error::Error>>,
-        kind: ErrorKind,
-        keywords: Vec<String>,
-    ) -> Self {
-        let error = Self {
-            raw_error,
-            kind,
-            keywords,
-        };
-
-        error
+    pub fn ffprobe_unavailable<S, E>(program: S, raw_error: E) -> Self
+    where
+        S: Into<String>,
+        E: std::error::Error + 'static,
+    {
+        Self::FFprobeUnavailable {
+            code: 4,
+            program: program.into(),
+            raw_error: Box::new(raw_error),
+        }
     }
 
-    /// Gets [`ErrorKind`].
-    pub fn kind(&self) -> ErrorKind {
-        self.kind
+    pub fn directory_not_found<S>(path: S) -> Self
+    where
+        S: Into<String>,
+    {
+        Self::DirectoryNotFound {
+            code: 5,
+            path: path.into(),
+        }
     }
 
-    /// Gets message keywords.
-    pub fn keywords(&self) -> &[String] {
-        self.keywords.as_slice()
+    pub fn task_id_unavailable<S>(id: S) -> Self
+    where
+        S: Into<String>,
+    {
+        Self::TaskIdUnavailable {
+            code: 6,
+            id: id.into(),
+        }
     }
 
-    /// Gets raw error.
-    pub fn raw_error(&self) -> Option<&dyn std::error::Error> {
-        self.raw_error.as_ref().and_then(|err| Some(err.as_ref()))
+    pub fn task_not_found<S>(id: S) -> Self
+    where
+        S: Into<String>,
+    {
+        Self::TaskNotFound {
+            code: 7,
+            id: id.into(),
+        }
+    }
+
+    pub fn code(&self) -> usize {
+        match self {
+            Error::Internal { code, .. } => *code,
+            Error::FFmpegNotFound { code, .. } => *code,
+            Error::FFprobeNotFound { code, .. } => *code,
+            Error::FFmpegUnavailable { code, .. } => *code,
+            Error::FFprobeUnavailable { code, .. } => *code,
+            Error::DirectoryNotFound { code, .. } => *code,
+            Error::TaskIdUnavailable { code, .. } => *code,
+            Error::TaskNotFound { code, .. } => *code,
+        }
     }
 }
 
@@ -90,49 +154,37 @@ impl std::error::Error for Error {}
 
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let msg = self
-            .raw_error()
-            .map(|err| Cow::Owned(err.to_string()))
-            .unwrap_or(Cow::Borrowed("no further information"));
-
-        match self.kind() {
-            ErrorKind::Internal => f.write_fmt(format_args!("internal error: {}", msg)),
-            ErrorKind::FFmpegNotFound => f.write_str("ffmpeg binary not found"),
-            ErrorKind::FFprobeNotFound => f.write_str("ffprobe binary not found"),
-            ErrorKind::FFmpegUnavailable => f.write_str("ffmpeg binary unavailable"),
-            ErrorKind::FFprobeUnavailable => f.write_str("ffprobe binary unavailable"),
-            ErrorKind::DirectoryNotFound => f.write_fmt(format_args!(
-                "directory \"{}\" not found",
-                self.keywords
-                    .get(0)
-                    .map(|d| d.as_str())
-                    .unwrap_or("unknown")
-            )),
-            ErrorKind::IncorrectJobId => f.write_fmt(format_args!(
-                "job with id {} not found",
-                self.keywords
-                    .get(0)
-                    .map(|d| d.as_str())
-                    .unwrap_or("unknown")
-            )),
-        }
-    }
-}
-
-/// A generic trait wrapping all error result into [`Error`] result
-/// with [`ErrorKind::Internal`] and without keywords.
-pub trait IntoInternalResult<T> {
-    fn into_internal_result(self) -> Result<T, Error>;
-}
-
-impl<T, E> IntoInternalResult<T> for std::result::Result<T, E>
-where
-    E: std::error::Error + 'static,
-{
-    fn into_internal_result(self) -> Result<T, Error> {
         match self {
-            Ok(v) => Ok(v),
-            Err(err) => Err(Error::from_raw_error(err, ErrorKind::Internal)),
+            Error::Internal { raw_error, .. } => {
+                f.write_fmt(format_args!("internal error: {}", raw_error))
+            }
+            Error::FFmpegNotFound { program, .. } => {
+                f.write_fmt(format_args!("ffmpeg binary not found: \"{}\"", program))
+            }
+            Error::FFprobeNotFound { program, .. } => {
+                f.write_fmt(format_args!("ffprobe binary not found: \"{}\"", program))
+            }
+            Error::FFmpegUnavailable {
+                program, raw_error, ..
+            } => f.write_fmt(format_args!(
+                "ffmpeg binary unavailable: \"{}\" {}",
+                program, raw_error
+            )),
+            Error::FFprobeUnavailable {
+                program, raw_error, ..
+            } => f.write_fmt(format_args!(
+                "ffmpeg binary unavailable: \"{}\" {}",
+                program, raw_error
+            )),
+            Error::DirectoryNotFound { path, .. } => {
+                f.write_fmt(format_args!("directory not found: \"{}\"", path))
+            }
+            Error::TaskIdUnavailable { id, .. } => {
+                f.write_fmt(format_args!("task id unavailable: \"{}\"", id))
+            }
+            Error::TaskNotFound { id, .. } => {
+                f.write_fmt(format_args!("task with specified id not found: \"{}\"", id))
+            }
         }
     }
 }
