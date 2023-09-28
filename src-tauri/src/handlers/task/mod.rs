@@ -1,4 +1,4 @@
-pub mod item;
-pub mod message;
-pub mod state_machine;
+pub(self) mod item;
+pub(self) mod message;
+pub(self) mod state_machine;
 pub mod store;

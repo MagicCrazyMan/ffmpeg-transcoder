@@ -1,20 +1,25 @@
-use std::process::Stdio;
+use std::{process::Stdio, sync::Arc};
 
 use async_trait::async_trait;
-use log::{info, warn};
+use log::{debug, info, trace, warn};
+use tauri::Manager;
 use tokio::{
-    io::AsyncWriteExt,
-    process::{Child, Command},
+    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
+    process::{Child, ChildStderr, ChildStdout, Command},
+    sync::Mutex,
     task::JoinHandle,
 };
 use tokio_util::sync::CancellationToken;
 
-use crate::handlers::error::Error;
+use crate::handlers::{
+    error::Error,
+    task::message::{TaskMessage, TaskRunningMessage, TASK_MESSAGE_EVENT},
+};
 
-use super::item::TaskData;
+use super::item::TaskItem;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum TaskStateCode {
+pub(super) enum TaskStateCode {
     Idle,
     Running,
     Pausing,
@@ -24,19 +29,29 @@ pub(crate) enum TaskStateCode {
 }
 
 #[async_trait]
-pub(crate) trait TaskStateMachineNode: Send {
+pub(super) trait TaskStateMachineNode: Send {
     fn state_code(&self) -> TaskStateCode;
 
-    async fn start(self: Box<Self>, data: &TaskData) -> Box<dyn TaskStateMachineNode>;
+    fn message(&self) -> Option<&str>;
 
-    async fn pause(self: Box<Self>, data: &TaskData) -> Box<dyn TaskStateMachineNode>;
+    async fn start(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode>;
 
-    async fn resume(self: Box<Self>, data: &TaskData) -> Box<dyn TaskStateMachineNode>;
+    async fn pause(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode>;
 
-    async fn stop(self: Box<Self>, data: &TaskData) -> Box<dyn TaskStateMachineNode>;
+    async fn resume(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode>;
+
+    async fn stop(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode>;
+
+    async fn finish(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode>;
+
+    async fn error(
+        self: Box<Self>,
+        item: TaskItem,
+        reason: String,
+    ) -> Box<dyn TaskStateMachineNode>;
 }
 
-pub(crate) struct Idle;
+pub(super) struct Idle;
 
 #[async_trait]
 impl TaskStateMachineNode for Idle {
@@ -44,38 +59,47 @@ impl TaskStateMachineNode for Idle {
         TaskStateCode::Idle
     }
 
-    async fn start(self: Box<Self>, data: &TaskData) -> Box<dyn TaskStateMachineNode> {
-        let process = Command::new(data.program())
-            .args(data.args())
+    fn message(&self) -> Option<&str> {
+        None
+    }
+
+    async fn start(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+        let process = Command::new(&item.data.program)
+            .args(&item.data.args)
             .stdin(Stdio::piped())
             .stderr(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()
             .map_err(|err| match err.kind() {
-                std::io::ErrorKind::NotFound => Error::ffmpeg_not_found(data.program()),
-                _ => Error::ffmpeg_unavailable(data.program(), err),
+                std::io::ErrorKind::NotFound => Error::ffmpeg_not_found(&item.data.program),
+                _ => Error::ffmpeg_unavailable(&item.data.program, err),
             });
         let process = match process {
-            Ok(process) => process,
+            Ok(process) => Arc::new(Mutex::new(process)),
             Err(err) => {
                 return Box::new(Errored::from_err(err));
             }
         };
 
-        let watchdog_cancellation = CancellationToken::new();
-        let watchdog_handle = data.start_watchdog(&watchdog_cancellation);
+        let watchdog_cancellations = (CancellationToken::new(), CancellationToken::new());
+        let watchdog_handle = start_watchdog(
+            Arc::clone(&process),
+            item.clone(),
+            watchdog_cancellations.clone(),
+        );
 
         let next_state = Box::new(Running {
             process,
-            watchdog_cancellation,
+            watchdog_cancellations,
             watchdog_handle,
         });
 
         info!(
             "[{}] start task with command: {} {}",
-            data.id(),
-            data.program(),
-            data.args()
+            item.data.id,
+            item.data.program,
+            item.data
+                .args
                 .iter()
                 .map(|arg| if arg.contains(" ") {
                     format!("\"{arg}\"")
@@ -89,24 +113,37 @@ impl TaskStateMachineNode for Idle {
         next_state
     }
 
-    async fn pause(self: Box<Self>, data: &TaskData) -> Box<dyn TaskStateMachineNode> {
-        warn!("[{}] attempting to pause a not start task", data.id());
+    async fn pause(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+        warn!("[{}] attempting to pause a not start task", item.data.id);
         self
     }
 
-    async fn resume(self: Box<Self>, data: &TaskData) -> Box<dyn TaskStateMachineNode> {
-        warn!("[{}] attempting to resume a not start task", data.id());
+    async fn resume(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+        warn!("[{}] attempting to resume a not start task", item.data.id);
         self
     }
 
-    async fn stop(self: Box<Self>, _data: &TaskData) -> Box<dyn TaskStateMachineNode> {
+    async fn stop(self: Box<Self>, _item: TaskItem) -> Box<dyn TaskStateMachineNode> {
         Box::new(Stopped)
+    }
+
+    async fn finish(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+        warn!("[{}] attempting to finish a not start task", item.data.id);
+        self
+    }
+
+    async fn error(
+        self: Box<Self>,
+        _item: TaskItem,
+        reason: String,
+    ) -> Box<dyn TaskStateMachineNode> {
+        Box::new(Errored::from_string(reason))
     }
 }
 
-pub(crate) struct Running {
-    process: Child,
-    watchdog_cancellation: CancellationToken,
+pub(super) struct Running {
+    process: Arc<Mutex<Child>>,
+    watchdog_cancellations: (CancellationToken, CancellationToken),
     watchdog_handle: JoinHandle<()>,
 }
 
@@ -116,17 +153,29 @@ impl TaskStateMachineNode for Running {
         TaskStateCode::Running
     }
 
-    async fn start(self: Box<Self>, data: &TaskData) -> Box<dyn TaskStateMachineNode> {
-        warn!("[{}] attempting to start a running task", data.id());
+    fn message(&self) -> Option<&str> {
+        None
+    }
+
+    async fn start(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+        warn!("[{}] attempting to start a running task", item.data.id);
         self
     }
 
-    async fn pause(self: Box<Self>, _data: &TaskData) -> Box<dyn TaskStateMachineNode> {
-        let mut process = self.process;
+    async fn pause(self: Box<Self>, _item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+        let process = self.process;
 
         #[cfg(windows)]
         {
-            if let Err(err) = process.stdin.as_mut().unwrap().write_all(&[0xd]).await {
+            if let Err(err) = process
+                .lock()
+                .await
+                .stdin
+                .as_mut()
+                .unwrap()
+                .write_all(&[0xd])
+                .await
+            {
                 return Box::new(Errored::from_err(err));
             }
         }
@@ -134,7 +183,8 @@ impl TaskStateMachineNode for Running {
         #[cfg(not(windows))]
         {}
 
-        self.watchdog_cancellation.cancel();
+        self.watchdog_cancellations.0.cancel();
+        self.watchdog_cancellations.1.cancel();
 
         if let Err(err) = self.watchdog_handle.await {
             Box::new(Errored::from_err(err))
@@ -143,32 +193,56 @@ impl TaskStateMachineNode for Running {
         }
     }
 
-    async fn resume(self: Box<Self>, data: &TaskData) -> Box<dyn TaskStateMachineNode> {
-        warn!("[{}] attempting to resume a running task", data.id());
+    async fn resume(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+        warn!("[{}] attempting to resume a running task", item.data.id);
         self
     }
 
-    async fn stop(self: Box<Self>, _data: &TaskData) -> Box<dyn TaskStateMachineNode> {
-        let mut process = self.process;
+    async fn stop(self: Box<Self>, _item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+        self.watchdog_cancellations.0.cancel();
+        self.watchdog_cancellations.1.cancel();
+        if let Err(err) = self.watchdog_handle.await {
+            return Box::new(Errored::from_err(err));
+        }
+
+        let mut process = self.process.lock().await;
         let kill = async {
             process.start_kill()?;
             process.wait().await
         };
         if let Err(err) = kill.await {
-            return Box::new(Errored::from_err(err));
-        };
-
-        self.watchdog_cancellation.cancel();
-        if let Err(err) = self.watchdog_handle.await {
             Box::new(Errored::from_err(err))
         } else {
             Box::new(Stopped)
         }
     }
+
+    async fn finish(self: Box<Self>, _item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+        self.watchdog_cancellations.0.cancel();
+        self.watchdog_cancellations.1.cancel();
+        if let Err(err) = self.watchdog_handle.await {
+            Box::new(Errored::from_err(err))
+        } else {
+            Box::new(Finished)
+        }
+    }
+
+    async fn error(
+        self: Box<Self>,
+        item: TaskItem,
+        reason: String,
+    ) -> Box<dyn TaskStateMachineNode> {
+        let stopped = self.stop(item).await;
+        if stopped.state_code() == TaskStateCode::Stopped {
+            Box::new(Errored::from_string(reason))
+        } else {
+            stopped
+        }
+    }
 }
 
-pub(crate) struct Pausing {
-    process: Child,
+pub(super) struct Pausing {
+    process: Arc<Mutex<Child>>,
 }
 
 #[async_trait]
@@ -177,22 +251,34 @@ impl TaskStateMachineNode for Pausing {
         TaskStateCode::Pausing
     }
 
-    async fn start(self: Box<Self>, data: &TaskData) -> Box<dyn TaskStateMachineNode> {
-        warn!("[{}] attempting to start a pausing task", data.id());
+    fn message(&self) -> Option<&str> {
+        None
+    }
+
+    async fn start(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+        warn!("[{}] attempting to start a pausing task", item.data.id);
         self
     }
 
-    async fn pause(self: Box<Self>, data: &TaskData) -> Box<dyn TaskStateMachineNode> {
-        warn!("[{}] attempting to pause a pausing task", data.id());
+    async fn pause(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+        warn!("[{}] attempting to pause a pausing task", item.data.id);
         self
     }
 
-    async fn resume(self: Box<Self>, data: &TaskData) -> Box<dyn TaskStateMachineNode> {
-        let mut process = self.process;
+    async fn resume(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+        let process = self.process;
 
         #[cfg(windows)]
         {
-            if let Err(err) = process.stdin.as_mut().unwrap().write_all(&[0xa]).await {
+            if let Err(err) = process
+                .lock()
+                .await
+                .stdin
+                .as_mut()
+                .unwrap()
+                .write_all(&[0xa])
+                .await
+            {
                 return Box::new(Errored::from_err(err));
             }
         }
@@ -200,18 +286,22 @@ impl TaskStateMachineNode for Pausing {
         #[cfg(not(windows))]
         {}
 
-        let watchdog_cancellation = CancellationToken::new();
-        let watchdog_handle = data.start_watchdog(&watchdog_cancellation);
+        let watchdog_cancellations = (CancellationToken::new(), CancellationToken::new());
+        let watchdog_handle = start_watchdog(
+            Arc::clone(&process),
+            item.clone(),
+            watchdog_cancellations.clone(),
+        );
 
         Box::new(Running {
             process,
-            watchdog_cancellation,
+            watchdog_cancellations,
             watchdog_handle,
         })
     }
 
-    async fn stop(self: Box<Self>, _data: &TaskData) -> Box<dyn TaskStateMachineNode> {
-        let mut process = self.process;
+    async fn stop(self: Box<Self>, _item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+        let mut process = self.process.lock().await;
         let kill = async {
             process.start_kill()?;
             process.wait().await
@@ -222,9 +312,27 @@ impl TaskStateMachineNode for Pausing {
 
         Box::new(Stopped)
     }
+
+    async fn finish(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+        warn!("[{}] attempting to finish a pausing task", item.data.id);
+        self
+    }
+
+    async fn error(
+        self: Box<Self>,
+        item: TaskItem,
+        reason: String,
+    ) -> Box<dyn TaskStateMachineNode> {
+        let stopped = self.stop(item).await;
+        if stopped.state_code() == TaskStateCode::Stopped {
+            Box::new(Errored::from_string(reason))
+        } else {
+            stopped
+        }
+    }
 }
 
-pub(crate) struct Stopped;
+pub(super) struct Stopped;
 
 #[async_trait]
 impl TaskStateMachineNode for Stopped {
@@ -232,34 +340,58 @@ impl TaskStateMachineNode for Stopped {
         TaskStateCode::Stopped
     }
 
-    async fn start(self: Box<Self>, data: &TaskData) -> Box<dyn TaskStateMachineNode> {
-        warn!("[{}] attempting to start a stopped task", data.id());
+    fn message(&self) -> Option<&str> {
+        None
+    }
+
+    async fn start(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+        warn!("[{}] attempting to start a stopped task", item.data.id);
         self
     }
 
-    async fn pause(self: Box<Self>, data: &TaskData) -> Box<dyn TaskStateMachineNode> {
-        warn!("[{}] attempting to pause a stopped task", data.id());
+    async fn pause(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+        warn!("[{}] attempting to pause a stopped task", item.data.id);
         self
     }
 
-    async fn resume(self: Box<Self>, data: &TaskData) -> Box<dyn TaskStateMachineNode> {
-        warn!("[{}] attempting to resume a stopped task", data.id());
+    async fn resume(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+        warn!("[{}] attempting to resume a stopped task", item.data.id);
         self
     }
 
-    async fn stop(self: Box<Self>, _data: &TaskData) -> Box<dyn TaskStateMachineNode> {
+    async fn stop(self: Box<Self>, _item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+        self
+    }
+
+    async fn finish(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+        warn!("[{}] attempting to finish a stopped task", item.data.id);
+        self
+    }
+
+    async fn error(
+        self: Box<Self>,
+        item: TaskItem,
+        _reason: String,
+    ) -> Box<dyn TaskStateMachineNode> {
+        warn!("[{}] attempting to error a stopped task", item.data.id);
         self
     }
 }
 
-pub(crate) struct Errored {
-    reason: String,
+pub(super) struct Errored {
+    pub(super) reason: String,
 }
 
 impl Errored {
     fn from_err<E: std::error::Error>(reason: E) -> Self {
         Self {
             reason: reason.to_string(),
+        }
+    }
+
+    fn from_string<S: Into<String>>(reason: S) -> Self {
+        Self {
+            reason: reason.into(),
         }
     }
 }
@@ -270,28 +402,49 @@ impl TaskStateMachineNode for Errored {
         TaskStateCode::Errored
     }
 
-    async fn start(self: Box<Self>, data: &TaskData) -> Box<dyn TaskStateMachineNode> {
-        warn!("[{}] attempting to start a errored task", data.id());
+    fn message(&self) -> Option<&str> {
+        Some(self.reason.as_str())
+    }
+
+    async fn start(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+        warn!("[{}] attempting to start a errored task", item.data.id);
         self
     }
 
-    async fn pause(self: Box<Self>, data: &TaskData) -> Box<dyn TaskStateMachineNode> {
-        warn!("[{}] attempting to pause a errored task", data.id());
+    async fn pause(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+        warn!("[{}] attempting to pause a errored task", item.data.id);
         self
     }
 
-    async fn resume(self: Box<Self>, data: &TaskData) -> Box<dyn TaskStateMachineNode> {
-        warn!("[{}] attempting to resume a errored task", data.id());
+    async fn resume(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+        warn!("[{}] attempting to resume a errored task", item.data.id);
         self
     }
 
-    async fn stop(self: Box<Self>, data: &TaskData) -> Box<dyn TaskStateMachineNode> {
-        warn!("[{}] attempting to stop a errored task", data.id());
+    async fn stop(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+        warn!("[{}] attempting to stop a errored task", item.data.id);
+        self
+    }
+
+    async fn finish(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+        warn!("[{}] attempting to finish a errored task", item.data.id);
+        self
+    }
+
+    async fn error(
+        self: Box<Self>,
+        item: TaskItem,
+        _reason: String,
+    ) -> Box<dyn TaskStateMachineNode> {
+        warn!(
+            "[{}] attempting to change error of a errored task",
+            item.data.id
+        );
         self
     }
 }
 
-pub(crate) struct Finished;
+pub(super) struct Finished;
 
 #[async_trait]
 impl TaskStateMachineNode for Finished {
@@ -299,23 +452,241 @@ impl TaskStateMachineNode for Finished {
         TaskStateCode::Finished
     }
 
-    async fn start(self: Box<Self>, data: &TaskData) -> Box<dyn TaskStateMachineNode> {
-        warn!("[{}] attempting to start a finished task", data.id());
+    fn message(&self) -> Option<&str> {
+        None
+    }
+
+    async fn start(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+        warn!("[{}] attempting to start a finished task", item.data.id);
         self
     }
 
-    async fn pause(self: Box<Self>, data: &TaskData) -> Box<dyn TaskStateMachineNode> {
-        warn!("[{}] attempting to pause a finished task", data.id());
+    async fn pause(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+        warn!("[{}] attempting to pause a finished task", item.data.id);
         self
     }
 
-    async fn resume(self: Box<Self>, data: &TaskData) -> Box<dyn TaskStateMachineNode> {
-        warn!("[{}] attempting to resume a finished task", data.id());
+    async fn resume(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+        warn!("[{}] attempting to resume a finished task", item.data.id);
         self
     }
 
-    async fn stop(self: Box<Self>, data: &TaskData) -> Box<dyn TaskStateMachineNode> {
-        warn!("[{}] attempting to stop a finished task", data.id());
+    async fn stop(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+        warn!("[{}] attempting to stop a finished task", item.data.id);
         self
     }
+
+    async fn finish(self: Box<Self>, _item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+        self
+    }
+
+    async fn error(
+        self: Box<Self>,
+        item: TaskItem,
+        _reason: String,
+    ) -> Box<dyn TaskStateMachineNode> {
+        warn!("[{}] attempting to error a finished task", item.data.id);
+        self
+    }
+}
+
+async fn start_capture(
+    process: Arc<Mutex<Child>>,
+    item: TaskItem,
+    watchdog_cancellations: (CancellationToken, CancellationToken),
+) -> (
+    JoinHandle<(ChildStdout, Result<bool, String>)>,
+    JoinHandle<(ChildStderr, Result<(), String>)>,
+) {
+    let (stdout, stderr) = {
+        let mut process = process.lock().await;
+        let stdout = process.stdout.take().unwrap(); // safely unwrap
+        let stderr = process.stderr.take().unwrap(); // safely unwrap
+
+        (stdout, stderr)
+    };
+
+    // spawn a thread to capture stdout
+    let state_cloned = Arc::clone(&item.state);
+    let stdout_cancellation_cloned = watchdog_cancellations.0.clone();
+    let stdout_handle = tokio::spawn(async move {
+        let mut line = String::new();
+        let mut reader = BufReader::new(stdout);
+        let mut message = TaskRunningMessage::new(item.data.id.to_string());
+        let result = loop {
+            // check state
+            if state_cloned.lock().await.as_ref().unwrap().state_code() != TaskStateCode::Running {
+                break Ok(false);
+            }
+
+            // read from stdout
+            let len = tokio::select! {
+                _ = stdout_cancellation_cloned.cancelled() => {
+                    break Ok(false);
+                }
+                len = reader.read_line(&mut line) => {
+                    match len {
+                        Ok(len) =>  len,
+                        Err(err) => break Err(err.to_string()),
+                    }
+                }
+            };
+
+            // should stop or reach eof
+            if len == 0 {
+                break Err("unexpected reached eof".to_string());
+            }
+
+            let trimmed_line = line.trim();
+            trace!("[{}] capture stdout output: {}", item.data.id, trimmed_line);
+
+            // store raw message
+            message.raw.push(trimmed_line.to_string());
+
+            // extract key value
+            let mut splitted = trimmed_line.split("=");
+            if let (Some(key), Some(value)) = (splitted.next(), splitted.next()) {
+                let key = key.trim();
+                let value = value.trim();
+                match key {
+                    "frame" => {
+                        message.frame = value.parse::<usize>().ok();
+                    }
+                    "fps" => {
+                        message.fps = value.parse::<f64>().ok();
+                    }
+                    "bitrate" => {
+                        if value == "N/A" {
+                            message.bitrate = None;
+                        } else {
+                            message.bitrate = value[..value.len() - 7].parse::<f64>().ok();
+                        }
+                    }
+                    "total_size" => {
+                        message.total_size = value.parse::<usize>().ok();
+                    }
+                    "out_time_ms" => {
+                        message.output_time_ms = value.parse::<usize>().ok();
+                    }
+                    "dup_frames" => {
+                        message.dup_frames = value.parse::<usize>().ok();
+                    }
+                    "drop_frames" => {
+                        message.drop_frames = value.parse::<usize>().ok();
+                    }
+                    "speed" => {
+                        if value == "N/A" {
+                            message.speed = None;
+                        } else {
+                            message.speed = value[..value.len() - 1].parse::<f64>().ok();
+                        }
+                    }
+                    "progress" => {
+                        let (finished, msg) = match value {
+                            "continue" => (false, Some(TaskMessage::running(&message))),
+                            "end" => (true, Some(TaskMessage::running(&message))),
+                            _ => (false, None),
+                        };
+
+                        // send message if a single frame collected
+                        if let Some(msg) = msg {
+                            match item.data.app_handle.emit_all(TASK_MESSAGE_EVENT, &msg) {
+                                Ok(_) => debug!("[{}] send message to frontend", item.data.id),
+                                Err(err) => break Err(err.to_string()),
+                            }
+
+                            message.clear();
+                        }
+
+                        if finished {
+                            break Ok(true);
+                        }
+                    }
+                    _ => {}
+                }
+
+                line.clear();
+            };
+        };
+
+        (reader.into_inner(), result)
+    });
+
+    // spawn a thread to capture stderr
+    let stderr_cancellation_cloned = watchdog_cancellations.1.clone();
+    let stderr_handle = tokio::spawn(async move {
+        let mut line = String::new();
+        let mut reader = BufReader::new(stderr);
+
+        // read from stdout
+        let len = tokio::select! {
+            _ = stderr_cancellation_cloned.cancelled() => {
+                return (reader.into_inner(), Ok(()));
+            }
+            len = reader.read_line(&mut line) => {
+                match len {
+                    Ok(len) => len,
+                    Err(err) => return (reader.into_inner(), Err(err.to_string())),
+                }
+            }
+        };
+
+        // should stop or reach eof
+        if len == 0 {
+            (
+                reader.into_inner(),
+                Err("unexpected reached eof".to_string()),
+            )
+        } else {
+            (reader.into_inner(), Err(line.trim().to_string()))
+        }
+    });
+
+    (stdout_handle, stderr_handle)
+}
+
+fn start_watchdog(
+    process: Arc<Mutex<Child>>,
+    item: TaskItem,
+    watchdog_cancellations: (CancellationToken, CancellationToken),
+) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        info!("[{}] start subprocess output capturing", item.data.id);
+
+        // spawns threads to capture log from stdout and stderr.
+        // stdout and stdin are taken out from subprocess
+        let (stdout_handle, stderr_handle) =
+            start_capture(Arc::clone(&process), item.clone(), watchdog_cancellations).await;
+
+        let (stdout_handle_result, stderr_handle_result) =
+            tokio::join!(stdout_handle, stderr_handle);
+
+        let mut process = process.lock().await;
+        let ((stdout, stdout_result), (stderr, stderr_result)) =
+            match (stdout_handle_result, stderr_handle_result) {
+                (Ok(stdout_handle_result), Ok(stderr_handle_result)) => {
+                    (stdout_handle_result, stderr_handle_result)
+                }
+                _ => {
+                    tokio::spawn(async move { item.error("program unexpected exited").await });
+                    return;
+                }
+            };
+        process.stdout = Some(stdout);
+        process.stderr = Some(stderr);
+
+        match (stdout_result, stderr_result) {
+            (Ok(finished), Ok(_)) => {
+                if finished {
+                    tokio::spawn(async move { item.finish().await });
+                } else {
+                    // pause, do nothing
+                }
+            }
+            _ => {
+                tokio::spawn(async move { item.error("program unexpected exited").await });
+                return;
+            }
+        }
+    })
 }

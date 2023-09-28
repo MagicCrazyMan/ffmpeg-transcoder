@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use serde_with::{serde_as, NoneAsEmptyString};
+use serde_with::serde_as;
 
 use crate::{
     app::config::Config,
@@ -60,7 +60,6 @@ pub struct InputParams {
 pub struct OutputParams {
     /// Output path could be None in some situation,
     /// such as exports to null.
-    #[serde_as(as = "NoneAsEmptyString")]
     path: Option<String>,
     #[serde(default = "Vec::new")]
     params: Vec<String>,
@@ -79,17 +78,15 @@ pub async fn start_transcode(
     transcode_store: tauri::State<'_, TaskStore>,
     item: TranscodeItem,
 ) -> Result<TranscodeId, Error> {
-    // let id = transcode_store
-    //     .add_and_start(
-    //         app_handle,
-    //         config.binary().ffmpeg().to_string(),
-    //         item.to_args(),
-    //     )
-    //     .await?;
+    let id = transcode_store
+        .start(
+            app_handle,
+            config.binary().ffmpeg().to_string(),
+            item.to_args(),
+        )
+        .await?;
 
-    // Ok(TranscodeId { id: id.to_string() })
-
-    todo!()
+    Ok(TranscodeId { id: id.to_string() })
 }
 
 /// A command stops a new transcode job.
@@ -99,7 +96,7 @@ pub async fn stop_transcode(
     id: String,
 ) -> Result<(), Error> {
     let id = id.try_into_uuid()?;
-    // transcode_store.stop(&id).await;
+    transcode_store.stop(&id).await;
     Ok(())
 }
 
@@ -110,7 +107,7 @@ pub async fn pause_transcode(
     id: String,
 ) -> Result<(), Error> {
     let id = id.try_into_uuid()?;
-    // transcode_store.pause(&id).await;
+    transcode_store.pause(&id).await;
     Ok(())
 }
 
@@ -121,7 +118,7 @@ pub async fn resume_transcode(
     id: String,
 ) -> Result<(), Error> {
     let id = id.try_into_uuid()?;
-    // transcode_store.resume(&id).await;
+    transcode_store.resume(&id).await;
     Ok(())
 }
 

@@ -28,7 +28,6 @@ export default function QueuePage() {
       outputs: [
         {
           // path: "F:\\Transcode\\2023-09-10 23-35-22.mp4",
-          path: "",
           params: [
             "-c:v",
             "hevc_nvenc",

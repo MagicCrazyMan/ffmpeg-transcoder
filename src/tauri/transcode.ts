@@ -11,7 +11,7 @@ export type InputParams = {
 };
 
 export type OutputParams = {
-  path: string;
+  path?: string;
   params?: string[];
 };
 

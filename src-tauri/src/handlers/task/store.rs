@@ -11,6 +11,25 @@ pub struct TaskStore {
     store: Arc<Mutex<HashMap<uuid::Uuid, TaskItem>>>,
 }
 
+macro_rules! controls {
+    (
+        $(#[$meta:meta])*
+        $name:ident
+    ) => {
+        $(#[$meta])*
+        pub async fn $name(&self, id: &uuid::Uuid) {
+            let mut store = self.store.lock().await;
+            let Some(task) = store.get_mut(id) else {
+                warn!("jon id {} not found", id);
+                return;
+            };
+
+            let task = task.clone();
+            tokio::spawn(async move { task.$name().await });
+        }
+    };
+}
+
 impl TaskStore {
     /// Creates a new transcode store.
     pub fn new() -> Self {
@@ -36,43 +55,25 @@ impl TaskStore {
             Arc::downgrade(&self.store),
         );
 
-        task.start();
+        self.store.lock().await.insert(id.clone(), task.clone());
 
-        self.store.lock().await.insert(id.clone(), task);
+        tokio::spawn(async move { task.start().await });
 
         Ok(id)
     }
 
-    /// Stops a transcode data.
-    pub async fn stop(&self, id: &uuid::Uuid) {
-        let mut store = self.store.lock().await;
-        let Some(task) = store.get_mut(id) else {
-            warn!("jon id {} not found", id);
-            return;
-        };
+    controls!(
+        /// Stops a task by id.
+        stop
+    );
 
-        task.stop();
-    }
+    controls!(
+        /// Pauses a task by id.
+        pause
+    );
 
-    /// Pauses a transcode data.
-    pub async fn pause(&self, id: &uuid::Uuid) {
-        let mut store = self.store.lock().await;
-        let Some(task) = store.get_mut(id) else {
-            warn!("jon id {} not found", id);
-            return;
-        };
-
-        task.pause();
-    }
-
-    /// Resumes a transcode data.
-    pub async fn resume(&self, id: &uuid::Uuid) {
-        let mut store = self.store.lock().await;
-        let Some(task) = store.get_mut(id) else {
-            warn!("jon id {} not found", id);
-            return;
-        };
-
-        task.resume();
-    }
+    controls!(
+        /// Resumes a task by id.
+        resume
+    );
 }
