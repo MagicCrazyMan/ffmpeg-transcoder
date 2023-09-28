@@ -24,7 +24,7 @@ const SidebarMenu = () => {
     );
   });
 
-  return <Menu>{menuItems}</Menu>;
+  return <Menu defaultSelectedKeys={[pageRoutes[0].id]}>{menuItems}</Menu>;
 };
 
 /**

@@ -1,7 +1,7 @@
 use std::{process::Stdio, sync::Arc};
 
 use async_trait::async_trait;
-use log::{debug, info, trace, warn};
+use log::{info, trace, warn};
 use tauri::Manager;
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
@@ -528,7 +528,8 @@ async fn start_capture(
     let stdout_handle = tokio::spawn(async move {
         let mut line = String::new();
         let mut reader = BufReader::new(stdout);
-        let mut message = TaskRunningMessage::new(item.data.id.to_string());
+        let mut message =
+            TaskRunningMessage::new(item.data.id.to_string(), item.data.total_duration);
         let result = loop {
             // check state
             if state_cloned.lock().await.as_ref().unwrap().state_code() != TaskStateCode::Running {
@@ -612,7 +613,7 @@ async fn start_capture(
                         // send message if a single frame collected
                         if let Some(msg) = msg {
                             match item.data.app_handle.emit_all(TASK_MESSAGE_EVENT, &msg) {
-                                Ok(_) => debug!("[{}] send message to frontend", item.data.id),
+                                Ok(_) => trace!("[{}] send message to frontend", item.data.id),
                                 Err(err) => break Err(err.to_string()),
                             }
 

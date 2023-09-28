@@ -83,7 +83,7 @@ export type AppState = {
 /**
  * App store
  */
-export const useAppStore = create<AppState>((set, get) => {
+export const useAppStore = create<AppState>((set) => {
   const theme = getStartupTheme();
   updateTheme(theme);
   const setTheme = (theme: Theme) => {
@@ -97,7 +97,7 @@ export const useAppStore = create<AppState>((set, get) => {
   };
 
   const join = (...paths: string[]) => {
-    const pathSeparator = get().systemParticulars!.path_separator;
+    const pathSeparator = systemParticulars!.path_separator;
     return paths
       .flatMap((path) => path.split(pathSeparator))
       .filter((subject) => !!subject)

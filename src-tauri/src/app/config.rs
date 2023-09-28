@@ -51,7 +51,7 @@ impl Config {
 pub struct Binary {
     #[serde(default = "Binary::default_ffmpeg")]
     ffmpeg: String,
-    #[serde(default = "Binary::default_ffprob")]
+    #[serde(default = "Binary::default_ffprobe")]
     ffprob: String,
 }
 
@@ -62,15 +62,15 @@ impl Binary {
     }
 
     /// Gets default ffprob binary location, equals `ffprob`.
-    pub fn default_ffprob() -> String {
-        "ffprob".to_string()
+    pub fn default_ffprobe() -> String {
+        "ffprobe".to_string()
     }
 
     /// Gets default binary configs.
     pub fn default() -> Self {
         Self {
             ffmpeg: Self::default_ffmpeg(),
-            ffprob: Self::default_ffprob(),
+            ffprob: Self::default_ffprobe(),
         }
     }
 

@@ -1,84 +1,190 @@
-import { Button, Table, TableColumnProps } from "@arco-design/web-react";
-import { IconPause, IconPlayArrow, IconRecordStop } from "@arco-design/web-react/icon";
-import { pauseTranscode, resumeTranscode, startTranscode, stopTranscode } from "../tauri/transcode";
-import { listen } from "@tauri-apps/api/event";
-import { useEffect, useRef, useState } from "react";
+import { Button, Progress as ProgressBar, Table, TableColumnProps } from "@arco-design/web-react";
+import {
+  IconCheckCircle,
+  IconMore,
+  IconPause,
+  IconPauseCircle,
+  IconPlayArrow,
+  IconStop,
+} from "@arco-design/web-react/icon";
+import { useMemo } from "react";
+import { Task, TaskState, useTaskStore } from "../store/task";
+import { pauseTask, resumeTask, startTask, stopTask } from "../tauri/task";
+
+type TableData = {
+  id: string;
+  task: Task;
+  inputs: string[];
+  outputs: string[];
+};
+
+const StartButton = ({ onClick }: { onClick: () => Promise<void> }) => {
+  return (
+    <Button
+      className="mr-2"
+      shape="circle"
+      size="mini"
+      type="primary"
+      icon={<IconPlayArrow />}
+      onClick={onClick}
+    ></Button>
+  );
+};
+
+const PauseButton = ({ onClick }: { onClick: () => Promise<void> }) => {
+  return (
+    <Button
+      className="mr-2"
+      shape="circle"
+      size="mini"
+      type="primary"
+      status="warning"
+      icon={<IconPause />}
+      onClick={onClick}
+    ></Button>
+  );
+};
+
+const StopButton = ({ onClick }: { onClick: () => Promise<void> }) => {
+  return (
+    <Button
+      className="mr-2"
+      shape="circle"
+      size="mini"
+      type="primary"
+      status="danger"
+      icon={<IconStop />}
+      onClick={onClick}
+    ></Button>
+  );
+};
+
+const Operations = ({ id, task }: { id: string; task: Task }) => {
+  if (task.message) {
+    switch (task.message.type) {
+      case TaskState.Running: {
+        const pause = async () => {
+          await pauseTask(id);
+        };
+        const stop = async () => {
+          await stopTask(id);
+        };
+
+        return (
+          <>
+            <PauseButton onClick={pause} />
+            <StopButton onClick={stop} />
+          </>
+        );
+      }
+      case TaskState.Pausing: {
+        const resume = async () => {
+          await resumeTask(id);
+        };
+        const stop = async () => {
+          await stopTask(id);
+        };
+
+        return (
+          <>
+            <StartButton onClick={resume} />
+            <StopButton onClick={stop} />
+          </>
+        );
+      }
+      default:
+        return <></>;
+    }
+  } else {
+    const start = async () => {
+      // await getMediaMetadata(task.params.inputs.)
+      await startTask(id, task.params);
+    };
+
+    return <StartButton onClick={start} />;
+  }
+};
+
+const Progress = ({ task }: { task: Task }) => {
+  const progress = useMemo(() => {
+    if (task.message) {
+      switch (task.message.type) {
+        case TaskState.Running: {
+          const total = task.message.total_duration;
+          const output = (task.message.output_time_ms ?? 0) / 1000000;
+          const percent = (output / total) * 100;
+          return (
+            <ProgressBar
+              animation
+              percent={percent}
+              strokeWidth={20}
+              formatText={(percent) => `${percent.toFixed(2)}%`}
+            />
+          );
+        }
+        case TaskState.Pausing:
+          return <IconPauseCircle fontSize="24px" style={{ color: "orange" }} />;
+        case TaskState.Stopped:
+          return <IconStop fontSize="24px" style={{ color: "red" }} />;
+        case TaskState.Finished:
+          return <IconCheckCircle fontSize="24px" style={{ color: "green" }} />;
+      }
+    } else {
+      return <IconMore fontSize="24px" style={{ color: "#86909C" }} />;
+    }
+  }, [task]);
+
+  return (
+    <>
+      <div>{progress}</div>
+    </>
+  );
+};
 
 export default function QueuePage() {
+  const tasks = useTaskStore((state) => state.tasks);
+
   const tableCols: TableColumnProps[] = [
     {
-      title: "Input",
-      dataIndex: "input",
+      title: "Inputs",
+      dataIndex: "inputs",
     },
     {
-      title: "Output",
-      dataIndex: "output",
+      title: "Outputs",
+      dataIndex: "outputs",
     },
     {
       title: "Progress",
       dataIndex: "progress",
+      width: "18rem",
+      bodyCellStyle: {
+        lineHeight: "1",
+      },
+      render: (_, record: TableData) => <Progress task={record.task} />,
+    },
+    {
+      title: "Operations",
+      dataIndex: "operations",
+      fixed: "right",
+      width: "12rem",
+      render: (_, record: TableData) => <Operations id={record.id} task={record.task} />,
     },
   ];
 
-  const transcodeId = useRef("");
-  const [transcodePaused, setTranscodePaused] = useState(false);
-  const start = async () => {
-    const { id } = await startTranscode({
-      inputs: [{ path: "D:\\Captures\\2023-09-10 23-35-22.mp4", params: ["-c:v", "av1_cuvid"] }],
-      outputs: [
-        {
-          path: "F:\\Transcode\\2023-09-10 23-35-22(2).mp4",
-          params: [
-            "-c:v",
-            "hevc_nvenc",
-            "-preset",
-            "slow",
-            "-x265-params",
-            "lossless=1",
-            "-c:a",
-            "copy",
-          ],
-        },
-      ],
+  const tableData = useMemo(() => {
+    return Array.from(tasks.entries()).map(([id, task]) => {
+      return {
+        id,
+        task,
+        inputs: task.params.inputs.map((input) => input.path),
+        outputs: task.params.outputs.map((output) => output.path ?? "NULL"),
+      } as TableData;
     });
-
-    transcodeId.current = id;
-  };
-  const stop = async () => {
-    if (!transcodeId.current) return;
-
-    await stopTranscode(transcodeId.current);
-  };
-  const pause = async () => {
-    if (!transcodeId.current) return;
-
-    await pauseTranscode(transcodeId.current);
-    setTranscodePaused(true);
-  };
-  const resume = async () => {
-    if (!transcodeId.current) return;
-
-    await resumeTranscode(transcodeId.current);
-    setTranscodePaused(false);
-  };
-
-  useEffect(() => {
-    const unlistenPromise = listen("transcoding", (event) => {
-      console.log(event.payload);
-    });
-
-    return () => {
-      unlistenPromise.then((unlisten) => {
-        console.log(1);
-
-        unlisten();
-      });
-    };
-  }, []);
+  }, [tasks]);
 
   return (
     <>
-      <div className="mb-4">
+      {/* <div className="mb-4">
         <Button
           className="mr-2"
           shape="circle"
@@ -105,8 +211,8 @@ export default function QueuePage() {
           icon={<IconRecordStop />}
           onClick={stop}
         ></Button>
-      </div>
-      <Table columns={tableCols}></Table>
+      </div> */}
+      <Table stripe size="small" columns={tableCols} data={tableData}></Table>
     </>
   );
 }

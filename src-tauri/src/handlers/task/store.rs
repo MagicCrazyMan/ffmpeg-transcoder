@@ -3,8 +3,6 @@ use std::{collections::HashMap, sync::Arc};
 use log::warn;
 use tokio::sync::Mutex;
 
-use crate::handlers::error::Error;
-
 use super::item::TaskItem;
 
 pub struct TaskStore {
@@ -42,24 +40,29 @@ impl TaskStore {
     /// Returns an identifier which points to the task.
     pub async fn start(
         &self,
-        app_handle: tauri::AppHandle,
-        program: String,
+        id: uuid::Uuid,
         args: Vec<String>,
-    ) -> Result<uuid::Uuid, Error> {
-        let id = uuid::Uuid::new_v4();
+        app_handle: tauri::AppHandle,
+        total_duration: f64,
+        program: String,
+    ) {
         let task = TaskItem::new(
             id.clone(),
             app_handle,
             program,
             args,
+            total_duration,
             Arc::downgrade(&self.store),
         );
 
-        self.store.lock().await.insert(id.clone(), task.clone());
+        let removed = self.store.lock().await.insert(id.clone(), task.clone());
+        if let Some(removed) = removed {
+            tokio::spawn(async move {
+                removed.error("duplicated task id").await;
+            });
+        }
 
         tokio::spawn(async move { task.start().await });
-
-        Ok(id)
     }
 
     controls!(

@@ -11,7 +11,7 @@ import "./index.less";
 
 /**
  * A page for searching files from a input directory
- * and constructing transcode tasks.
+ * and constructing tasks.
  */
 export default function SearchPage() {
   const join = useAppStore((state) => state.join);

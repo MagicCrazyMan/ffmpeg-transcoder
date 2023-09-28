@@ -14,7 +14,7 @@ use tauri_plugin_log::LogTarget;
 use crate::handlers::commands::{
     fs::files_from_directory,
     particulars::system_particulars,
-    transcode::{pause_transcode, resume_transcode, start_transcode, stop_transcode},
+    task::{media_metadata, pause_task, resume_task, start_task, stop_task},
 };
 
 pub mod app;
@@ -38,10 +38,11 @@ fn start_app() -> AppResult<()> {
         .invoke_handler(tauri::generate_handler![
             system_particulars,
             files_from_directory,
-            start_transcode,
-            stop_transcode,
-            pause_transcode,
-            resume_transcode,
+            media_metadata,
+            start_task,
+            stop_task,
+            pause_task,
+            resume_task,
         ])
         .run(tauri::generate_context!())
         .into_app_result()?;

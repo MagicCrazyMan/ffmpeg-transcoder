@@ -3,6 +3,7 @@ pub static TASK_MESSAGE_EVENT: &'static str = "transcoding";
 #[derive(Debug, Clone, serde::Serialize)]
 pub(super) struct TaskRunningMessage {
     pub(super) id: String,
+    pub(super) total_duration: f64,
     pub(super) raw: Vec<String>,
     pub(super) frame: Option<usize>,
     pub(super) fps: Option<f64>,
@@ -15,9 +16,10 @@ pub(super) struct TaskRunningMessage {
 }
 
 impl TaskRunningMessage {
-    pub(super) fn new(id: String) -> Self {
+    pub(super) fn new(id: String, total_duration: f64) -> Self {
         Self {
-            id: id.to_string(),
+            id,
+            total_duration,
             raw: Vec::with_capacity(20),
             frame: None,
             fps: None,
@@ -46,25 +48,25 @@ impl TaskRunningMessage {
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(tag = "type")]
 pub(super) enum TaskMessage<'a> {
-    Idle { id: String },
+    // Start { id: String },
     Running(&'a TaskRunningMessage),
-    Paused { id: String },
+    Pausing { id: String },
     Stopped { id: String },
     Finished { id: String },
     Errored { id: String, reason: String },
 }
 
 impl<'a> TaskMessage<'a> {
-    pub(super) fn idle(id: String) -> Self {
-        Self::Idle { id }
-    }
+    // pub(super) fn start(id: String) -> Self {
+    //     Self::Start { id }
+    // }
 
     pub(super) fn running(msg: &'a TaskRunningMessage) -> Self {
         Self::Running(msg)
     }
 
     pub(super) fn pausing(id: String) -> Self {
-        Self::Paused { id }
+        Self::Pausing { id }
     }
 
     pub(super) fn stopped(id: String) -> Self {

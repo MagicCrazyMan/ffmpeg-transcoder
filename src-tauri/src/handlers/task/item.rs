@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Weak},
 };
 
-use log::{warn, info};
+use log::{info, warn};
 use tauri::Manager;
 use tokio::sync::Mutex;
 
@@ -12,11 +12,12 @@ use super::{
     state_machine::{Idle, TaskStateCode, TaskStateMachineNode},
 };
 
-/// A transcode data.
+/// Task data.
 pub(super) struct TaskData {
     pub(super) id: uuid::Uuid,
     pub(super) program: String,
     pub(super) args: Vec<String>,
+    pub(super) total_duration: f64,
     pub(super) app_handle: tauri::AppHandle,
 }
 
@@ -25,18 +26,20 @@ impl TaskData {
         id: uuid::Uuid,
         program: String,
         args: Vec<String>,
+        total_duration: f64,
         app_handle: tauri::AppHandle,
     ) -> Self {
         Self {
             id,
             program,
             args,
+            total_duration,
             app_handle,
         }
     }
 }
 
-/// A transcode data.
+/// Task Item.
 #[derive(Clone)]
 pub struct TaskItem {
     pub(super) data: Arc<TaskData>,
@@ -45,16 +48,17 @@ pub struct TaskItem {
 }
 
 impl TaskItem {
-    /// Creates a new transcode data.
+    /// Creates a new task item.
     pub(super) fn new(
         id: uuid::Uuid,
         app_handle: tauri::AppHandle,
         program: String,
         args: Vec<String>,
+        total_duration: f64,
         store: Weak<Mutex<HashMap<uuid::Uuid, TaskItem>>>,
     ) -> Self {
         Self {
-            data: Arc::new(TaskData::new(id, program, args, app_handle)),
+            data: Arc::new(TaskData::new(id, program, args, total_duration, app_handle)),
             state: Arc::new(Mutex::new(Some(Box::new(Idle)))),
             store,
         }
@@ -111,7 +115,7 @@ impl TaskItem {
                 let mut store = store.lock().await;
                 store.remove(&item.data.id);
             }
-            TaskStateCode::Running => return,
+            TaskStateCode::Idle | TaskStateCode::Running => return,
             _ => {}
         }
 
@@ -120,23 +124,23 @@ impl TaskItem {
         let app_handle = &item.data.app_handle;
         let msg = match next_state_code {
             // reserve, reset is possible in the future
-            TaskStateCode::Idle => {
-                info!("[{}] job reset", id);
-                TaskMessage::idle(id)
-            },
-            TaskStateCode::Running => unreachable!(),
+            // TaskStateCode::Idle => {
+            //     info!("[{}] job reset", id);
+            //     TaskMessage::start(id)
+            // },
+            TaskStateCode::Idle | TaskStateCode::Running => unreachable!(),
             TaskStateCode::Pausing => {
                 info!("[{}] job paused", id);
                 TaskMessage::pausing(id)
-            },
+            }
             TaskStateCode::Stopped => {
                 info!("[{}] job stopped", id);
                 TaskMessage::stopped(id)
-            },
+            }
             TaskStateCode::Finished => {
                 info!("[{}] job finished", id);
                 TaskMessage::finished(id)
-            },
+            }
             TaskStateCode::Errored => {
                 let message = message.unwrap_or("unknown error".to_string());
                 info!("[{}] job errored: {}", id, message);
