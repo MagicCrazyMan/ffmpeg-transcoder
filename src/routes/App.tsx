@@ -3,7 +3,7 @@ import { IconCheck, IconMoonFill, IconSunFill, IconThunderbolt } from "@arco-des
 import { useMemo, useState } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import { pageRoutes } from "../router";
-import { Theme, useAppStore } from "../store";
+import { Theme, useAppStore } from "../store/app";
 
 const MenuItem = Menu.Item;
 const Sider = Layout.Sider;
@@ -136,12 +136,12 @@ const LoadingPage = () => {
  */
 export default function App() {
   const systemParticulars = useAppStore((state) => state.systemParticulars);
-  const fetchSystemParticulars = useAppStore((state) => state.fetchSystemParticulars);
+  const updateSystemParticulars = useAppStore((state) => state.updateSystemParticulars);
 
   if (systemParticulars) {
     return <MainPage />;
   } else {
-    fetchSystemParticulars();
+    updateSystemParticulars();
     return <LoadingPage />;
   }
 }

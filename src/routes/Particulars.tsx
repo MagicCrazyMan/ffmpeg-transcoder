@@ -2,7 +2,7 @@ import { Descriptions, Image, Tag } from "@arco-design/web-react";
 import { useMemo } from "react";
 import FFmpegDarkThemeLogo from "../assets/ffmpeg_dark_theme.svg";
 import FFmpegLightThemeLogo from "../assets/ffmpeg_light_theme.svg";
-import { useAppStore } from "../store";
+import { useAppStore } from "../store/app";
 
 /**
  * A particular page informing ffmpeg and system basic information.

@@ -42,16 +42,14 @@ const getStartupTheme = () => {
       break;
   }
 
-  setTheme(theme);
-
   return theme;
 };
 
 /**
- * Sets theme and save to local storage
+ * Updates acro design theme mode and saves to local storage
  * @param theme
  */
-const setTheme = (theme: Theme) => {
+const updateTheme = (theme: Theme) => {
   let exactTheme: Theme;
   if (theme === Theme.Default) {
     localStorage.removeItem(THEME_LOCALSTORAGE_KEY);
@@ -77,7 +75,7 @@ export type AppState = {
   setTheme: (theme: Theme) => void;
 
   systemParticulars: null | SystemParticulars;
-  fetchSystemParticulars: () => Promise<void>;
+  updateSystemParticulars: () => Promise<void>;
 
   join: (...paths: string[]) => string;
 };
@@ -85,23 +83,32 @@ export type AppState = {
 /**
  * App store
  */
-export const useAppStore = create<AppState>((set, get) => ({
-  theme: getStartupTheme(),
-  setTheme: (theme: Theme) => {
-    setTheme(theme);
+export const useAppStore = create<AppState>((set, get) => {
+  const theme = getStartupTheme();
+  updateTheme(theme);
+  const setTheme = (theme: Theme) => {
+    updateTheme(theme);
     set({ theme });
-  },
+  };
 
-  systemParticulars: null as null | SystemParticulars,
-  fetchSystemParticulars: async () => {
+  const systemParticulars = null as null | SystemParticulars;
+  const updateSystemParticulars = async () => {
     set({ systemParticulars: await getSystemParticulars() });
-  },
+  };
 
-  join: (...paths: string[]) => {
+  const join = (...paths: string[]) => {
     const pathSeparator = get().systemParticulars!.path_separator;
     return paths
       .flatMap((path) => path.split(pathSeparator))
       .filter((subject) => !!subject)
       .join(pathSeparator);
-  },
-}));
+  };
+
+  return {
+    theme,
+    setTheme,
+    systemParticulars,
+    updateSystemParticulars,
+    join,
+  };
+});

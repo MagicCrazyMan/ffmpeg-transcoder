@@ -1,7 +1,7 @@
 import { Button, Divider, Table, TableColumnProps } from "@arco-design/web-react";
 import { useEffect, useMemo, useState } from "react";
 import { v4 } from "uuid";
-import { useAppStore } from "../../store";
+import { useAppStore } from "../../store/app";
 import { TargetFile } from "../../tauri/fs";
 import DirectoryIO from "./DirectoryIO";
 import ExtensionFilter from "./ExtensionFilter";

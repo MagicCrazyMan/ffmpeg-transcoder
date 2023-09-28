@@ -64,7 +64,15 @@ impl TaskStateMachineNode for Idle {
     }
 
     async fn start(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
-        let process = Command::new(&item.data.program)
+        let mut command = Command::new(&item.data.program);
+
+        #[cfg(windows)]
+        {
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+            command.creation_flags(CREATE_NO_WINDOW);
+        };
+
+        let process = command
             .args(&item.data.args)
             .stdin(Stdio::piped())
             .stderr(Stdio::piped())
