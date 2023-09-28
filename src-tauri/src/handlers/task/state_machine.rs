@@ -199,18 +199,20 @@ impl TaskStateMachineNode for Running {
     }
 
     async fn stop(self: Box<Self>, _item: TaskItem) -> Box<dyn TaskStateMachineNode> {
-        self.watchdog_cancellations.0.cancel();
-        self.watchdog_cancellations.1.cancel();
-        if let Err(err) = self.watchdog_handle.await {
-            return Box::new(Errored::from_err(err));
-        }
-
         let mut process = self.process.lock().await;
         let kill = async {
             process.start_kill()?;
             process.wait().await
         };
         if let Err(err) = kill.await {
+            return Box::new(Errored::from_err(err));
+        };
+        // MUST drop here, or watchdog_handle can NEVER get mutex lock of process
+        drop(process);
+
+        self.watchdog_cancellations.0.cancel();
+        self.watchdog_cancellations.1.cancel();
+        if let Err(err) = self.watchdog_handle.await {
             Box::new(Errored::from_err(err))
         } else {
             Box::new(Stopped)
@@ -371,9 +373,12 @@ impl TaskStateMachineNode for Stopped {
     async fn error(
         self: Box<Self>,
         item: TaskItem,
-        _reason: String,
+        reason: String,
     ) -> Box<dyn TaskStateMachineNode> {
-        warn!("[{}] attempting to error a stopped task", item.data.id);
+        warn!(
+            "[{}] attempting to error a stopped task, reason: {}",
+            item.data.id, reason
+        );
         self
     }
 }
@@ -434,11 +439,11 @@ impl TaskStateMachineNode for Errored {
     async fn error(
         self: Box<Self>,
         item: TaskItem,
-        _reason: String,
+        reason: String,
     ) -> Box<dyn TaskStateMachineNode> {
         warn!(
-            "[{}] attempting to change error of a errored task",
-            item.data.id
+            "[{}] attempting to change error of a errored task, reason: {}",
+            item.data.id, reason
         );
         self
     }
@@ -483,9 +488,12 @@ impl TaskStateMachineNode for Finished {
     async fn error(
         self: Box<Self>,
         item: TaskItem,
-        _reason: String,
+        reason: String,
     ) -> Box<dyn TaskStateMachineNode> {
-        warn!("[{}] attempting to error a finished task", item.data.id);
+        warn!(
+            "[{}] attempting to error a finished task, reason: {}",
+            item.data.id, reason
+        );
         self
     }
 }
@@ -527,14 +535,19 @@ async fn start_capture(
                 len = reader.read_line(&mut line) => {
                     match len {
                         Ok(len) =>  len,
-                        Err(err) => break Err(err.to_string()),
+                        Err(err) => {
+                            match err.kind() {
+                                std::io::ErrorKind::UnexpectedEof => break Ok(false),
+                                _ => break Err(err.to_string()),
+                            }
+                        },
                     }
                 }
             };
 
             // should stop or reach eof
             if len == 0 {
-                break Err("unexpected reached eof".to_string());
+                break Ok(false);
             }
 
             let trimmed_line = line.trim();
@@ -626,17 +639,19 @@ async fn start_capture(
             len = reader.read_line(&mut line) => {
                 match len {
                     Ok(len) => len,
-                    Err(err) => return (reader.into_inner(), Err(err.to_string())),
+                    Err(err) => {
+                        match err.kind() {
+                            std::io::ErrorKind::UnexpectedEof => return (reader.into_inner(), Ok(())),
+                            _ => return (reader.into_inner(), Err(err.to_string())),
+                        }
+                    },
                 }
             }
         };
 
         // should stop or reach eof
         if len == 0 {
-            (
-                reader.into_inner(),
-                Err("unexpected reached eof".to_string()),
-            )
+            (reader.into_inner(), Ok(()))
         } else {
             (reader.into_inner(), Err(line.trim().to_string()))
         }
@@ -667,8 +682,21 @@ fn start_watchdog(
                 (Ok(stdout_handle_result), Ok(stderr_handle_result)) => {
                     (stdout_handle_result, stderr_handle_result)
                 }
-                _ => {
-                    tokio::spawn(async move { item.error("program unexpected exited").await });
+                (Err(err), Ok(_)) => {
+                    let reason = format!("stdout handle exited failure: {err}");
+                    tokio::spawn(async move { item.error(reason).await });
+                    return;
+                }
+                (Ok(_), Err(err)) => {
+                    let reason = format!("stderr handle exited failure: {err}");
+                    tokio::spawn(async move { item.error(reason).await });
+                    return;
+                }
+                (Err(err0), Err(err1)) => {
+                    let reason = format!(
+                        "stdout handle exited failure: {err0}. stderr handle exited failure: {err1}"
+                    );
+                    tokio::spawn(async move { item.error(reason).await });
                     return;
                 }
             };
@@ -683,9 +711,17 @@ fn start_watchdog(
                     // pause, do nothing
                 }
             }
-            _ => {
-                tokio::spawn(async move { item.error("program unexpected exited").await });
-                return;
+            (Ok(_), Err(err)) => {
+                let reason = format!("stderr capturing thread exited failure: {err}");
+                tokio::spawn(async move { item.error(reason).await });
+            }
+            (Err(err), Ok(_)) => {
+                let reason = format!("stdout capturing thread exited failure: {err}");
+                tokio::spawn(async move { item.error(reason).await });
+            }
+            (Err(err0), Err(err1)) => {
+                let reason = format!("stdout capturing thread exited failure: {err0}. stderr capturing thread exited failure: {err1}");
+                tokio::spawn(async move { item.error(reason).await });
             }
         }
     })

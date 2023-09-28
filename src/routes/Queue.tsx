@@ -24,22 +24,19 @@ export default function QueuePage() {
   const [transcodePaused, setTranscodePaused] = useState(false);
   const start = async () => {
     const { id } = await startTranscode({
-      inputs: [{ path: "D:\\Captures\\2023-09-10 23-35-22.mp4" }],
+      inputs: [{ path: "D:\\Captures\\2023-09-10 23-35-22.mp4", params: ["-c:v", "av1_cuvid"] }],
       outputs: [
         {
-          // path: "F:\\Transcode\\2023-09-10 23-35-22.mp4",
+          path: "F:\\Transcode\\2023-09-10 23-35-22(2).mp4",
           params: [
             "-c:v",
             "hevc_nvenc",
             "-preset",
-            "fast",
+            "slow",
             "-x265-params",
             "lossless=1",
             "-c:a",
             "copy",
-            "-f",
-            "null",
-            "-",
           ],
         },
       ],
