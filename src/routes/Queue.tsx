@@ -18,7 +18,17 @@ type TableData = {
   outputs: string[];
 };
 
-const StartButton = ({ onClick }: { onClick: () => Promise<void> }) => {
+const StartButton = ({ task }: { task: Task }) => {
+  const updateTask = useTaskStore((state) => state.updateTask);
+  const start = () => {
+    if (task.commanding) return;
+
+    updateTask(task.id, { commanding: true });
+    startTask(task.id, task.params).finally(() => {
+      updateTask(task.id, { commanding: false });
+    });
+  };
+
   return (
     <Button
       className="mr-2"
@@ -26,12 +36,22 @@ const StartButton = ({ onClick }: { onClick: () => Promise<void> }) => {
       size="mini"
       type="primary"
       icon={<IconPlayArrow />}
-      onClick={onClick}
+      onClick={start}
     ></Button>
   );
 };
 
-const PauseButton = ({ onClick }: { onClick: () => Promise<void> }) => {
+const PauseButton = ({ task }: { task: Task }) => {
+  const updateTask = useTaskStore((state) => state.updateTask);
+  const pause = () => {
+    if (task.commanding) return;
+
+    updateTask(task.id, { commanding: true });
+    pauseTask(task.id).finally(() => {
+      updateTask(task.id, { commanding: false });
+    });
+  };
+
   return (
     <Button
       className="mr-2"
@@ -40,12 +60,45 @@ const PauseButton = ({ onClick }: { onClick: () => Promise<void> }) => {
       type="primary"
       status="warning"
       icon={<IconPause />}
-      onClick={onClick}
+      onClick={pause}
     ></Button>
   );
 };
 
-const StopButton = ({ onClick }: { onClick: () => Promise<void> }) => {
+const ResumeButton = ({ task }: { task: Task }) => {
+  const updateTask = useTaskStore((state) => state.updateTask);
+  const resume = () => {
+    if (task.commanding) return;
+
+    updateTask(task.id, { commanding: true });
+    resumeTask(task.id).finally(() => {
+      updateTask(task.id, { commanding: false });
+    });
+  };
+
+  return (
+    <Button
+      className="mr-2"
+      shape="circle"
+      size="mini"
+      type="primary"
+      icon={<IconPlayArrow />}
+      onClick={resume}
+    ></Button>
+  );
+};
+
+const StopButton = ({ task }: { task: Task }) => {
+  const updateTask = useTaskStore((state) => state.updateTask);
+  const stop = () => {
+    if (task.commanding) return;
+
+    updateTask(task.id, { commanding: true });
+    stopTask(task.id).finally(() => {
+      updateTask(task.id, { commanding: false });
+    });
+  };
+
   return (
     <Button
       className="mr-2"
@@ -54,12 +107,13 @@ const StopButton = ({ onClick }: { onClick: () => Promise<void> }) => {
       type="primary"
       status="danger"
       icon={<IconStop />}
-      onClick={onClick}
+      onClick={stop}
     ></Button>
   );
 };
 
-const ResetButton = ({ onClick }: { onClick: () => void }) => {
+const ResetButton = ({ task }: { task: Task }) => {
+  const resetTask = useTaskStore((state) => state.resetTask);
   return (
     <Button
       className="mr-2"
@@ -67,68 +121,40 @@ const ResetButton = ({ onClick }: { onClick: () => void }) => {
       size="mini"
       type="primary"
       icon={<IconLoop />}
-      onClick={onClick}
+      onClick={() => resetTask(task.id)}
     ></Button>
   );
 };
 
 const Operations = ({ task }: { task: Task }) => {
-  const updateTask = useTaskStore((state) => state.updateTask);
-  const resetTask = useTaskStore((state) => state.resetTask);
-
-  const sendCommand = async (task: Task, type: "start" | "pause" | "resume" | "stop") => {
-    if (task.commanding) return;
-
-    updateTask(task.id, { commanding: true });
-    let promise: Promise<void>;
-    switch (type) {
-      case "start":
-        promise = startTask(task.id, task.params);
-        break;
-      case "pause":
-        promise = pauseTask(task.id);
-        break;
-      case "resume":
-        promise = resumeTask(task.id);
-        break;
-      case "stop":
-        promise = stopTask(task.id);
-        break;
-    }
-
-    await promise.finally(() => {
-      updateTask(task.id, { commanding: false });
-    });
-  };
-
   if (task.message) {
     // task running
     switch (task.message.type) {
       case TaskState.Running: {
         return (
           <>
-            <PauseButton onClick={() => sendCommand(task, "pause")} />
-            <StopButton onClick={() => sendCommand(task, "stop")} />
+            <PauseButton task={task} />
+            <StopButton task={task} />
           </>
         );
       }
       case TaskState.Pausing: {
         return (
           <>
-            <StartButton onClick={() => sendCommand(task, "resume")} />
-            <StopButton onClick={() => sendCommand(task, "stop")} />
+            <ResumeButton task={task} />
+            <StopButton task={task} />
           </>
         );
       }
       case TaskState.Stopped:
-        return <ResetButton onClick={() => resetTask(task.id)} />;
+        return <ResetButton task={task} />;
       case TaskState.Finished:
       default:
         return <></>;
     }
   } else {
     // task not start
-    return <StartButton onClick={() => sendCommand(task, "start")} />;
+    return <StartButton task={task} />;
   }
 };
 
