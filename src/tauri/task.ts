@@ -1,8 +1,8 @@
 import { invoke } from "@tauri-apps/api";
-import { TaskParams } from "../store/task";
+import { TaskParams } from "../store/tasks";
 
 export const startTask = async (id: string, params: TaskParams) => {
-  return await invoke<{ id: string }>("start_task", { id, params });
+  return await invoke<void>("start_task", { id, params });
 };
 
 export const stopTask = async (id: string) => {

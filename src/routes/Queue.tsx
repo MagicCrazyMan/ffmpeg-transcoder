@@ -1,6 +1,7 @@
 import { Button, Progress as ProgressBar, Table, TableColumnProps } from "@arco-design/web-react";
 import {
   IconCheckCircle,
+  IconLoop,
   IconMore,
   IconPause,
   IconPauseCircle,
@@ -8,7 +9,7 @@ import {
   IconStop,
 } from "@arco-design/web-react/icon";
 import { useMemo } from "react";
-import { Task, TaskState, useTaskStore } from "../store/task";
+import { Task, TaskState, useTaskStore } from "../store/tasks";
 import { pauseTask, resumeTask, startTask, stopTask } from "../tauri/task";
 
 type TableData = {
@@ -58,49 +59,76 @@ const StopButton = ({ onClick }: { onClick: () => Promise<void> }) => {
   );
 };
 
+const ResetButton = ({ onClick }: { onClick: () => void }) => {
+  return (
+    <Button
+      className="mr-2"
+      shape="circle"
+      size="mini"
+      type="primary"
+      icon={<IconLoop />}
+      onClick={onClick}
+    ></Button>
+  );
+};
+
 const Operations = ({ task }: { task: Task }) => {
+  const updateTask = useTaskStore((state) => state.updateTask);
+  const resetTask = useTaskStore((state) => state.resetTask);
+
+  const sendCommand = async (task: Task, type: "start" | "pause" | "resume" | "stop") => {
+    if (task.commanding) return;
+
+    updateTask(task.id, { commanding: true });
+    let promise: Promise<void>;
+    switch (type) {
+      case "start":
+        promise = startTask(task.id, task.params);
+        break;
+      case "pause":
+        promise = pauseTask(task.id);
+        break;
+      case "resume":
+        promise = resumeTask(task.id);
+        break;
+      case "stop":
+        promise = stopTask(task.id);
+        break;
+    }
+
+    await promise.finally(() => {
+      updateTask(task.id, { commanding: false });
+    });
+  };
+
   if (task.message) {
+    // task running
     switch (task.message.type) {
       case TaskState.Running: {
-        const pause = async () => {
-          await pauseTask(task.id);
-        };
-        const stop = async () => {
-          await stopTask(task.id);
-        };
-
         return (
           <>
-            <PauseButton onClick={pause} />
-            <StopButton onClick={stop} />
+            <PauseButton onClick={() => sendCommand(task, "pause")} />
+            <StopButton onClick={() => sendCommand(task, "stop")} />
           </>
         );
       }
       case TaskState.Pausing: {
-        const resume = async () => {
-          await resumeTask(task.id);
-        };
-        const stop = async () => {
-          await stopTask(task.id);
-        };
-
         return (
           <>
-            <StartButton onClick={resume} />
-            <StopButton onClick={stop} />
+            <StartButton onClick={() => sendCommand(task, "resume")} />
+            <StopButton onClick={() => sendCommand(task, "stop")} />
           </>
         );
       }
+      case TaskState.Stopped:
+        return <ResetButton onClick={() => resetTask(task.id)} />;
+      case TaskState.Finished:
       default:
         return <></>;
     }
   } else {
-    const start = async () => {
-      // await getMediaMetadata(task.params.inputs.)
-      await startTask(task.id, task.params);
-    };
-
-    return <StartButton onClick={start} />;
+    // task not start
+    return <StartButton onClick={() => sendCommand(task, "start")} />;
   }
 };
 

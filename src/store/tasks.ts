@@ -4,6 +4,10 @@ import { create } from "zustand";
 
 export type TaskStoreState = {
   tasks: Task[];
+  updateTask: (id: string, task: Partial<Task>) => void;
+  removeTask: (id: string) => void;
+  addTask: (task: Task) => void;
+  resetTask: (id: string) => void;
 };
 
 export type Task = {
@@ -117,14 +121,36 @@ export const useTaskStore = create<TaskStoreState>((set) => {
     },
   ];
   const updateTask = (id: string, task: Partial<Task>) => {
-    const i = tasks.findIndex((task) => task.id == id);
+    const i = tasks.findIndex((task) => task.id === id);
     if (i !== -1) {
-      const o = tasks[i]
+      const o = tasks[i];
       const n = {
         ...o,
         ...task,
       };
       tasks[i] = n;
+      set({ tasks: [...tasks] });
+    }
+  };
+  const removeTask = (id: string) => {
+    const i = tasks.findIndex((task) => task.id === id);
+    if (i !== -1) {
+      tasks.splice(i, 1);
+      set({ tasks: [...tasks] });
+    }
+  };
+  const addTask = (task: Task) => {
+    tasks.push(task);
+    set({ tasks: [...tasks] });
+  };
+  const resetTask = (id: string) => {
+    const i = tasks.findIndex((task) => task.id === id);
+    if (i !== -1) {
+      tasks[i] = {
+        id: v4(),
+        commanding: false,
+        params: tasks[i].params,
+      };
       set({ tasks: [...tasks] });
     }
   };
@@ -135,5 +161,8 @@ export const useTaskStore = create<TaskStoreState>((set) => {
   return {
     tasks,
     updateTask,
+    removeTask,
+    addTask,
+    resetTask,
   };
 });
