@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api";
-import { TaskParams } from "../store/tasks";
+import { TaskParams } from "../store/task";
 
 export const startTask = async (id: string, params: TaskParams) => {
   return await invoke<void>("start_task", { id, params });
@@ -118,5 +118,7 @@ export type Chapter = {
 };
 
 export const getMediaMetadata = async (path: string) => {
-  return await invoke<Metadata>("media_metadata", { path });
+  return await invoke<string>("media_metadata", { path }).then(
+    (metadataRaw) => JSON.parse(metadataRaw) as Metadata
+  );
 };

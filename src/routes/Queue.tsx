@@ -1,6 +1,13 @@
-import { Button, Progress as ProgressBar, Table, TableColumnProps } from "@arco-design/web-react";
+import {
+  Button,
+  Modal,
+  Progress as ProgressBar,
+  Table,
+  TableColumnProps,
+} from "@arco-design/web-react";
 import {
   IconCheckCircle,
+  IconInfo,
   IconLoop,
   IconMore,
   IconPause,
@@ -8,9 +15,9 @@ import {
   IconPlayArrow,
   IconStop,
 } from "@arco-design/web-react/icon";
-import { useMemo } from "react";
-import { Task, TaskState, useTaskStore } from "../store/tasks";
-import { pauseTask, resumeTask, startTask, stopTask } from "../tauri/task";
+import { useMemo, useState } from "react";
+import { Task, TaskState, useTaskStore } from "../store/task";
+import { getMediaMetadata, pauseTask, resumeTask, startTask, stopTask } from "../tauri/task";
 
 type TableData = {
   task: Task;
@@ -126,7 +133,20 @@ const ResetButton = ({ task }: { task: Task }) => {
   );
 };
 
-const Operations = ({ task }: { task: Task }) => {
+const InfoButton = ({ onClick }: { onClick: () => void }) => {
+  return (
+    <Button
+      className="mr-2"
+      shape="circle"
+      size="mini"
+      type="secondary"
+      icon={<IconInfo />}
+      onClick={onClick}
+    ></Button>
+  );
+};
+
+const Operations = ({ task, onDetails }: { task: Task; onDetails: () => void }) => {
   if (task.message) {
     // task running
     switch (task.message.type) {
@@ -135,6 +155,7 @@ const Operations = ({ task }: { task: Task }) => {
           <>
             <PauseButton task={task} />
             <StopButton task={task} />
+            <InfoButton onClick={onDetails} />
           </>
         );
       }
@@ -143,18 +164,29 @@ const Operations = ({ task }: { task: Task }) => {
           <>
             <ResumeButton task={task} />
             <StopButton task={task} />
+            <InfoButton onClick={onDetails} />
           </>
         );
       }
       case TaskState.Stopped:
-        return <ResetButton task={task} />;
+        return (
+          <>
+            <ResetButton task={task} />
+            <InfoButton onClick={onDetails} />
+          </>
+        );
       case TaskState.Finished:
       default:
-        return <></>;
+        return <InfoButton onClick={onDetails} />;
     }
   } else {
     // task not start
-    return <StartButton task={task} />;
+    return (
+      <>
+        <StartButton task={task} />
+        <InfoButton onClick={onDetails} />
+      </>
+    );
   }
 };
 
@@ -194,8 +226,53 @@ const Progress = ({ task }: { task: Task }) => {
   );
 };
 
+const DetailsContent = ({ taskId }: { taskId?: string }) => {
+  const tasks = useTaskStore((state) => state.tasks);
+  const task = useMemo(
+    () => (taskId ? tasks.find((task) => task.id === taskId) : undefined),
+    [tasks, taskId]
+  );
+
+  const updateTask = useTaskStore((state) => state.updateTask);
+
+  if (!task) return <></>;
+
+  if (task.metadata) {
+    return <div>{JSON.stringify(task.metadata)}</div>;
+  } else {
+    if (task.metadataLoading) return <></>;
+
+    updateTask(task.id, { metadataLoading: true });
+    const promises = task.params.inputs.map((input) => getMediaMetadata(input.path));
+    Promise.all(promises)
+      .then((metadata) => updateTask(task.id, { metadata, metadataLoading: false }))
+      .catch(() => {
+        updateTask(task.id, { metadataLoading: false });
+      });
+
+    return <></>;
+  }
+};
+
+const Details = ({ taskId, onClose }: { taskId?: string; onClose: () => void }) => {
+  const visible = useMemo(() => !!taskId, [taskId]);
+
+  return (
+    <Modal
+      title="Task Details"
+      visible={visible}
+      onCancel={onClose}
+      onOk={onClose}
+    >
+      <DetailsContent taskId={taskId} />
+    </Modal>
+  );
+};
+
 export default function QueuePage() {
   const tasks = useTaskStore((state) => state.tasks);
+
+  const [detailsTaskId, setDetailsTaskId] = useState<undefined | string>(undefined);
 
   const tableCols: TableColumnProps[] = [
     {
@@ -220,7 +297,14 @@ export default function QueuePage() {
       dataIndex: "operations",
       fixed: "right",
       width: "12rem",
-      render: (_, record: TableData) => <Operations task={record.task} />,
+      render: (_, record: TableData) => (
+        <Operations
+          task={record.task}
+          onDetails={() => {
+            setDetailsTaskId(record.task.id);
+          }}
+        />
+      ),
     },
   ];
 
@@ -265,6 +349,7 @@ export default function QueuePage() {
         ></Button>
       </div> */}
       <Table stripe size="small" columns={tableCols} data={tableData}></Table>
+      <Details taskId={detailsTaskId} onClose={() => setDetailsTaskId(undefined)} />
     </>
   );
 }

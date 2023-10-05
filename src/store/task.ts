@@ -1,6 +1,7 @@
 import { listen } from "@tauri-apps/api/event";
 import { v4 } from "uuid";
 import { create } from "zustand";
+import { Metadata } from "../tauri/task";
 
 export type TaskStoreState = {
   tasks: Task[];
@@ -14,7 +15,8 @@ export type Task = {
   id: string;
   params: TaskParams;
   commanding: boolean;
-  metadata?: MediaMetadata;
+  metadataLoading: boolean;
+  metadata?: Metadata[];
   message?: TaskMessage;
 };
 
@@ -109,6 +111,7 @@ export const useTaskStore = create<TaskStoreState>((set) => {
     {
       id: v4(),
       commanding: false,
+      metadataLoading: false,
       params: {
         inputs: [{ path: "D:\\Captures\\2023-09-10 23-35-22.mp4", params: ["-c:v", "av1_cuvid"] }],
         outputs: [
@@ -149,6 +152,7 @@ export const useTaskStore = create<TaskStoreState>((set) => {
       tasks[i] = {
         id: v4(),
         commanding: false,
+        metadataLoading: false,
         params: tasks[i].params,
       };
       set({ tasks: [...tasks] });
