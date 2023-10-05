@@ -3,10 +3,11 @@ import { v4 } from "uuid";
 import { create } from "zustand";
 
 export type TaskStoreState = {
-  tasks: Map<string, Task>;
+  tasks: Task[];
 };
 
 export type Task = {
+  id: string;
   params: TaskParams;
   commanding: boolean;
   metadata?: MediaMetadata;
@@ -100,48 +101,36 @@ const listenTaskMessages = (updateTask: (id: string, task: Partial<Task>) => voi
 };
 
 export const useTaskStore = create<TaskStoreState>((set) => {
-  const tasks = new Map<string, Task>();
-  // test data
-  tasks.set(v4(), {
-    commanding: false,
-    params: {
-      inputs: [{ path: "D:\\Captures\\2023-09-10 23-35-22.mp4", params: ["-c:v", "av1_cuvid"] }],
-      outputs: [
-        {
-          path: "F:\\Transcode\\2023-09-10 23-35-22(2).mp4",
-          params: [
-            "-c:v",
-            "hevc_nvenc",
-            "-b:v",
-            "2000",
-            "-preset",
-            "fast",
-            "-c:a",
-            "copy",
-          ],
-        },
-      ],
+  const tasks: Task[] = [
+    {
+      id: v4(),
+      commanding: false,
+      params: {
+        inputs: [{ path: "D:\\Captures\\2023-09-10 23-35-22.mp4", params: ["-c:v", "av1_cuvid"] }],
+        outputs: [
+          {
+            path: "F:\\Transcode\\2023-09-10 23-35-22(2).mp4",
+            params: ["-c:v", "hevc_nvenc", "-b:v", "2000", "-preset", "fast", "-c:a", "copy"],
+          },
+        ],
+      },
     },
-  });
+  ];
   const updateTask = (id: string, task: Partial<Task>) => {
-    const old = tasks.get(id);
-    if (old) {
-      // MUST create a new object and new Map for trigger update for ReactJS
-      tasks.set(id, {
-        ...old,
+    const i = tasks.findIndex((task) => task.id == id);
+    if (i !== -1) {
+      const o = tasks[i]
+      const n = {
+        ...o,
         ...task,
-      });
-      set({ tasks: new Map(tasks) });
+      };
+      tasks[i] = n;
+      set({ tasks: [...tasks] });
     }
   };
   // starts listen to task message.
   // listener lives until app quits, thus, it is no need to unlisten it
   listenTaskMessages(updateTask);
-  window.addEventListener("unload", () => {
-    console.log(111);
-    
-    
-  })
 
   return {
     tasks,

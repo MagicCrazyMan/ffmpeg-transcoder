@@ -12,7 +12,6 @@ import { Task, TaskState, useTaskStore } from "../store/task";
 import { pauseTask, resumeTask, startTask, stopTask } from "../tauri/task";
 
 type TableData = {
-  id: string;
   task: Task;
   inputs: string[];
   outputs: string[];
@@ -59,15 +58,15 @@ const StopButton = ({ onClick }: { onClick: () => Promise<void> }) => {
   );
 };
 
-const Operations = ({ id, task }: { id: string; task: Task }) => {
+const Operations = ({ task }: { task: Task }) => {
   if (task.message) {
     switch (task.message.type) {
       case TaskState.Running: {
         const pause = async () => {
-          await pauseTask(id);
+          await pauseTask(task.id);
         };
         const stop = async () => {
-          await stopTask(id);
+          await stopTask(task.id);
         };
 
         return (
@@ -79,10 +78,10 @@ const Operations = ({ id, task }: { id: string; task: Task }) => {
       }
       case TaskState.Pausing: {
         const resume = async () => {
-          await resumeTask(id);
+          await resumeTask(task.id);
         };
         const stop = async () => {
-          await stopTask(id);
+          await stopTask(task.id);
         };
 
         return (
@@ -98,7 +97,7 @@ const Operations = ({ id, task }: { id: string; task: Task }) => {
   } else {
     const start = async () => {
       // await getMediaMetadata(task.params.inputs.)
-      await startTask(id, task.params);
+      await startTask(task.id, task.params);
     };
 
     return <StartButton onClick={start} />;
@@ -167,14 +166,13 @@ export default function QueuePage() {
       dataIndex: "operations",
       fixed: "right",
       width: "12rem",
-      render: (_, record: TableData) => <Operations id={record.id} task={record.task} />,
+      render: (_, record: TableData) => <Operations task={record.task} />,
     },
   ];
 
   const tableData = useMemo(() => {
-    return Array.from(tasks.entries()).map(([id, task]) => {
+    return tasks.map((task) => {
       return {
-        id,
         task,
         inputs: task.params.inputs.map((input) => input.path),
         outputs: task.params.outputs.map((output) => output.path ?? "NULL"),

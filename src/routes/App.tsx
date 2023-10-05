@@ -1,5 +1,5 @@
 import { Button, ConfigProvider, Dropdown, Icon, Layout, Menu, Spin } from "@arco-design/web-react";
-import { IconCheck, IconMoonFill, IconSunFill, IconThunderbolt } from "@arco-design/web-react/icon";
+import { IconMoonFill, IconSunFill, IconThunderbolt } from "@arco-design/web-react/icon";
 import { useMemo, useState } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import { pageRoutes } from "../router";
@@ -51,7 +51,7 @@ const ThemeSwitcher = () => {
     [Theme.Default, "Follow System"],
   ].map(([t, s]) => (
     <MenuItem key={t}>
-      {theme === t ? <IconCheck /> : <Icon />} {s}
+      {theme === t ? icon : <Icon />} {s}
     </MenuItem>
   ));
   const droplist = (
