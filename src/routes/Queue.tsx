@@ -218,7 +218,7 @@ const Progress = ({ task }: { task: Task }) => {
   }
 };
 
-const DetailsContent = ({ taskId }: { taskId?: string }) => {
+const Details = ({ taskId }: { taskId?: string }) => {
   const tasks = useTaskStore((state) => state.tasks);
   const task = useMemo(
     () => (taskId ? tasks.find((task) => task.id === taskId) : undefined),
@@ -244,16 +244,6 @@ const DetailsContent = ({ taskId }: { taskId?: string }) => {
 
     return <></>;
   }
-};
-
-const Details = ({ taskId, onClose }: { taskId?: string; onClose: () => void }) => {
-  const visible = useMemo(() => !!taskId, [taskId]);
-
-  return (
-    <Modal title="Task Details" visible={visible} onCancel={onClose} onOk={onClose}>
-      <DetailsContent taskId={taskId} />
-    </Modal>
-  );
 };
 
 export default function QueuePage() {
@@ -336,7 +326,16 @@ export default function QueuePage() {
         ></Button>
       </div> */}
       <Table stripe size="small" columns={tableCols} data={tableData}></Table>
-      <Details taskId={detailsTaskId} onClose={() => setDetailsTaskId(undefined)} />
+
+      {/* Model Displaying Task Details */}
+      <Modal
+        title="Task Details"
+        visible={!!detailsTaskId}
+        onCancel={() => setDetailsTaskId(undefined)}
+        onOk={() => setDetailsTaskId(undefined)}
+      >
+        <Details taskId={detailsTaskId} />
+      </Modal>
     </>
   );
 }
