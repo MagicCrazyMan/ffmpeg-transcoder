@@ -237,17 +237,17 @@ const DetailsContent = ({ taskId }: { taskId?: string }) => {
 
   if (!task) return <></>;
 
-  if (task.metadata) {
+  if (Array.isArray(task.metadata)) {
     return <div>{JSON.stringify(task.metadata)}</div>;
+  } else if (task.metadata) {
+    return <></>;
   } else {
-    if (task.metadataLoading) return <></>;
-
-    updateTask(task.id, { metadataLoading: true });
+    updateTask(task.id, { metadata: true });
     const promises = task.params.inputs.map((input) => getMediaMetadata(input.path));
     Promise.all(promises)
-      .then((metadata) => updateTask(task.id, { metadata, metadataLoading: false }))
+      .then((metadata) => updateTask(task.id, { metadata }))
       .catch(() => {
-        updateTask(task.id, { metadataLoading: false });
+        updateTask(task.id, { metadata: false });
       });
 
     return <></>;
@@ -258,12 +258,7 @@ const Details = ({ taskId, onClose }: { taskId?: string; onClose: () => void }) 
   const visible = useMemo(() => !!taskId, [taskId]);
 
   return (
-    <Modal
-      title="Task Details"
-      visible={visible}
-      onCancel={onClose}
-      onOk={onClose}
-    >
+    <Modal title="Task Details" visible={visible} onCancel={onClose} onOk={onClose}>
       <DetailsContent taskId={taskId} />
     </Modal>
   );

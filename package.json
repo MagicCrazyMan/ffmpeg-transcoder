@@ -20,18 +20,18 @@
     "sort-by": "^1.2.0",
     "use-immer": "^0.9.0",
     "uuid": "^9.0.1",
-    "zustand": "^4.4.2"
+    "zustand": "^4.4.3"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^1.5.1",
     "@types/react": "^18.2.25",
-    "@types/react-dom": "^18.2.10",
-    "@types/uuid": "^9.0.4",
+    "@types/react-dom": "^18.2.11",
+    "@types/uuid": "^9.0.5",
     "@typescript-eslint/eslint-plugin": "^6.7.4",
     "@typescript-eslint/parser": "^6.7.4",
     "@vitejs/plugin-react-swc": "^3.4.0",
     "autoprefixer": "^10.4.16",
-    "eslint": "^8.50.0",
+    "eslint": "^8.51.0",
     "eslint-config-prettier": "^9.0.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.3",
