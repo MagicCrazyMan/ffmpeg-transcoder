@@ -17,7 +17,7 @@ const SidebarMenu = () => {
 
   const menuItems = pageRoutes.map(({ path, id, title, icon }) => {
     return (
-      <MenuItem key={id} onClick={() => navigate(path!)}>
+      <MenuItem key={id} onClick={() => navigate(path ?? "/")}>
         {icon}
         {title}
       </MenuItem>

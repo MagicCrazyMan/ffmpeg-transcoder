@@ -10,7 +10,6 @@ export type PageRouteObject = {
 export const pageRoutes: PageRouteObject[] = [
   {
     id: "queue",
-    path: "queue",
     title: "Queue",
     icon: <IconUnorderedList />,
     index: true,
