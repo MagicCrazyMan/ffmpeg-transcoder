@@ -64,11 +64,9 @@ export default function SearchPage() {
   }, [join, inputFiles, inputDirectory, outputDirectory]);
 
   useEffect(() => {
-    console.log(inputFiles);
   }, [inputFiles]);
 
   useEffect(() => {
-    console.log(regularFilters);
   }, [regularFilters]);
 
   return (

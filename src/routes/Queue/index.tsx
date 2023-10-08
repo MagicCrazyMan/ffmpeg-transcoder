@@ -1,18 +1,11 @@
 import { Button, Space, Table, TableColumnProps, Tooltip } from "@arco-design/web-react";
 import { IconDown, IconNav, IconRight } from "@arco-design/web-react/icon";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Task, useTaskStore } from "../../store/task";
 import ComplexTaskEditor from "./ComplexTaskEditor";
 import Operations from "./Operations";
 import Progress from "./Progress";
 import Settings from "./Settings";
-
-type TableData = {
-  key: string;
-  task: Task;
-  inputs: string[];
-  outputs: string[];
-};
 
 export default function QueuePage() {
   const tasks = useTaskStore((state) => state.tasks);
@@ -22,48 +15,54 @@ export default function QueuePage() {
   const tableCols: TableColumnProps[] = [
     {
       title: "Inputs",
-      dataIndex: "inputs",
+      render: (_, record: Task) => {
+        if (record.params.inputs.length === 1) {
+          return <div>{record.params.inputs[0].path}</div>;
+        } else {
+          const paths = record.params.inputs.map((input, index) => (
+            <li key={index}>{input.path}</li>
+          ));
+          return <ul className="list-disc list-inside">{paths}</ul>;
+        }
+      },
     },
     {
       title: "Outputs",
-      dataIndex: "outputs",
+      render: (_, record: Task) => {
+        if (record.params.outputs.length === 1) {
+          return <div>{record.params.outputs[0].path}</div>;
+        } else {
+          const paths = record.params.outputs.map((output, index) => (
+            <li key={index}>{output.path}</li>
+          ));
+          return <ul className="list-disc list-inside">{paths}</ul>;
+        }
+      },
     },
     {
       title: "Progress",
-      dataIndex: "progress",
-      width: "18rem",
+      width: "12rem",
       bodyCellStyle: {
         lineHeight: "1",
       },
-      render: (_, record: TableData) => <Progress task={record.task} />,
+      render: (_, record: Task) => <Progress task={record} />,
     },
     {
       title: "Operations",
-      dataIndex: "operations",
       fixed: "right",
-      width: "12rem",
-      render: (_, record: TableData) => <Operations task={record.task} />,
+      align: "center",
+      width: "10rem",
+      render: (_, record: Task) => <Operations task={record} />,
     },
   ];
-  const tableData = useMemo(() => {
-    return tasks.map((task) => {
-      return {
-        key: task.id,
-        task,
-        inputs: task.params.inputs.map((input) => input.path),
-        outputs: task.params.outputs.map((output) => output.path ?? "NULL"),
-      } as TableData;
-    });
-  }, [tasks]);
 
   return (
-    <>
+    <Space className="w-full" direction="vertical">
       {/* Buttons */}
-      <Space className="mb-4">
+      <Space>
         {/* Add Complex Task Button */}
         <Tooltip content="Add Complex Task">
           <Button
-            className="mr-2"
             shape="circle"
             size="small"
             type="primary"
@@ -71,24 +70,6 @@ export default function QueuePage() {
             onClick={() => setTaskEditorVisible(true)}
           ></Button>
         </Tooltip>
-        {/* <Button
-          className="mr-2"
-          shape="circle"
-          size="large"
-          status="warning"
-          type="primary"
-          icon={<IconPause />}
-          onClick={transcodePaused ? resume : pause}
-        ></Button>
-        <Button
-          className="mr-2"
-          shape="circle"
-          size="large"
-          status="danger"
-          type="primary"
-          icon={<IconRecordStop />}
-          onClick={stop}
-        ></Button> */}
       </Space>
 
       {/* Tasks Table */}
@@ -96,9 +77,10 @@ export default function QueuePage() {
         stripe
         pagination={false}
         size="mini"
+        rowKey="id"
         columns={tableCols}
-        data={tableData}
-        expandedRowRender={(record) => <Settings task={record.task} />}
+        data={tasks}
+        expandedRowRender={(record) => <Settings task={record} />}
         expandProps={{
           icon: ({ expanded, ...restProps }) =>
             expanded ? (
@@ -114,7 +96,7 @@ export default function QueuePage() {
         }}
       ></Table>
 
-      {/* Complex Task Editor */}
+      {/* Complex Task Editor Dialog */}
       <ComplexTaskEditor
         visible={taskEditorVisible}
         onVisibleChanged={(visible) => setTaskEditorVisible(visible)}
@@ -122,6 +104,6 @@ export default function QueuePage() {
 
       {/* Model Displaying Task Details */}
       {/* <Details onClosed={() => setDetailsTaskId(undefined)} taskId={detailsTaskId}></Details> */}
-    </>
+    </Space>
   );
 }

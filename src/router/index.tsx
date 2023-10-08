@@ -1,4 +1,9 @@
-import { IconInfoCircleFill, IconSearch, IconUnorderedList } from "@arco-design/web-react/icon";
+import {
+  IconInfoCircleFill,
+  IconSearch,
+  IconTags,
+  IconUnorderedList,
+} from "@arco-design/web-react/icon";
 import { RouteObject, createBrowserRouter } from "react-router-dom";
 
 export type PageRouteObject = {
@@ -25,6 +30,16 @@ export const pageRoutes: PageRouteObject[] = [
     icon: <IconSearch />,
     async lazy() {
       const { default: Component } = await import("../routes/Search");
+      return { Component };
+    },
+  },
+  {
+    id: "presets",
+    path: "presets",
+    title: "Codec Presets",
+    icon: <IconTags />,
+    async lazy() {
+      const { default: Component } = await import("../routes/Presets");
       return { Component };
     },
   },
