@@ -1,5 +1,6 @@
 import { Button } from "@arco-design/web-react";
 import {
+  IconDelete,
   IconLoop,
   IconPause,
   IconPlayArrow,
@@ -117,7 +118,22 @@ const ResetButton = ({ task }: { task: Task }) => {
   );
 };
 
-const SettingsButton = ({ onClick }: { onClick: () => void }) => {
+const RemoveButton = ({ task }: { task: Task }) => {
+  const removeTask = useTaskStore((state) => state.removeTask);
+  return (
+    <Button
+      className="mr-2"
+      shape="circle"
+      size="mini"
+      type="primary"
+      status="danger"
+      icon={<IconDelete />}
+      onClick={() => removeTask(task.id)}
+    ></Button>
+  );
+};
+
+const SettingsButton = () => {
   return (
     <Button
       className="mr-2"
@@ -125,12 +141,11 @@ const SettingsButton = ({ onClick }: { onClick: () => void }) => {
       size="mini"
       type="secondary"
       icon={<IconSettings />}
-      onClick={onClick}
     ></Button>
   );
 };
 
-export default function Operations({ task, onDetails }: { task: Task; onDetails: () => void }) {
+export default function Operations({ task }: { task: Task }) {
   if (task.message) {
     // task running
     switch (task.message.type) {
@@ -139,7 +154,7 @@ export default function Operations({ task, onDetails }: { task: Task; onDetails:
           <>
             <PauseButton task={task} />
             <StopButton task={task} />
-            <SettingsButton onClick={onDetails} />
+            <SettingsButton />
           </>
         );
       }
@@ -148,7 +163,7 @@ export default function Operations({ task, onDetails }: { task: Task; onDetails:
           <>
             <ResumeButton task={task} />
             <StopButton task={task} />
-            <SettingsButton onClick={onDetails} />
+            <SettingsButton />
           </>
         );
       }
@@ -156,19 +171,26 @@ export default function Operations({ task, onDetails }: { task: Task; onDetails:
         return (
           <>
             <ResetButton task={task} />
-            <SettingsButton onClick={onDetails} />
+            <RemoveButton task={task} />
+            <SettingsButton />
           </>
         );
       case TaskState.Finished:
       default:
-        return <SettingsButton onClick={onDetails} />;
+        return (
+          <>
+            <RemoveButton task={task} />
+            <SettingsButton />
+          </>
+        );
     }
   } else {
     // task not start
     return (
       <>
         <StartButton task={task} />
-        <SettingsButton onClick={onDetails} />
+        <RemoveButton task={task} />
+        <SettingsButton />
       </>
     );
   }

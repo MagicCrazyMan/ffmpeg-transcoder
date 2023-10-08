@@ -1,11 +1,11 @@
-import { Button, Table, TableColumnProps } from "@arco-design/web-react";
-import { IconDown, IconPlus, IconRight } from "@arco-design/web-react/icon";
+import { Button, Space, Table, TableColumnProps, Tooltip } from "@arco-design/web-react";
+import { IconDown, IconNav, IconRight } from "@arco-design/web-react/icon";
 import { useMemo, useState } from "react";
 import { Task, useTaskStore } from "../../store/task";
+import ComplexTaskEditor from "./ComplexTaskEditor";
 import Operations from "./Operations";
 import Progress from "./Progress";
 import Settings from "./Settings";
-import TaskEditor from "./ComplexTaskEditor";
 
 type TableData = {
   key: string;
@@ -16,8 +16,6 @@ type TableData = {
 
 export default function QueuePage() {
   const tasks = useTaskStore((state) => state.tasks);
-
-  const [_detailsTaskId, setDetailsTaskId] = useState<undefined | string>(undefined);
 
   const [taskEditorVisible, setTaskEditorVisible] = useState(false);
 
@@ -44,14 +42,7 @@ export default function QueuePage() {
       dataIndex: "operations",
       fixed: "right",
       width: "12rem",
-      render: (_, record: TableData) => (
-        <Operations
-          task={record.task}
-          onDetails={() => {
-            setDetailsTaskId(record.task.id);
-          }}
-        />
-      ),
+      render: (_, record: TableData) => <Operations task={record.task} />,
     },
   ];
   const tableData = useMemo(() => {
@@ -67,15 +58,19 @@ export default function QueuePage() {
 
   return (
     <>
-      <div className="mb-4">
-        <Button
-          className="mr-2"
-          shape="circle"
-          size="small"
-          type="primary"
-          icon={<IconPlus />}
-          onClick={() => setTaskEditorVisible(true)}
-        ></Button>
+      {/* Buttons */}
+      <Space className="mb-4">
+        {/* Add Complex Task Button */}
+        <Tooltip content="Add Complex Task">
+          <Button
+            className="mr-2"
+            shape="circle"
+            size="small"
+            type="primary"
+            icon={<IconNav />}
+            onClick={() => setTaskEditorVisible(true)}
+          ></Button>
+        </Tooltip>
         {/* <Button
           className="mr-2"
           shape="circle"
@@ -94,7 +89,9 @@ export default function QueuePage() {
           icon={<IconRecordStop />}
           onClick={stop}
         ></Button> */}
-      </div>
+      </Space>
+
+      {/* Tasks Table */}
       <Table
         stripe
         pagination={false}
@@ -117,11 +114,11 @@ export default function QueuePage() {
         }}
       ></Table>
 
-      <TaskEditor
+      {/* Complex Task Editor */}
+      <ComplexTaskEditor
         visible={taskEditorVisible}
-        onOk={() => setTaskEditorVisible(false)}
-        onCancel={() => setTaskEditorVisible(false)}
-      ></TaskEditor>
+        onVisibleChanged={(visible) => setTaskEditorVisible(visible)}
+      ></ComplexTaskEditor>
 
       {/* Model Displaying Task Details */}
       {/* <Details onClosed={() => setDetailsTaskId(undefined)} taskId={detailsTaskId}></Details> */}

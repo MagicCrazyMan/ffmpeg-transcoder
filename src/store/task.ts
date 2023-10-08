@@ -7,7 +7,7 @@ export type TaskStoreState = {
   tasks: Task[];
   updateTask: (id: string, task: Partial<Task>) => void;
   removeTask: (id: string) => void;
-  addTask: (task: Task) => void;
+  addTask: (params: TaskParams) => void;
   resetTask: (id: string) => void;
 };
 
@@ -158,8 +158,12 @@ export const useTaskStore = create<TaskStoreState>((set) => {
       set({ tasks: [...tasks] });
     }
   };
-  const addTask = (task: Task) => {
-    tasks.push(task);
+  const addTask = (params: TaskParams) => {
+    tasks.push({
+      id: v4(),
+      commanding: false,
+      params,
+    });
     set({ tasks: [...tasks] });
   };
   const resetTask = (id: string) => {
