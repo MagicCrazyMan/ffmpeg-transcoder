@@ -1,9 +1,11 @@
 import { Button, ConfigProvider, Dropdown, Icon, Layout, Menu, Spin } from "@arco-design/web-react";
+import enUS from '@arco-design/web-react/es/locale/en-US';
 import { IconMoonFill, IconSunFill, IconThunderbolt } from "@arco-design/web-react/icon";
 import { useMemo, useState } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import { pageRoutes } from "../router";
 import { Theme, useAppStore } from "../store/app";
+
 
 const MenuItem = Menu.Item;
 const Sider = Layout.Sider;
@@ -94,7 +96,7 @@ const MainPage = () => {
   const [collapsed, setCollapse] = useState(true);
 
   return (
-    <ConfigProvider>
+    <ConfigProvider locale={enUS}>
       <Layout className="h-full">
         {/* Sidebar */}
         <Sider collapsible collapsed={collapsed} onCollapse={setCollapse}>
@@ -123,7 +125,7 @@ const MainPage = () => {
  */
 const LoadingPage = () => {
   return (
-    <ConfigProvider>
+    <ConfigProvider locale={enUS}>
       <div className="h-screen w-screen flex justify-center items-center">
         <Spin size={40} tip="Starting Up..."></Spin>
       </div>

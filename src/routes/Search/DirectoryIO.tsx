@@ -15,6 +15,22 @@ type InputOutputProps = {
 };
 
 /**
+ * Select directory via Tauri.
+ * @param title Dialog title
+ * @param field Form field
+ */
+const selectDirectory = async (title: string, set: (dir: string) => void) => {
+  const dir = await open({
+    title,
+    directory: true,
+  });
+
+  if (dir) {
+    set(dir as string);
+  }
+};
+
+/**
  * Input and Output directories input
  * @param param0 Props
  */
@@ -30,22 +46,6 @@ export default function InputOutputDirectory({
     status: undefined as ("success" | "warning" | "error" | "validating") | undefined,
     msg: "",
   });
-
-  /**
-   * Select directory via Tauri.
-   * @param title Dialog title
-   * @param field Form field
-   */
-  const selectDirectory = async (title: string, set: (dir: string) => void) => {
-    const dir = await open({
-      title,
-      directory: true,
-    });
-
-    if (dir) {
-      set(dir as string);
-    }
-  };
 
   /**
    * Fetch target files via Tauri when input directory changed

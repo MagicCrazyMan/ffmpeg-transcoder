@@ -120,6 +120,24 @@ export const useTaskStore = create<TaskStoreState>((set) => {
         ],
       },
     },
+    {
+      id: v4(),
+      commanding: false,
+      params: {
+        inputs: [
+          {
+            path: "E:\\Music\\Hatsune Miku\\[180110][LIVE]MAGICAL MIRAI 2017\\[Vmoe]Hatsune Miku「Magical Mirai 2017」[BDrip][1920x1080p][HEVC_YUV420p10_60fps_2FLAC_5.1ch&2.0ch_Chapter][Effect Subtitles].mkv",
+            params: [],
+          },
+        ],
+        outputs: [
+          {
+            path: "F:\\Transcode\\2.mp4",
+            params: ["-c:v", "hevc_nvenc", "-b:v", "2000", "-preset", "fast", "-c:a", "copy"],
+          },
+        ],
+      },
+    },
   ];
   const updateTask = (id: string, task: Partial<Task>) => {
     const i = tasks.findIndex((task) => task.id === id);

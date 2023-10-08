@@ -24,7 +24,7 @@
         "confirm": false,
         "message": false,
         "open": true,
-        "save": false
+        "save": true
       },
       "window": {
         "all": true
