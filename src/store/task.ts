@@ -105,7 +105,7 @@ const listenTaskMessages = (updateTask: (id: string, task: Partial<Task>) => voi
   });
 };
 
-export const useTaskStore = create<TaskStoreState>((set) => {
+export const useTaskStore = create<TaskStoreState>((set, get) => {
   const tasks: Task[] = [
     {
       id: v4(),
@@ -139,7 +139,9 @@ export const useTaskStore = create<TaskStoreState>((set) => {
       },
     },
   ];
+
   const updateTask = (id: string, task: Partial<Task>) => {
+    const tasks = get().tasks;
     const i = tasks.findIndex((task) => task.id === id);
     if (i !== -1) {
       const o = tasks[i];
@@ -151,22 +153,29 @@ export const useTaskStore = create<TaskStoreState>((set) => {
       set({ tasks: [...tasks] });
     }
   };
+
   const removeTask = (id: string) => {
+    const tasks = get().tasks;
     const i = tasks.findIndex((task) => task.id === id);
     if (i !== -1) {
       tasks.splice(i, 1);
       set({ tasks: [...tasks] });
     }
   };
+
   const addTask = (params: TaskParams) => {
-    tasks.push({
+    const newTask = {
       id: v4(),
       commanding: false,
       params,
+    };
+    set({
+      tasks: [...get().tasks, newTask],
     });
-    set({ tasks: [...tasks] });
   };
+
   const resetTask = (id: string) => {
+    const tasks = get().tasks;
     const i = tasks.findIndex((task) => task.id === id);
     if (i !== -1) {
       tasks[i] = {

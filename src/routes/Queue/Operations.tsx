@@ -1,4 +1,4 @@
-import { Button } from "@arco-design/web-react";
+import { Button, Space } from "@arco-design/web-react";
 import {
   IconDelete,
   IconLoop,
@@ -23,7 +23,6 @@ const StartButton = ({ task }: { task: Task }) => {
 
   return (
     <Button
-      className="mr-2"
       shape="circle"
       size="mini"
       type="primary"
@@ -46,7 +45,6 @@ const PauseButton = ({ task }: { task: Task }) => {
 
   return (
     <Button
-      className="mr-2"
       shape="circle"
       size="mini"
       type="primary"
@@ -70,7 +68,6 @@ const ResumeButton = ({ task }: { task: Task }) => {
 
   return (
     <Button
-      className="mr-2"
       shape="circle"
       size="mini"
       type="primary"
@@ -93,7 +90,6 @@ const StopButton = ({ task }: { task: Task }) => {
 
   return (
     <Button
-      className="mr-2"
       shape="circle"
       size="mini"
       type="primary"
@@ -108,7 +104,6 @@ const ResetButton = ({ task }: { task: Task }) => {
   const resetTask = useTaskStore((state) => state.resetTask);
   return (
     <Button
-      className="mr-2"
       shape="circle"
       size="mini"
       type="primary"
@@ -122,7 +117,6 @@ const RemoveButton = ({ task }: { task: Task }) => {
   const removeTask = useTaskStore((state) => state.removeTask);
   return (
     <Button
-      className="mr-2"
       shape="circle"
       size="mini"
       type="primary"
@@ -134,15 +128,7 @@ const RemoveButton = ({ task }: { task: Task }) => {
 };
 
 const SettingsButton = () => {
-  return (
-    <Button
-      className="mr-2"
-      shape="circle"
-      size="mini"
-      type="secondary"
-      icon={<IconSettings />}
-    ></Button>
-  );
+  return <Button shape="circle" size="mini" type="secondary" icon={<IconSettings />}></Button>;
 };
 
 export default function Operations({ task }: { task: Task }) {
@@ -151,47 +137,47 @@ export default function Operations({ task }: { task: Task }) {
     switch (task.message.type) {
       case TaskState.Running: {
         return (
-          <>
+          <Space>
             <PauseButton task={task} />
             <StopButton task={task} />
             <SettingsButton />
-          </>
+          </Space>
         );
       }
       case TaskState.Pausing: {
         return (
-          <>
+          <Space>
             <ResumeButton task={task} />
             <StopButton task={task} />
             <SettingsButton />
-          </>
+          </Space>
         );
       }
       case TaskState.Stopped:
         return (
-          <>
+          <Space>
             <ResetButton task={task} />
             <RemoveButton task={task} />
             <SettingsButton />
-          </>
+          </Space>
         );
       case TaskState.Finished:
       default:
         return (
-          <>
+          <Space>
             <RemoveButton task={task} />
             <SettingsButton />
-          </>
+          </Space>
         );
     }
   } else {
     // task not start
     return (
-      <>
+      <Space>
         <StartButton task={task} />
         <RemoveButton task={task} />
         <SettingsButton />
-      </>
+      </Space>
     );
   }
 }

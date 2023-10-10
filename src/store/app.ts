@@ -47,9 +47,9 @@ const getStartupTheme = () => {
 
 /**
  * Updates acro design theme mode and saves to local storage
- * @param theme
+ * @param theme Theme
  */
-const updateTheme = (theme: Theme) => {
+const setArcoTheme = (theme: Theme) => {
   let exactTheme: Theme;
   if (theme === Theme.Default) {
     localStorage.removeItem(THEME_LOCALSTORAGE_KEY);
@@ -83,11 +83,11 @@ export type AppState = {
 /**
  * App store
  */
-export const useAppStore = create<AppState>((set) => {
+export const useAppStore = create<AppState>((set, get) => {
   const theme = getStartupTheme();
-  updateTheme(theme);
+  setArcoTheme(theme);
   const setTheme = (theme: Theme) => {
-    updateTheme(theme);
+    setArcoTheme(theme);
     set({ theme });
   };
 
@@ -97,7 +97,7 @@ export const useAppStore = create<AppState>((set) => {
   };
 
   const join = (...paths: string[]) => {
-    const pathSeparator = systemParticulars!.path_separator;
+    const pathSeparator = get().systemParticulars?.path_separator ?? "/";
     return paths
       .flatMap((path) => path.split(pathSeparator))
       .filter((subject) => !!subject)
