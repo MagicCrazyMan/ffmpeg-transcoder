@@ -12,7 +12,7 @@ import {
   Tag,
 } from "@arco-design/web-react";
 import { ColumnProps } from "@arco-design/web-react/es/Table";
-import { IconCheck, IconDelete } from "@arco-design/web-react/icon";
+import { IconDelete } from "@arco-design/web-react/icon";
 import {
   ReactNode,
   createContext,
@@ -25,17 +25,23 @@ import {
 } from "react";
 import { Preset, PresetType, usePresetStore } from "../store/preset";
 
-const EditableContext = createContext<{ getForm?: () => FormInstance<Preset> | null }>({});
+const EditableContext = createContext<{
+  getForm: () => FormInstance<Preset> | null;
+  getIndex: () => number;
+} | null>(null);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
-const EditableRow = ({ children, record, className, ...rest }: any) => {
+const EditableRow = ({ children, record, className, index, ...rest }: any) => {
   const refForm = useRef<FormInstance<Preset>>(null);
   const getForm = () => refForm.current;
+
+  const getIndex = useCallback(() => index, [index]);
 
   return (
     <EditableContext.Provider
       value={{
         getForm,
+        getIndex,
       }}
     >
       <Form
@@ -67,7 +73,11 @@ const editableCells: Record<
   {
     cell(props: EditableCellProps<keyof Preset>): ReactNode;
     editingCell(props: EditableCellProps<keyof Preset>, submit: () => void): ReactNode;
-    rules?: RulesProps[];
+    rules: (
+      presets: Preset[],
+      index: number,
+      props: EditableCellProps<keyof Preset>
+    ) => RulesProps[];
   }
 > = {
   /**
@@ -80,7 +90,20 @@ const editableCells: Record<
     editingCell(_props: EditableCellProps<"name">, submit): ReactNode {
       return <Input autoFocus onPressEnter={submit} />;
     },
-    rules: [{ required: true }],
+    rules(presets, index) {
+      return [
+        { required: true },
+        {
+          validator(value, callback) {
+            if (presets.some((preset, i) => index !== i && preset.name === value)) {
+              callback("name already exists");
+            } else {
+              callback();
+            }
+          },
+        },
+      ];
+    },
   },
   /**
    * for remark field
@@ -90,7 +113,10 @@ const editableCells: Record<
       return <div className="inline-block">{children}</div>;
     },
     editingCell(_props: EditableCellProps<"remark">, submit): ReactNode {
-      return <Input.TextArea autoFocus autoSize onPressEnter={submit} />;
+      return <Input.TextArea autoSize onPressEnter={submit} />;
+    },
+    rules() {
+      return [];
     },
   },
   /**
@@ -122,7 +148,9 @@ const editableCells: Record<
         </Select>
       );
     },
-    rules: [{ required: true }],
+    rules() {
+      return [{ required: true }];
+    },
   },
   /**
    * for params field
@@ -138,97 +166,104 @@ const editableCells: Record<
     },
     editingCell(): ReactNode {
       // allow duplicated tags
-      return <InputTag allowClear autoFocus saveOnBlur validate={(value) => !!value}></InputTag>;
+      return <InputTag allowClear saveOnBlur validate={(value) => !!value}></InputTag>;
     },
-    rules: [{ required: true }],
+    rules() {
+      return [{ required: true, empty: false }];
+    },
   },
 };
 
 const EditableCell = (props: EditableCellProps<keyof Preset>) => {
   const { children, className, rowData, column, onHandleSave } = props;
-  const cellContainerRef = useRef<HTMLDivElement | null>(null);
-  const [editing, setEditing] = useState(false);
-  const { getForm } = useContext(EditableContext);
+
+  const { getForm, getIndex } = useContext(EditableContext)!;
+  const presets = usePresetStore((state) => state.presets);
+
+  const cellRef = useRef<HTMLDivElement | null>(null);
+  const isTempPreset = useMemo(() => getIndex() > presets.length - 1, [getIndex, presets]);
+  const [editing, setEditing] = useState(isTempPreset);
 
   /**
    * Submits and saves data
    */
   const submit = useCallback(() => {
     const form = getForm?.();
-    if (form) {
-      form.validate([column.dataIndex! as keyof Preset]).then((preset) => {
-        if (onHandleSave) onHandleSave({ ...rowData, ...preset });
+    if (!form) return;
+
+    if (isTempPreset) {
+      // for a temporary preset, saves only when all fields are passed.
+      form.validate().then((preset) => {
+        if (onHandleSave) onHandleSave(preset);
         setEditing(false);
       });
     } else {
-      setEditing(false);
+      form.validate([column.dataIndex! as keyof Preset]).then((partial) => {
+        if (onHandleSave) onHandleSave({ ...rowData, ...partial });
+        setEditing(false);
+      });
     }
-  }, [getForm, onHandleSave, rowData, column]);
+  }, [getForm, onHandleSave, rowData, column, isTempPreset]);
 
   /**
-   * Listens on click event and tries to stop and save editing value when click outside editable cell
+   * Listens on click event and tries to stop and save editing value when click outside editing cell
    */
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
       // do nothing if not editable or not editing
       if (!column.editable || !editing) return;
-      // do nothing if click on form item itself
-      if (
-        !cellContainerRef.current ||
-        !e.target ||
-        cellContainerRef.current.contains(e.target as HTMLElement)
-      )
+      // do nothing if click on editing cell itself
+      if (!cellRef.current || !e.target || cellRef.current.contains(e.target as HTMLElement))
         return;
 
       submit();
     };
 
-    document.addEventListener("click", onClick);
+    document.addEventListener("click", onClick, true);
     return () => {
-      document.removeEventListener("click", onClick);
+      document.removeEventListener("click", onClick, true);
     };
-  }, [editing, column, submit]);
+  }, [column, submit, presets, editing, getIndex]);
 
+  // returns children if cell not editable
   if (!column.editable) return <div className={className}>{children}</div>;
 
+  // returns editing cell if cell is temporary preset or cell is current editing
   if (editing) {
     return (
-      <div ref={cellContainerRef}>
+      <div ref={cellRef}>
         <Form.Item
           style={{ marginBottom: 0 }}
           labelCol={{ span: 0 }}
           wrapperCol={{ span: 24 }}
           field={column.dataIndex}
-          rules={editableCells[column.dataIndex!].rules}
+          rules={editableCells[column.dataIndex!].rules(presets, getIndex(), props)}
         >
           {editableCells[column.dataIndex!].editingCell(props, submit)}
         </Form.Item>
       </div>
     );
-  } else {
-    return (
-      <div
-        className="w-full h-full"
-        onClick={(e) => {
-          e.stopPropagation();
-          setEditing(true);
-        }}
-      >
-        {editableCells[column.dataIndex!].cell(props)}
-      </div>
-    );
   }
+
+  // returns a cell that could enable editing by clicking on it
+  return (
+    <div className="w-full h-full" onClick={() => setEditing(true)}>
+      {editableCells[column.dataIndex!].cell(props)}
+    </div>
+  );
 };
 
 export default function PresetsPage() {
-  const presets = usePresetStore((state) => state.presets);
-  const updatePreset = usePresetStore((state) => state.updatePreset);
-  const removePreset = usePresetStore((state) => state.removePreset);
-  const tempPreset = usePresetStore((state) => state.tempPreset);
-  const enableTempPreset = usePresetStore((state) => state.enableTempPreset);
-  const disableTempPreset = usePresetStore((state) => state.disableTempPreset);
-  const updateTempPreset = usePresetStore((state) => state.updateTempPreset);
-  const persistTempPreset = usePresetStore((state) => state.persistTempPreset);
+  const {
+    presets,
+    updatePreset,
+    removePreset,
+    tempPreset,
+    enableTempPreset,
+    disableTempPreset,
+    updateTempPreset,
+    persistTempPreset,
+  } = usePresetStore((state) => state);
 
   /**
    * Save preset when cell value change
@@ -239,13 +274,15 @@ export default function PresetsPage() {
         onHandleSave: (row: Preset) => {
           if (index > presets.length - 1) {
             updateTempPreset(row);
+            // tries to persist it immediately
+            persistTempPreset();
           } else {
             updatePreset(index, row);
           }
         },
       };
     },
-    [presets, updateTempPreset, updatePreset]
+    [presets, updatePreset, updateTempPreset, persistTempPreset]
   );
 
   /**
@@ -297,14 +334,6 @@ export default function PresetsPage() {
       render: (_, _record, index) => {
         return (
           <Space>
-            {index > presets.length - 1 ? (
-              <Button
-                shape="circle"
-                type="primary"
-                icon={<IconCheck />}
-                onClick={persistTempPreset}
-              ></Button>
-            ) : null}
             <Button
               shape="circle"
               type="primary"
@@ -325,9 +354,19 @@ export default function PresetsPage() {
   return (
     <Space className="w-full" direction="vertical">
       {/* Add Preset */}
-      <Button type="primary" size="small" onClick={enableTempPreset}>
+      <Button
+        type="primary"
+        size="small"
+        disabled={!!tempPreset}
+        onClick={(e) => {
+          // stop propagation to prevent form validation
+          e.stopPropagation();
+          enableTempPreset();
+        }}
+      >
         Add Preset
       </Button>
+
       {/* Presets Table */}
       <Table
         stripe
