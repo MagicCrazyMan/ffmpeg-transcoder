@@ -112,8 +112,8 @@ export const usePresetStore = create<PresetStoreState>((set, get, api) => {
   const enableTempPreset = () => {
     set({
       tempPreset: {
-        name: "1111",
-        type: PresetType.Encode,
+        name: "",
+        type: PresetType.Universal,
         params: [],
       },
     });

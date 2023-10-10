@@ -4,12 +4,14 @@ import {
   FormInstance,
   Input,
   InputTag,
+  RulesProps,
   Select,
   Space,
   Table,
   TableColumnProps,
   Tag,
 } from "@arco-design/web-react";
+import { ColumnProps } from "@arco-design/web-react/es/Table";
 import { IconCheck, IconDelete } from "@arco-design/web-react/icon";
 import {
   ReactNode,
@@ -28,7 +30,6 @@ const EditableContext = createContext<{ getForm?: () => FormInstance<Preset> | n
 // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
 const EditableRow = ({ children, record, className, ...rest }: any) => {
   const refForm = useRef<FormInstance<Preset>>(null);
-
   const getForm = () => refForm.current;
 
   return (
@@ -50,11 +51,104 @@ const EditableRow = ({ children, record, className, ...rest }: any) => {
   );
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
-const EditableCell = ({ children, className, rowData, column, onHandleSave }: any) => {
+type EditableCellProps<Key extends keyof Preset> = {
+  rowData: Preset;
+  className: string;
+  column: ColumnProps<Preset>;
+  children: Preset[Key];
+  onHandleSave: (row: Preset) => void;
+};
+
+/**
+ * Editable cells.
+ */
+const editableCells: Record<
+  string,
+  {
+    cell(props: EditableCellProps<keyof Preset>): ReactNode;
+    editingCell(props: EditableCellProps<keyof Preset>, submit: () => void): ReactNode;
+    rules?: RulesProps[];
+  }
+> = {
+  /**
+   * for name field
+   */
+  name: {
+    cell({ children }: EditableCellProps<"name">): ReactNode {
+      return <div className="inline-block">{children}</div>;
+    },
+    editingCell(_props: EditableCellProps<"name">, submit): ReactNode {
+      return <Input autoFocus onPressEnter={submit} />;
+    },
+    rules: [{ required: true }],
+  },
+  /**
+   * for remark field
+   */
+  remark: {
+    cell({ children }: EditableCellProps<"remark">): ReactNode {
+      return <div className="inline-block">{children}</div>;
+    },
+    editingCell(_props: EditableCellProps<"remark">, submit): ReactNode {
+      return <Input.TextArea autoFocus autoSize onPressEnter={submit} />;
+    },
+  },
+  /**
+   * for type field
+   */
+  type: {
+    cell({ children }: EditableCellProps<"type">): ReactNode {
+      switch (children) {
+        case PresetType.Universal:
+          return "Universal";
+        case PresetType.Decode:
+          return "For Decode Only";
+        case PresetType.Encode:
+          return "For Encode Only";
+      }
+    },
+    editingCell(): ReactNode {
+      return (
+        <Select>
+          <Select.Option key={PresetType.Universal} value={PresetType.Universal}>
+            Universal
+          </Select.Option>
+          <Select.Option key={PresetType.Decode} value={PresetType.Decode}>
+            For Decode Only
+          </Select.Option>
+          <Select.Option key={PresetType.Encode} value={PresetType.Encode}>
+            For Encode Only
+          </Select.Option>
+        </Select>
+      );
+    },
+    rules: [{ required: true }],
+  },
+  /**
+   * for params field
+   */
+  params: {
+    cell({ children }: EditableCellProps<"params">): ReactNode {
+      const tags = children.map((param, index) => <Tag key={index}>{param}</Tag>);
+      return (
+        <Space wrap size={2}>
+          {tags}
+        </Space>
+      );
+    },
+    editingCell(): ReactNode {
+      // allow duplicated tags
+      return <InputTag allowClear autoFocus saveOnBlur validate={(value) => !!value}></InputTag>;
+    },
+    rules: [{ required: true }],
+  },
+};
+
+const EditableCell = (props: EditableCellProps<keyof Preset>) => {
+  const { children, className, rowData, column, onHandleSave } = props;
   const cellContainerRef = useRef<HTMLDivElement | null>(null);
-  const { getForm } = useContext(EditableContext);
   const [editing, setEditing] = useState(false);
+  const { getForm } = useContext(EditableContext);
 
   /**
    * Submits and saves data
@@ -62,22 +156,22 @@ const EditableCell = ({ children, className, rowData, column, onHandleSave }: an
   const submit = useCallback(() => {
     const form = getForm?.();
     if (form) {
-      form.validate([column.dataIndex]).then((preset) => {
+      form.validate([column.dataIndex! as keyof Preset]).then((preset) => {
         if (onHandleSave) onHandleSave({ ...rowData, ...preset });
         setEditing(false);
       });
     } else {
       setEditing(false);
     }
-  }, [column, getForm, rowData, onHandleSave]);
+  }, [getForm, onHandleSave, rowData, column]);
 
   /**
    * Listens on click event and tries to stop and save editing value when click outside editable cell
    */
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
-      // do nothing if not editable
-      if (!column.editable) return;
+      // do nothing if not editable or not editing
+      if (!column.editable || !editing) return;
       // do nothing if click on form item itself
       if (
         !cellContainerRef.current ||
@@ -86,11 +180,7 @@ const EditableCell = ({ children, className, rowData, column, onHandleSave }: an
       )
         return;
 
-      if (editing) {
-        submit();
-      } else {
-        setEditing(true);
-      }
+      submit();
     };
 
     document.addEventListener("click", onClick);
@@ -102,31 +192,6 @@ const EditableCell = ({ children, className, rowData, column, onHandleSave }: an
   if (!column.editable) return <div className={className}>{children}</div>;
 
   if (editing) {
-    let inputField: ReactNode;
-    switch (column.dataIndex) {
-      case "name":
-        inputField = <Input autoFocus onPressEnter={submit} />;
-        break;
-      case "type":
-        inputField = (
-          <Select>
-            <Select.Option key={PresetType.Universal} value={PresetType.Universal}>
-              Universal
-            </Select.Option>
-            <Select.Option key={PresetType.Decode} value={PresetType.Decode}>
-              For Decode Only
-            </Select.Option>
-            <Select.Option key={PresetType.Encode} value={PresetType.Encode}>
-              For Encode Only
-            </Select.Option>
-          </Select>
-        );
-        break;
-      case "params":
-        inputField = <InputTag allowClear saveOnBlur></InputTag>;
-        break;
-    }
-
     return (
       <div ref={cellContainerRef}>
         <Form.Item
@@ -134,42 +199,24 @@ const EditableCell = ({ children, className, rowData, column, onHandleSave }: an
           labelCol={{ span: 0 }}
           wrapperCol={{ span: 24 }}
           field={column.dataIndex}
-          rules={[{ required: true }]}
+          rules={editableCells[column.dataIndex!].rules}
         >
-          {inputField}
+          {editableCells[column.dataIndex!].editingCell(props, submit)}
         </Form.Item>
       </div>
     );
   } else {
-    let node: ReactNode;
-    switch (column.dataIndex) {
-      case "name":
-        node = children;
-        break;
-      case "type": {
-        switch (rowData.type) {
-          case PresetType.Universal:
-            node = "Universal";
-            break;
-          case PresetType.Decode:
-            node = "For Decode Only";
-            break;
-          case PresetType.Encode:
-            node = "For Encode Only";
-            break;
-        }
-        break;
-      }
-      case "params": {
-        const tags = rowData.params.map((param: string, index: number) => (
-          <Tag key={index}>{param}</Tag>
-        ));
-        node = <Space size={2}>{tags}</Space>;
-        break;
-      }
-    }
-
-    return <div onClick={() => setEditing(true)}>{node}</div>;
+    return (
+      <div
+        className="w-full h-full"
+        onClick={(e) => {
+          e.stopPropagation();
+          setEditing(true);
+        }}
+      >
+        {editableCells[column.dataIndex!].cell(props)}
+      </div>
+    );
   }
 };
 
@@ -226,7 +273,7 @@ export default function PresetsPage() {
     {
       title: "Type",
       dataIndex: "type",
-      width: "20%",
+      width: "200px",
       editable: true,
       onCell,
     },
@@ -237,30 +284,27 @@ export default function PresetsPage() {
       onCell,
     },
     {
+      title: "Remark",
+      dataIndex: "remark",
+      width: "20%",
+      editable: true,
+      onCell,
+    },
+    {
       title: "Operations",
       width: "120px",
       align: "center",
       render: (_, _record, index) => {
-        if (index > presets.length - 1) {
-          return (
-            <Space>
+        return (
+          <Space>
+            {index > presets.length - 1 ? (
               <Button
                 shape="circle"
                 type="primary"
                 icon={<IconCheck />}
                 onClick={persistTempPreset}
               ></Button>
-              <Button
-                shape="circle"
-                type="primary"
-                status="danger"
-                icon={<IconDelete />}
-                onClick={() => remove(index)}
-              ></Button>
-            </Space>
-          );
-        } else {
-          return (
+            ) : null}
             <Button
               shape="circle"
               type="primary"
@@ -268,8 +312,8 @@ export default function PresetsPage() {
               icon={<IconDelete />}
               onClick={() => remove(index)}
             ></Button>
-          );
-        }
+          </Space>
+        );
       },
     },
   ];
