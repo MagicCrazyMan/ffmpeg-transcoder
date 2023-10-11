@@ -19,6 +19,7 @@
     "react-code-blocks": "^0.1.4",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.16.0",
+    "react-sortable-hoc": "^2.0.0",
     "sort-by": "^1.2.0",
     "use-immer": "^0.9.0",
     "uuid": "^9.0.1",

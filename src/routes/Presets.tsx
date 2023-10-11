@@ -14,7 +14,7 @@ import {
   Tooltip,
 } from "@arco-design/web-react";
 import { ColumnProps } from "@arco-design/web-react/es/Table";
-import { IconDelete, IconPlus } from "@arco-design/web-react/icon";
+import { IconDelete, IconDragDotVertical, IconPlus } from "@arco-design/web-react/icon";
 import {
   ReactNode,
   createContext,
@@ -26,25 +26,43 @@ import {
   useState,
 } from "react";
 import { unstable_useBlocker } from "react-router-dom";
+import { SortableContainer, SortableElement, SortableHandle } from "react-sortable-hoc";
 import { Preset, PresetType, usePresetStore } from "../store/preset";
+
+type RowProps = {
+  className: string;
+  children: ReactNode[];
+  record: Preset;
+  rowIndex: number;
+};
+
+type CellProps<Key extends keyof Preset> = {
+  rowData: Preset;
+  className: string;
+  column: ColumnProps<Preset>;
+  children: Preset[Key];
+  onHandleSave: (row: Preset) => void;
+};
 
 const EditableContext = createContext<{
   getForm: () => FormInstance<Preset> | null;
-  getIndex: () => number;
+  getRowIndex: () => number;
 } | null>(null);
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
-const EditableRow = ({ children, record, className, index, ...rest }: any) => {
+/**
+ * Editable Row Component
+ */
+const EditableRow = ({ children, record, className, rowIndex, ...rest }: RowProps) => {
   const refForm = useRef<FormInstance<Preset>>(null);
   const getForm = () => refForm.current;
 
-  const getIndex = useCallback(() => index, [index]);
+  const getRowIndex = useCallback(() => rowIndex, [rowIndex]);
 
   return (
     <EditableContext.Provider
       value={{
         getForm,
-        getIndex,
+        getRowIndex,
       }}
     >
       <Form
@@ -60,37 +78,22 @@ const EditableRow = ({ children, record, className, index, ...rest }: any) => {
   );
 };
 
-type EditableCellProps<Key extends keyof Preset> = {
-  rowData: Preset;
-  className: string;
-  column: ColumnProps<Preset>;
-  children: Preset[Key];
-  onHandleSave: (row: Preset) => void;
-};
-
-/**
- * Editable cells.
- */
 const editableCells: Record<
   string,
   {
-    cell(props: EditableCellProps<keyof Preset>): ReactNode;
-    editingCell(props: EditableCellProps<keyof Preset>, submit: () => void): ReactNode;
-    rules: (
-      presets: Preset[],
-      index: number,
-      props: EditableCellProps<keyof Preset>
-    ) => RulesProps[];
+    cell(props: CellProps<keyof Preset>): ReactNode;
+    editingCell(props: CellProps<keyof Preset>, submit: () => void): ReactNode;
+    rules: (presets: Preset[], index: number, props: CellProps<keyof Preset>) => RulesProps[];
   }
 > = {
   /**
    * for name field
    */
   name: {
-    cell({ children }: EditableCellProps<"name">): ReactNode {
+    cell({ children }: CellProps<"name">): ReactNode {
       return <div className="inline-block">{children}</div>;
     },
-    editingCell(_props: EditableCellProps<"name">, submit): ReactNode {
+    editingCell(_props: CellProps<"name">, submit): ReactNode {
       return <Input autoFocus onPressEnter={submit} />;
     },
     rules(presets, index) {
@@ -112,10 +115,10 @@ const editableCells: Record<
    * for remark field
    */
   remark: {
-    cell({ children }: EditableCellProps<"remark">): ReactNode {
+    cell({ children }: CellProps<"remark">): ReactNode {
       return <div className="inline-block">{children}</div>;
     },
-    editingCell(_props: EditableCellProps<"remark">, submit): ReactNode {
+    editingCell(_props: CellProps<"remark">, submit): ReactNode {
       return <Input.TextArea autoSize onPressEnter={submit} />;
     },
     rules() {
@@ -126,7 +129,7 @@ const editableCells: Record<
    * for type field
    */
   type: {
-    cell({ children }: EditableCellProps<"type">): ReactNode {
+    cell({ children }: CellProps<"type">): ReactNode {
       switch (children) {
         case PresetType.Universal:
           return "Universal";
@@ -159,7 +162,7 @@ const editableCells: Record<
    * for params field
    */
   params: {
-    cell({ children }: EditableCellProps<"params">): ReactNode {
+    cell({ children }: CellProps<"params">): ReactNode {
       const tags = children.map((param, index) => <Tag key={index}>{param}</Tag>);
       return (
         <Space wrap size={2}>
@@ -177,17 +180,17 @@ const editableCells: Record<
   },
 };
 
-const acroSelectClassList = ["arco-select-popup", "arco-select-option"];
-
-const EditableCell = (props: EditableCellProps<keyof Preset>) => {
+/**
+ * Editable Cell Component
+ */
+const EditableCell = (props: CellProps<keyof Preset>) => {
   const { children, className, rowData, column, onHandleSave } = props;
 
-  const { getForm, getIndex } = useContext(EditableContext)!;
+  const { getForm, getRowIndex } = useContext(EditableContext)!;
   const presets = usePresetStore((state) => state.presets);
 
   const cellRef = useRef<HTMLDivElement | null>(null);
-  const isTempPreset = useMemo(() => getIndex() > presets.length - 1, [getIndex, presets]);
-  const [editing, setEditing] = useState(isTempPreset);
+  const [editing, setEditing] = useState(!!rowData.isTemp);
 
   /**
    * Submits and saves data
@@ -196,7 +199,7 @@ const EditableCell = (props: EditableCellProps<keyof Preset>) => {
     const form = getForm?.();
     if (!form) return;
 
-    if (isTempPreset) {
+    if (rowData.isTemp) {
       // for a temporary preset, saves only when all fields are passed.
       form.validate().then((preset) => {
         if (onHandleSave) onHandleSave(preset);
@@ -208,7 +211,7 @@ const EditableCell = (props: EditableCellProps<keyof Preset>) => {
         setEditing(false);
       });
     }
-  }, [getForm, onHandleSave, rowData, column, isTempPreset]);
+  }, [getForm, onHandleSave, rowData, column]);
 
   /**
    * Listens on click event and tries to stop and save editing value when click outside editing cell
@@ -221,6 +224,7 @@ const EditableCell = (props: EditableCellProps<keyof Preset>) => {
       if (!cellRef.current || !e.target || cellRef.current.contains(e.target as HTMLElement))
         return;
       // for clicking on select options
+      const acroSelectClassList = ["arco-select-popup", "arco-select-option"];
       if (
         e.target &&
         Array.from<string>((e.target as HTMLElement).classList.values()).some((className) =>
@@ -236,7 +240,7 @@ const EditableCell = (props: EditableCellProps<keyof Preset>) => {
     return () => {
       document.removeEventListener("click", onClick, { capture: true });
     };
-  }, [column, submit, presets, editing, getIndex]);
+  }, [column, submit, presets, editing, getRowIndex]);
 
   // returns children if cell not editable
   if (!column.editable) return <div className={className}>{children}</div>;
@@ -250,7 +254,7 @@ const EditableCell = (props: EditableCellProps<keyof Preset>) => {
           labelCol={{ span: 0 }}
           wrapperCol={{ span: 24 }}
           field={column.dataIndex}
-          rules={editableCells[column.dataIndex!].rules(presets, getIndex(), props)}
+          rules={editableCells[column.dataIndex!].rules(presets, getRowIndex(), props)}
         >
           {editableCells[column.dataIndex!].editingCell(props, submit)}
         </Form.Item>
@@ -266,9 +270,37 @@ const EditableCell = (props: EditableCellProps<keyof Preset>) => {
   );
 };
 
+/**
+ * Drag handler component
+ */
+const DragHandler = SortableHandle(() => (
+  <IconDragDotVertical
+    style={{
+      cursor: "move",
+      color: "#555",
+    }}
+  />
+));
+
+/**
+ * Sortable table dragger wrapper component
+ */
+const SortableWrapper = SortableContainer((props: { children: ReactNode[] }) => (
+  <tbody {...props} />
+));
+
+/**
+ * Sortable element wrapped editable row component
+ */
+const SortableEditableItem = SortableElement((props: RowProps) => <EditableRow {...props} />);
+
+/**
+ * A page managing user-defined decode and encode params presets.
+ */
 export default function PresetsPage() {
   const {
     presets,
+    movePreset,
     updatePreset,
     removePreset,
     tempPreset,
@@ -277,8 +309,6 @@ export default function PresetsPage() {
     updateTempPreset,
     persistTempPreset,
   } = usePresetStore((state) => state);
-
-  const isTempPreset = useCallback((index: number) => index > presets.length - 1, [presets.length]);
 
   /**
    * Block leaving page if temporary preset is editing
@@ -290,6 +320,7 @@ export default function PresetsPage() {
       blocker.reset();
     }
   }, [blocker, isBlocking]);
+  
 
   /**
    * Save preset when cell value change
@@ -298,7 +329,7 @@ export default function PresetsPage() {
     (_: Preset, index: number) => {
       return {
         onHandleSave: (row: Preset) => {
-          if (isTempPreset(index)) {
+          if (row.isTemp) {
             updateTempPreset(row);
             // tries to persist it immediately
             persistTempPreset();
@@ -308,21 +339,7 @@ export default function PresetsPage() {
         },
       };
     },
-    [updatePreset, updateTempPreset, persistTempPreset, isTempPreset]
-  );
-
-  /**
-   * Remove preset
-   */
-  const remove = useCallback(
-    (index: number) => {
-      if (isTempPreset(index)) {
-        disableTempPreset();
-      } else {
-        removePreset(index);
-      }
-    },
-    [isTempPreset, disableTempPreset, removePreset]
+    [updatePreset, updateTempPreset, persistTempPreset]
   );
 
   const tableCols: TableColumnProps[] = [
@@ -357,8 +374,16 @@ export default function PresetsPage() {
       title: "Operations",
       width: "120px",
       align: "center",
-      render: (_, _record, index) => {
-        if (isTempPreset(index)) {
+      render: (_, preset: Preset, index) => {
+        const remove = () => {
+          if (preset.isTemp) {
+            disableTempPreset();
+          } else {
+            removePreset(index);
+          }
+        };
+
+        if (preset.isTemp) {
           // temporary preset requires no double confirming
           return (
             <Tooltip
@@ -382,7 +407,7 @@ export default function PresetsPage() {
                 focusLock
                 title="Confirm"
                 content="Click again to delete this preset"
-                onOk={() => remove(index)}
+                onOk={remove}
               >
                 <Tooltip
                   position="left"
@@ -408,8 +433,64 @@ export default function PresetsPage() {
     [presets, tempPreset]
   );
 
+  /**
+   * Rearrange item index on sort end
+   */
+  const onSortEnd = useCallback(
+    ({ oldIndex, newIndex }: { oldIndex: number; newIndex: number }) => {
+      if (oldIndex !== newIndex) {
+        movePreset(newIndex, oldIndex);
+      }
+    },
+    [movePreset]
+  );
+  /**
+   * Draggable container element
+   */
+  const DraggableContainer = (props: { children: ReactNode[] }) => (
+    <SortableWrapper
+      useDragHandle
+      onSortEnd={onSortEnd}
+      helperContainer={() => document.querySelector(".draggable-table table tbody")!}
+      updateBeforeSortStart={({ node }) => {
+        const tds = node.querySelectorAll("td");
+        tds.forEach((td) => {
+          td.style.width = `${td.clientWidth}px`;
+        });
+      }}
+      {...props}
+    />
+  );
+  /**
+   * Draggable handler anchor
+   */
+  const DragHandlerAnchor = (record: Preset) => {
+    if (record.isTemp) {
+      return <td></td>;
+    } else {
+      return (
+        <td>
+          <div className="arco-table-cell">
+            <DragHandler />
+          </div>
+        </td>
+      );
+    }
+  };
+  /**
+   * Draggable & Editable row
+   */
+  const DraggableEditableRow = ({ index, ...rest }: RowProps & { index: number }) => {
+    const props = { ...rest, rowIndex: index };
+    if (rest.record.isTemp) {
+      return <EditableRow {...props}></EditableRow>;
+    } else {
+      return <SortableEditableItem index={index} {...props} />;
+    }
+  };
+
   return (
-    <Space className="w-full" direction="vertical">
+    <Space size="medium" direction="vertical">
       {/* Add Preset */}
       <Tooltip triggerProps={{ mouseEnterDelay: 1000 }} content="Add New Preset">
         <Button
@@ -418,8 +499,7 @@ export default function PresetsPage() {
           icon={<IconPlus />}
           disabled={!!tempPreset}
           onClick={(e) => {
-            // stop propagation to prevent form validation
-            e.stopPropagation();
+            e.stopPropagation(); // stop propagation to prevent form validation
             enableTempPreset();
           }}
         ></Button>
@@ -428,14 +508,30 @@ export default function PresetsPage() {
       {/* Presets Table */}
       <Table
         stripe
-        pagination={false}
         size="mini"
         rowKey="name"
+        className="draggable-table"
+        pagination={false}
         columns={tableCols}
         data={tableData}
         components={{
+          header: {
+            operations: () => [
+              {
+                node: <th />,
+                width: 40,
+              },
+            ],
+          },
           body: {
-            row: EditableRow,
+            operations: () => [
+              {
+                node: DragHandlerAnchor,
+                width: 40,
+              },
+            ],
+            tbody: DraggableContainer,
+            row: DraggableEditableRow,
             cell: EditableCell,
           },
         }}

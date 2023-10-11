@@ -5,7 +5,7 @@ import FFmpegLightThemeLogo from "../assets/ffmpeg_light_theme.svg";
 import { useAppStore } from "../store/app";
 
 /**
- * A particular page informing ffmpeg and system basic information.
+ * A page informing ffmpeg and system basic information.
  */
 export default function ParticularsPage() {
   const darkTheme = useAppStore((state) => state.theme);
