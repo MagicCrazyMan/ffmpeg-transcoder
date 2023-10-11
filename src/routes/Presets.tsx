@@ -219,9 +219,9 @@ const EditableCell = (props: EditableCellProps<keyof Preset>) => {
       submit();
     };
 
-    document.addEventListener("click", onClick, true);
+    document.addEventListener("click", onClick, { capture: true });
     return () => {
-      document.removeEventListener("click", onClick, true);
+      document.removeEventListener("click", onClick, { capture: true });
     };
   }, [column, submit, presets, editing, getIndex]);
 
