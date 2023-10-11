@@ -1,32 +1,41 @@
 import { Button, ConfigProvider, Dropdown, Icon, Layout, Menu, Spin } from "@arco-design/web-react";
-import enUS from '@arco-design/web-react/es/locale/en-US';
+import enUS from "@arco-design/web-react/es/locale/en-US";
 import { IconMoonFill, IconSunFill, IconThunderbolt } from "@arco-design/web-react/icon";
 import { useMemo, useState } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { pageRoutes } from "../router";
 import { Theme, useAppStore } from "../store/app";
-
-
-const MenuItem = Menu.Item;
-const Sider = Layout.Sider;
-const Content = Layout.Content;
 
 /**
  * Sidebar menu
  */
 const SidebarMenu = () => {
+  const location = useLocation();
   const navigate = useNavigate();
 
   const menuItems = pageRoutes.map(({ path, id, title, icon }) => {
     return (
-      <MenuItem key={id} onClick={() => navigate(path ?? "/")}>
+      <Menu.Item renderItemInTooltip={() => title} key={id} onClick={() => navigate(path ?? "/")}>
         {icon}
         {title}
-      </MenuItem>
+      </Menu.Item>
     );
   });
 
-  return <Menu defaultSelectedKeys={[pageRoutes[0].id]}>{menuItems}</Menu>;
+  const selectedKey = useMemo(() => {
+    const id = pageRoutes.find(({ path }) => location.pathname.startsWith(`/${path}`))?.id;
+    return id ? [id] : [];
+  }, [location]);
+
+  return (
+    <Menu
+      tooltipProps={{ triggerProps: { mouseEnterDelay: 1000 } }}
+      defaultSelectedKeys={[pageRoutes[0].id]}
+      selectedKeys={selectedKey}
+    >
+      {menuItems}
+    </Menu>
+  );
 };
 
 /**
@@ -52,9 +61,9 @@ const ThemeSwitcher = () => {
     [Theme.Dark, "Dark Theme"],
     [Theme.Default, "Follow System"],
   ].map(([t, s]) => (
-    <MenuItem key={t}>
+    <Menu.Item key={t}>
       {theme === t ? icon : <Icon />} {s}
-    </MenuItem>
+    </Menu.Item>
   ));
   const droplist = (
     <Menu onClickMenuItem={(theme) => setTheme(theme as Theme)}>{droplistItems}</Menu>
@@ -99,7 +108,7 @@ const MainPage = () => {
     <ConfigProvider locale={enUS}>
       <Layout className="h-full">
         {/* Sidebar */}
-        <Sider collapsible collapsed={collapsed} onCollapse={setCollapse}>
+        <Layout.Sider collapsible collapsed={collapsed} onCollapse={setCollapse}>
           <div className="h-full flex flex-col justify-between">
             {/* Menu */}
             <SidebarMenu />
@@ -107,13 +116,13 @@ const MainPage = () => {
             {/* Utilities Buttons */}
             <SidebarUtilities />
           </div>
-        </Sider>
+        </Layout.Sider>
 
         {/* Main Content */}
         <Layout>
-          <Content className="p-4">
+          <Layout.Content className="p-4">
             <Outlet></Outlet>
-          </Content>
+          </Layout.Content>
         </Layout>
       </Layout>
     </ConfigProvider>

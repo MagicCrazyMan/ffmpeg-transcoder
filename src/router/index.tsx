@@ -15,9 +15,9 @@ export type PageRouteObject = {
 export const pageRoutes: PageRouteObject[] = [
   {
     id: "queue",
+    path: "queue",
     title: "Queue",
     icon: <IconUnorderedList />,
-    index: true,
     async lazy() {
       const { default: Component } = await import("../routes/Queue");
       return { Component };

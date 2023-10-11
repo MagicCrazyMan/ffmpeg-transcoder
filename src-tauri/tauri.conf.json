@@ -68,6 +68,7 @@
     },
     "windows": [
       {
+        "url": "/queue",
         "fullscreen": false,
         "resizable": true,
         "title": "FFmpeg Transcoder",

@@ -4,15 +4,17 @@ import {
   FormInstance,
   Input,
   InputTag,
+  Popconfirm,
   RulesProps,
   Select,
   Space,
   Table,
   TableColumnProps,
   Tag,
+  Tooltip,
 } from "@arco-design/web-react";
 import { ColumnProps } from "@arco-design/web-react/es/Table";
-import { IconDelete } from "@arco-design/web-react/icon";
+import { IconDelete, IconPlus } from "@arco-design/web-react/icon";
 import {
   ReactNode,
   createContext,
@@ -23,6 +25,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { unstable_useBlocker } from "react-router-dom";
 import { Preset, PresetType, usePresetStore } from "../store/preset";
 
 const EditableContext = createContext<{
@@ -174,6 +177,8 @@ const editableCells: Record<
   },
 };
 
+const acroSelectClassList = ["arco-select-popup", "arco-select-option"];
+
 const EditableCell = (props: EditableCellProps<keyof Preset>) => {
   const { children, className, rowData, column, onHandleSave } = props;
 
@@ -214,6 +219,14 @@ const EditableCell = (props: EditableCellProps<keyof Preset>) => {
       if (!column.editable || !editing) return;
       // do nothing if click on editing cell itself
       if (!cellRef.current || !e.target || cellRef.current.contains(e.target as HTMLElement))
+        return;
+      // for clicking on select options
+      if (
+        e.target &&
+        Array.from<string>((e.target as HTMLElement).classList.values()).some((className) =>
+          acroSelectClassList.includes(className)
+        )
+      )
         return;
 
       submit();
@@ -265,6 +278,19 @@ export default function PresetsPage() {
     persistTempPreset,
   } = usePresetStore((state) => state);
 
+  const isTempPreset = useCallback((index: number) => index > presets.length - 1, [presets.length]);
+
+  /**
+   * Block leaving page if temporary preset is editing
+   */
+  const isBlocking = useMemo(() => !!tempPreset, [tempPreset]);
+  const blocker = unstable_useBlocker(isBlocking);
+  useEffect(() => {
+    if (blocker.state === "blocked" && !isBlocking) {
+      blocker.reset();
+    }
+  }, [blocker, isBlocking]);
+
   /**
    * Save preset when cell value change
    */
@@ -272,7 +298,7 @@ export default function PresetsPage() {
     (_: Preset, index: number) => {
       return {
         onHandleSave: (row: Preset) => {
-          if (index > presets.length - 1) {
+          if (isTempPreset(index)) {
             updateTempPreset(row);
             // tries to persist it immediately
             persistTempPreset();
@@ -282,7 +308,7 @@ export default function PresetsPage() {
         },
       };
     },
-    [presets, updatePreset, updateTempPreset, persistTempPreset]
+    [updatePreset, updateTempPreset, persistTempPreset, isTempPreset]
   );
 
   /**
@@ -290,13 +316,13 @@ export default function PresetsPage() {
    */
   const remove = useCallback(
     (index: number) => {
-      if (index > presets.length - 1) {
+      if (isTempPreset(index)) {
         disableTempPreset();
       } else {
         removePreset(index);
       }
     },
-    [presets, disableTempPreset, removePreset]
+    [isTempPreset, disableTempPreset, removePreset]
   );
 
   const tableCols: TableColumnProps[] = [
@@ -332,17 +358,48 @@ export default function PresetsPage() {
       width: "120px",
       align: "center",
       render: (_, _record, index) => {
-        return (
-          <Space>
-            <Button
-              shape="circle"
-              type="primary"
-              status="danger"
-              icon={<IconDelete />}
-              onClick={() => remove(index)}
-            ></Button>
-          </Space>
-        );
+        if (isTempPreset(index)) {
+          // temporary preset requires no double confirming
+          return (
+            <Tooltip
+              position="left"
+              triggerProps={{ mouseEnterDelay: 1000 }}
+              content="Delete Preset"
+            >
+              <Button
+                shape="circle"
+                type="primary"
+                status="danger"
+                icon={<IconDelete />}
+                onClick={disableTempPreset}
+              ></Button>
+            </Tooltip>
+          );
+        } else {
+          return (
+            <Space>
+              <Popconfirm
+                focusLock
+                title="Confirm"
+                content="Click again to delete this preset"
+                onOk={() => remove(index)}
+              >
+                <Tooltip
+                  position="left"
+                  triggerProps={{ mouseEnterDelay: 1000 }}
+                  content="Delete Preset"
+                >
+                  <Button
+                    shape="circle"
+                    type="primary"
+                    status="danger"
+                    icon={<IconDelete />}
+                  ></Button>
+                </Tooltip>
+              </Popconfirm>
+            </Space>
+          );
+        }
       },
     },
   ];
@@ -354,18 +411,19 @@ export default function PresetsPage() {
   return (
     <Space className="w-full" direction="vertical">
       {/* Add Preset */}
-      <Button
-        type="primary"
-        size="small"
-        disabled={!!tempPreset}
-        onClick={(e) => {
-          // stop propagation to prevent form validation
-          e.stopPropagation();
-          enableTempPreset();
-        }}
-      >
-        Add Preset
-      </Button>
+      <Tooltip triggerProps={{ mouseEnterDelay: 1000 }} content="Add New Preset">
+        <Button
+          shape="circle"
+          type="primary"
+          icon={<IconPlus />}
+          disabled={!!tempPreset}
+          onClick={(e) => {
+            // stop propagation to prevent form validation
+            e.stopPropagation();
+            enableTempPreset();
+          }}
+        ></Button>
+      </Tooltip>
 
       {/* Presets Table */}
       <Table
