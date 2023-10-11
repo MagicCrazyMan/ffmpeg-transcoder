@@ -27,6 +27,12 @@ export type PresetStoreState = {
    */
   movePreset: (newIndex: number, oldIndex: number) => void;
   /**
+   * Copies a existing preset, and gives it a new name.
+   * @param index Preset index
+   * @param newName New name for the copied preset
+   */
+  copyPreset: (index: number, newName?: string) => void;
+  /**
    * Updates a existing preset
    * @param index Preset index
    * @param preset Partial preset data that should be updated
@@ -131,6 +137,20 @@ export const usePresetStore = create<PresetStoreState>((set, get, api) => {
   //   set({ presets: [...get().presets, newPreset] });
   // };
 
+  const copyPreset = (index: number, newName?: string) => {
+    const presets = get().presets;
+
+    const preset = presets[index];
+    const newPreset: Preset = {
+      ...preset,
+      id: v4(),
+      name: newName ? newName : `${preset.name} (2)`,
+    };
+
+    presets.splice(index + 1, 0, newPreset);
+    set({ presets: [...presets] });
+  };
+
   const movePreset = (newIndex: number, oldIndex: number) => {
     const presets = get().presets;
     if (newIndex > presets.length - 1 || oldIndex > presets.length - 1) return;
@@ -199,6 +219,7 @@ export const usePresetStore = create<PresetStoreState>((set, get, api) => {
   return {
     presets,
     // addPreset,
+    copyPreset,
     movePreset,
     updatePreset,
     removePreset,

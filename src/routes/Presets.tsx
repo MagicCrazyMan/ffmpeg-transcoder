@@ -14,7 +14,7 @@ import {
   Tooltip,
 } from "@arco-design/web-react";
 import { ColumnProps } from "@arco-design/web-react/es/Table";
-import { IconDelete, IconDragDotVertical, IconPlus } from "@arco-design/web-react/icon";
+import { IconCopy, IconDelete, IconDragDotVertical, IconPlus } from "@arco-design/web-react/icon";
 import {
   ReactNode,
   createContext,
@@ -301,6 +301,7 @@ export default function PresetsPage() {
   const {
     presets,
     movePreset,
+    copyPreset,
     updatePreset,
     removePreset,
     tempPreset,
@@ -320,7 +321,6 @@ export default function PresetsPage() {
       blocker.reset();
     }
   }, [blocker, isBlocking]);
-  
 
   /**
    * Save preset when cell value change
@@ -403,6 +403,7 @@ export default function PresetsPage() {
         } else {
           return (
             <Space>
+              {/* Delete Button */}
               <Popconfirm
                 focusLock
                 title="Confirm"
@@ -422,6 +423,20 @@ export default function PresetsPage() {
                   ></Button>
                 </Tooltip>
               </Popconfirm>
+
+              {/* Copy Button */}
+              <Tooltip
+                position="left"
+                triggerProps={{ mouseEnterDelay: 1000 }}
+                content="Copy Preset"
+              >
+                <Button
+                  shape="circle"
+                  type="primary"
+                  icon={<IconCopy />}
+                  onClick={() => copyPreset(index)}
+                ></Button>
+              </Tooltip>
             </Space>
           );
         }
