@@ -3,7 +3,6 @@ import {
   Form,
   FormInstance,
   Input,
-  InputTag,
   Popconfirm,
   RulesProps,
   Select,
@@ -44,8 +43,11 @@ type CellProps<Key extends keyof Preset> = {
   onHandleSave: (row: Preset) => void;
 };
 
+// type EditingPreset = Omit<Preset, "params"> & { params: string | string[] };
+type EditingPreset = Preset & { editingParams: string };
+
 const EditableContext = createContext<{
-  getForm: () => FormInstance<Preset> | null;
+  getForm: () => FormInstance<EditingPreset> | null;
   getRowIndex: () => number;
 } | null>(null);
 
@@ -53,11 +55,14 @@ const EditableContext = createContext<{
  * Editable Row Component
  */
 const EditableRow = ({ children, record, className, rowIndex, ...rest }: RowProps) => {
-  const refForm = useRef<FormInstance<Preset>>(null);
+  const refForm = useRef<FormInstance<EditingPreset>>(null);
   const getForm = () => refForm.current;
 
   const getRowIndex = useCallback(() => rowIndex, [rowIndex]);
-
+  const initialValue: EditingPreset = {
+    ...record,
+    editingParams: record.params.join(" "),
+  };
   return (
     <EditableContext.Provider
       value={{
@@ -69,7 +74,7 @@ const EditableRow = ({ children, record, className, rowIndex, ...rest }: RowProp
         size="mini"
         wrapper="tr"
         children={children}
-        initialValues={record}
+        initialValues={initialValue}
         ref={refForm}
         wrapperProps={rest}
         className={`${className} table-row`}
@@ -82,8 +87,12 @@ const editableCells: Record<
   string,
   {
     cell(props: CellProps<keyof Preset>): ReactNode;
-    editingCell(props: CellProps<keyof Preset>, submit: () => void): ReactNode;
-    rules: (presets: Preset[], index: number, props: CellProps<keyof Preset>) => RulesProps[];
+    editingCell(
+      submit: () => void,
+      presets: Preset[],
+      index: number,
+      props: CellProps<keyof Preset>
+    ): ReactNode;
   }
 > = {
   /**
@@ -93,14 +102,11 @@ const editableCells: Record<
     cell({ children }: CellProps<"name">): ReactNode {
       return <div className="inline-block">{children}</div>;
     },
-    editingCell(_props: CellProps<"name">, submit): ReactNode {
-      return <Input autoFocus onPressEnter={submit} />;
-    },
-    rules(presets, index) {
-      return [
+    editingCell(submit, presets, index): ReactNode {
+      const rules: RulesProps[] = [
         { required: true },
         {
-          validator(value, callback) {
+          validator(value: string, callback) {
             if (presets.some((preset, i) => index !== i && preset.name === value)) {
               callback("name already exists");
             } else {
@@ -109,6 +115,18 @@ const editableCells: Record<
           },
         },
       ];
+
+      return (
+        <Form.Item
+          field="name"
+          style={{ marginBottom: 0 }}
+          labelCol={{ span: 0 }}
+          wrapperCol={{ span: 24 }}
+          rules={rules}
+        >
+          <Input autoFocus onPressEnter={submit} />
+        </Form.Item>
+      );
     },
   },
   /**
@@ -118,11 +136,17 @@ const editableCells: Record<
     cell({ children }: CellProps<"remark">): ReactNode {
       return <div className="inline-block">{children}</div>;
     },
-    editingCell(_props: CellProps<"remark">, submit): ReactNode {
-      return <Input.TextArea autoSize onPressEnter={submit} />;
-    },
-    rules() {
-      return [];
+    editingCell(submit): ReactNode {
+      return (
+        <Form.Item
+          field="remark"
+          style={{ marginBottom: 0 }}
+          labelCol={{ span: 0 }}
+          wrapperCol={{ span: 24 }}
+        >
+          <Input.TextArea autoSize onPressEnter={submit} />
+        </Form.Item>
+      );
     },
   },
   /**
@@ -141,21 +165,26 @@ const editableCells: Record<
     },
     editingCell(): ReactNode {
       return (
-        <Select>
-          <Select.Option key={PresetType.Universal} value={PresetType.Universal}>
-            Universal
-          </Select.Option>
-          <Select.Option key={PresetType.Decode} value={PresetType.Decode}>
-            For Decode Only
-          </Select.Option>
-          <Select.Option key={PresetType.Encode} value={PresetType.Encode}>
-            For Encode Only
-          </Select.Option>
-        </Select>
+        <Form.Item
+          field="type"
+          style={{ marginBottom: 0 }}
+          labelCol={{ span: 0 }}
+          wrapperCol={{ span: 24 }}
+          rules={[{ required: true }]}
+        >
+          <Select>
+            <Select.Option key={PresetType.Universal} value={PresetType.Universal}>
+              Universal
+            </Select.Option>
+            <Select.Option key={PresetType.Decode} value={PresetType.Decode}>
+              For Decode Only
+            </Select.Option>
+            <Select.Option key={PresetType.Encode} value={PresetType.Encode}>
+              For Encode Only
+            </Select.Option>
+          </Select>
+        </Form.Item>
       );
-    },
-    rules() {
-      return [{ required: true }];
     },
   },
   /**
@@ -165,17 +194,23 @@ const editableCells: Record<
     cell({ children }: CellProps<"params">): ReactNode {
       const tags = children.map((param, index) => <Tag key={index}>{param}</Tag>);
       return (
-        <Space wrap size={2}>
+        <Space wrap size="mini">
           {tags}
         </Space>
       );
     },
-    editingCell(): ReactNode {
-      // allow duplicated tags
-      return <InputTag allowClear saveOnBlur validate={(value) => !!value}></InputTag>;
-    },
-    rules() {
-      return [{ required: true, empty: false }];
+    editingCell(submit): ReactNode {
+      return (
+        <Form.Item
+          field="editingParams"
+          style={{ marginBottom: 0 }}
+          labelCol={{ span: 0 }}
+          wrapperCol={{ span: 24 }}
+          rules={[{ required: true }]}
+        >
+          <Input.TextArea autoFocus onPressEnter={submit} />
+        </Form.Item>
+      );
     },
   },
 };
@@ -199,18 +234,36 @@ const EditableCell = (props: CellProps<keyof Preset>) => {
     const form = getForm?.();
     if (!form) return;
 
+    let validation: Promise<Preset>;
     if (rowData.isTemp) {
       // for a temporary preset, saves only when all fields are passed.
-      form.validate().then((preset) => {
-        if (onHandleSave) onHandleSave(preset);
-        setEditing(false);
+      validation = form.validate().then((preset) => {
+        return {
+          ...preset,
+          params: preset.editingParams
+            .split(" ")
+            .map((param) => param.trim())
+            .filter((param) => !!param),
+        };
       });
     } else {
-      form.validate([column.dataIndex! as keyof Preset]).then((partial) => {
-        if (onHandleSave) onHandleSave({ ...rowData, ...partial });
-        setEditing(false);
+      validation = form.validate([column.dataIndex! as keyof Preset]).then((partial) => {
+        return {
+          ...rowData,
+          params: partial.editingParams
+            ? partial.editingParams
+                .split(" ")
+                .map((param) => param.trim())
+                .filter((param) => !!param)
+            : rowData.params,
+        };
       });
     }
+
+    validation.then((preset) => {
+      if (onHandleSave) onHandleSave(preset);
+      setEditing(false);
+    });
   }, [getForm, onHandleSave, rowData, column]);
 
   /**
@@ -249,15 +302,7 @@ const EditableCell = (props: CellProps<keyof Preset>) => {
   if (editing) {
     return (
       <div ref={cellRef}>
-        <Form.Item
-          style={{ marginBottom: 0 }}
-          labelCol={{ span: 0 }}
-          wrapperCol={{ span: 24 }}
-          field={column.dataIndex}
-          rules={editableCells[column.dataIndex!].rules(presets, getRowIndex(), props)}
-        >
-          {editableCells[column.dataIndex!].editingCell(props, submit)}
-        </Form.Item>
+        {editableCells[column.dataIndex!].editingCell(submit, presets, getRowIndex(), props)}
       </div>
     );
   }
