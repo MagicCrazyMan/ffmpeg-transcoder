@@ -206,7 +206,7 @@ const editableCells: Record<
           style={{ marginBottom: 0 }}
           labelCol={{ span: 0 }}
           wrapperCol={{ span: 24 }}
-          rules={[{ required: true }]}
+          rules={[{ required: true, message: "params is required" }]}
         >
           <Input.TextArea autoFocus onPressEnter={submit} />
         </Form.Item>
@@ -231,40 +231,29 @@ const EditableCell = (props: CellProps<keyof Preset>) => {
    * Submits and saves data
    */
   const submit = useCallback(() => {
-    const form = getForm?.();
-    if (!form) return;
+    getForm?.()
+      ?.validate()
+      .then((partial) => {
+        let preset: Preset;
+        if (partial.editingParams) {
+          preset = {
+            ...rowData,
+            params: partial.editingParams
+              .split(" ")
+              .map((param) => param.trim())
+              .filter((param) => !!param),
+          };
+        } else {
+          preset = {
+            ...rowData,
+            ...partial,
+          };
+        }
 
-    let validation: Promise<Preset>;
-    if (rowData.isTemp) {
-      // for a temporary preset, saves only when all fields are passed.
-      validation = form.validate().then((preset) => {
-        return {
-          ...preset,
-          params: preset.editingParams
-            .split(" ")
-            .map((param) => param.trim())
-            .filter((param) => !!param),
-        };
+        if (onHandleSave) onHandleSave(preset);
+        setEditing(false);
       });
-    } else {
-      validation = form.validate([column.dataIndex! as keyof Preset]).then((partial) => {
-        return {
-          ...rowData,
-          params: partial.editingParams
-            ? partial.editingParams
-                .split(" ")
-                .map((param) => param.trim())
-                .filter((param) => !!param)
-            : rowData.params,
-        };
-      });
-    }
-
-    validation.then((preset) => {
-      if (onHandleSave) onHandleSave(preset);
-      setEditing(false);
-    });
-  }, [getForm, onHandleSave, rowData, column]);
+  }, [getForm, onHandleSave, rowData]);
 
   /**
    * Listens on click event and tries to stop and save editing value when click outside editing cell
