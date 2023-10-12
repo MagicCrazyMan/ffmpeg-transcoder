@@ -43,24 +43,17 @@ type CellProps<Key extends keyof Preset> = {
   onHandleSave: (row: Preset) => void;
 };
 
-// type EditingPreset = Omit<Preset, "params"> & { params: string | string[] };
-type EditingPreset = Preset & { editingParams: string };
-
 const EditableContext = createContext<{
-  getForm: () => FormInstance<EditingPreset> | null;
+  getForm: () => FormInstance<Preset> | null;
 } | null>(null);
 
 /**
  * Editable Row Component
  */
 const EditableRow = ({ children, record, className, ...rest }: RowProps) => {
-  const refForm = useRef<FormInstance<EditingPreset>>(null);
+  const refForm = useRef<FormInstance<Preset>>(null);
   const getForm = () => refForm.current;
 
-  const initialValue: EditingPreset = {
-    ...record,
-    editingParams: record.params.join(" "),
-  };
   return (
     <EditableContext.Provider
       value={{
@@ -71,7 +64,7 @@ const EditableRow = ({ children, record, className, ...rest }: RowProps) => {
         size="mini"
         wrapper="tr"
         children={children}
-        initialValues={initialValue}
+        initialValues={record}
         ref={refForm}
         wrapperProps={rest}
         className={`${className} table-row`}
@@ -183,7 +176,11 @@ const editableCells: Record<
     editingCell(submit, { rowData }: CellProps<"params">): ReactNode {
       return (
         <Form.Item
-          field="editingParams"
+          field="params"
+          formatter={(value: string | undefined) =>
+            (value as unknown as string[] | undefined)?.join(" ")
+          }
+          normalize={(value: string | undefined) => value?.split(" ").map((param) => param.trim())}
           style={{ marginBottom: 0 }}
           labelCol={{ span: 0 }}
           wrapperCol={{ span: 24 }}
@@ -214,21 +211,15 @@ const EditableCell = (props: CellProps<keyof Preset>) => {
     getForm?.()
       ?.validate()
       .then((partial) => {
-        const preset = {
-          ...rowData,
-          ...partial,
-          params: partial.editingParams
-            ? partial.editingParams
-                .split(" ")
-                .map((param) => param.trim())
-                .filter((param) => !!param)
-            : rowData.params,
-        };
+        console.log(partial);
 
-        // delete editingParams field
-        delete (preset as Partial<EditingPreset>).editingParams;
-
-        if (onHandleSave) onHandleSave(preset);
+        if (onHandleSave)
+          onHandleSave({
+            ...rowData,
+            ...partial,
+            // remove all tailing spaces
+            params: partial.params.filter((param) => !!param),
+          });
         setEditing(false);
       });
   }, [getForm, onHandleSave, rowData]);
