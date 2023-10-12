@@ -3,7 +3,6 @@ import {
   Form,
   FormInstance,
   Input,
-  Message,
   Modal,
   Popconfirm,
   Select,
@@ -17,13 +16,7 @@ import { cloneDeep } from "lodash";
 import { Dispatch, ReactNode, SetStateAction, useCallback, useMemo, useRef, useState } from "react";
 import { v4 } from "uuid";
 import { Preset, PresetType, usePresetStore } from "../../store/preset";
-import {
-  ParamsSource,
-  Task,
-  TaskInputParams,
-  TaskOutputParams,
-  useTaskStore,
-} from "../../store/task";
+import { ParamsSource, Task, TaskInputParams, TaskOutputParams } from "../../store/task";
 
 export type TaskEditorProps = {
   visible: boolean;
@@ -31,28 +24,25 @@ export type TaskEditorProps = {
   task?: Task;
 };
 
-type ParamsEditorFormData = {
-  selection: ParamsSource.Auto | ParamsSource.Custom | string;
-  custom?: string;
-};
-
 const ParamsEditor = ({
-  input,
-  options, // onChange,
+  presetOptions,
+  record,
+  onSave,
 }: {
-  input: TaskInputParams;
-  options: ReactNode[];
-  onChange: (
-    id: string,
-    value: Partial<ParamsEditorFormData>,
-    values: Partial<ParamsEditorFormData>
-  ) => void;
+  presetOptions: ReactNode[];
+  record: TaskInputParams | TaskOutputParams;
+  onSave: (id: string, value: Partial<TaskInputParams | TaskOutputParams>) => void;
 }) => {
+  type ParamsEditorFormData = {
+    selection: ParamsSource.Auto | ParamsSource.Custom | string;
+    custom?: string;
+  };
+
   const presets = usePresetStore((state) => state.presets);
   const formRef = useRef<FormInstance<ParamsEditorFormData>>(null);
 
   let initialValues: ParamsEditorFormData;
-  switch (input.source) {
+  switch (record.source) {
     case ParamsSource.Auto:
       initialValues = {
         selection: ParamsSource.Auto,
@@ -65,7 +55,7 @@ const ParamsEditor = ({
       };
       break;
     case ParamsSource.FromPreset: {
-      const params = input.params as Preset;
+      const params = record.params as Preset;
       const preset = presets.find(({ id }) => params.id === id);
       if (preset) {
         initialValues = {
@@ -80,15 +70,47 @@ const ParamsEditor = ({
       break;
     }
   }
-  const [formValues, setFormValues] = useState<ParamsEditorFormData>(initialValues);
+  const [selection, setSelection] = useState<ParamsSource.Auto | ParamsSource.Custom | string>(
+    initialValues.selection
+  );
+  const onChange = useCallback(
+    (changed: Partial<ParamsEditorFormData>) => {
+      // clear custom input field if selection change
+      // hide custom input field and prevent validating `custom` field and if selection is not Custom
+      let keys: (keyof ParamsEditorFormData)[];
+      if (changed.selection) {
+        setSelection(changed.selection);
+        formRef.current?.clearFields(["custom"]); // clear custom input if selection changed
+        keys = ["selection"]; // do not validate custom field
+      } else {
+        keys = ["selection", "custom"];
+      }
+
+      // validate form, save it if validation pass
+      formRef.current?.validate(keys).then((value) => {
+        let source: ParamsSource, params: Preset | string[] | undefined;
+        if (value.selection === ParamsSource.Auto) {
+          source = value.selection;
+          params = undefined;
+        } else if (value.selection === ParamsSource.Custom) {
+          source = value.selection;
+          params = [];
+        } else {
+          source = ParamsSource.FromPreset;
+          params = cloneDeep({ ...presets.find((p) => p.id)! });
+        }
+
+        onSave(record.id, {
+          source,
+          params,
+        });
+      });
+    },
+    [presets, record, onSave]
+  );
 
   return (
-    <Form
-      size="mini"
-      ref={formRef}
-      initialValues={formValues}
-      onChange={(data) => setFormValues((state) => ({ ...state, ...data }))}
-    >
+    <Form size="mini" ref={formRef} initialValues={initialValues} onChange={onChange}>
       <Space size={2} direction="vertical">
         {/* Params Source Selector */}
         <Form.Item
@@ -100,12 +122,12 @@ const ParamsEditor = ({
           <Select size="mini">
             <Select.Option value={ParamsSource.Auto}>Auto</Select.Option>
             <Select.Option value={ParamsSource.Custom}>Custom</Select.Option>
-            {options}
+            {presetOptions}
           </Select>
         </Form.Item>
 
-        {/* Custom Params Source Input */}
-        {formValues.selection === ParamsSource.Custom ? (
+        {/* Custom Params Input */}
+        {selection === ParamsSource.Custom ? (
           <Form.Item
             field="custom"
             style={{ marginBottom: 0 }}
@@ -122,10 +144,10 @@ const ParamsEditor = ({
 };
 
 const Operations = ({
-  input,
+  record,
   onRemove,
 }: {
-  input: TaskInputParams;
+  record: TaskInputParams | TaskOutputParams;
   onRemove: (id: string) => void;
 }) => {
   return (
@@ -135,8 +157,79 @@ const Operations = ({
       type="primary"
       status="danger"
       icon={<IconDelete />}
-      onClick={() => onRemove(input.id)}
+      onClick={() => onRemove(record.id)}
     ></Button>
+  );
+};
+
+const UniverseTable = ({
+  presetOptions,
+  records,
+  setRecords,
+}: {
+  presetOptions: ReactNode[];
+  records: (TaskInputParams | TaskOutputParams)[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  setRecords: Dispatch<SetStateAction<any[]>>;
+}) => {
+  const onSave = useCallback(
+    (id: string, value: Partial<TaskInputParams | TaskOutputParams>) => {
+      setRecords((records: (TaskInputParams | TaskOutputParams)[]) =>
+        records.map((record) => {
+          if (record.id === id) {
+            return {
+              ...record,
+              ...value,
+            };
+          } else {
+            return record;
+          }
+        })
+      );
+    },
+    [setRecords]
+  );
+
+  const onRemove = useCallback(
+    (id: string) => setRecords((records) => records.filter((record) => record.id !== id)),
+    [setRecords]
+  );
+
+  const columns: TableColumnProps<TaskInputParams | TaskOutputParams>[] = useMemo(
+    () => [
+      {
+        title: "Input Files",
+        dataIndex: "path",
+        ellipsis: true,
+      },
+      {
+        title: "Decode Params",
+        dataIndex: "source",
+        ellipsis: true,
+        render: (_col, input) => (
+          <ParamsEditor presetOptions={presetOptions} record={input} onSave={onSave} />
+        ),
+      },
+      {
+        title: "Operations",
+        dataIndex: "remove",
+        width: "6rem",
+        align: "center",
+        render: (_col, input) => <Operations record={input} onRemove={onRemove} />,
+      },
+    ],
+    [presetOptions, onSave, onRemove]
+  );
+
+  return (
+    <Table
+      stripe
+      size="mini"
+      rowKey="id"
+      pagination={false}
+      columns={columns}
+      data={records}
+    ></Table>
   );
 };
 
@@ -162,71 +255,39 @@ const InputTable = ({
     [presets]
   );
 
-  const save = useCallback(
-    (id: string, value: Partial<ParamsEditorFormData>) => {
-      let source: ParamsSource, params: Preset | string[] | undefined;
-      if (value.selection === ParamsSource.Auto) {
-        params = undefined;
-      } else if (value.selection === ParamsSource.Custom) {
-        source = value.selection;
-        params = [];
-      } else {
-        source = ParamsSource.FromPreset;
-        params = cloneDeep({ ...presets.find((p) => p.id)! });
-      }
-
-      setInputs((inputs) =>
-        inputs.map((input) => {
-          if (input.id === id) {
-            return {
-              ...input,
-              source,
-              params,
-            };
-          } else {
-            return input;
-          }
-        })
-      );
-    },
-    [presets, setInputs]
+  return (
+    <UniverseTable presetOptions={options} records={inputs} setRecords={setInputs}></UniverseTable>
   );
+};
 
-  const remove = useCallback(
-    (id: string) => setInputs((inputs) => inputs.filter((input) => input.id !== id)),
-    [setInputs]
+const OutputTable = ({
+  outputs,
+  setOutputs,
+}: {
+  outputs: TaskOutputParams[];
+  setOutputs: Dispatch<SetStateAction<TaskOutputParams[]>>;
+}) => {
+  const presets = usePresetStore((state) => state.presets);
+  const options = useMemo(
+    () =>
+      presets
+        .filter(
+          (preset) => preset.type === PresetType.Universal || preset.type === PresetType.Encode
+        )
+        .map((preset) => (
+          <Select.Option key={preset.id} value={preset.id}>
+            {preset.name}
+          </Select.Option>
+        )),
+    [presets]
   );
-
-  const tableCols: TableColumnProps<TaskInputParams>[] = [
-    {
-      title: "Input Files",
-      dataIndex: "path",
-      ellipsis: true,
-    },
-    {
-      title: "Decode Params",
-      dataIndex: "source",
-      ellipsis: true,
-      render: (_col, input) => <ParamsEditor options={options} input={input} onChange={save} />,
-    },
-    {
-      title: "Operations",
-      dataIndex: "remove",
-      width: "6rem",
-      align: "center",
-      render: (_col, input) => <Operations input={input} onRemove={remove} />,
-    },
-  ];
 
   return (
-    <Table
-      stripe
-      size="mini"
-      rowKey="id"
-      pagination={false}
-      columns={tableCols}
-      data={inputs}
-    ></Table>
+    <UniverseTable
+      presetOptions={options}
+      records={outputs}
+      setRecords={setOutputs}
+    ></UniverseTable>
   );
 };
 
@@ -266,9 +327,6 @@ const Footer = ({
 };
 
 export default function ComplexTaskEditor({ visible, onVisibleChange, task }: TaskEditorProps) {
-  const addTask = useTaskStore((state) => state.addTask);
-  const presets = usePresetStore((state) => state.presets);
-
   const [inputs, setInputs] = useState<TaskInputParams[]>(task?.params.inputs ?? []);
   const [outputs, setOutputs] = useState<TaskOutputParams[]>(task?.params.outputs ?? []);
   const submittable = useMemo(() => inputs.length !== 0 && outputs.length !== 0, [inputs, outputs]);
@@ -276,89 +334,6 @@ export default function ComplexTaskEditor({ visible, onVisibleChange, task }: Ta
     () => inputs.length !== 0 || outputs.length !== 0,
     [inputs, outputs]
   );
-
-  /**
-   * Selectable params options
-   */
-  const { SelectableDecodeParamsOptions, SelectableEncodeParamsOptions } = useMemo(() => {
-    const SelectableDecodeParamsOptions: ReactNode[] = [];
-    const SelectableEncodeParamsOptions: ReactNode[] = [];
-
-    presets.forEach((preset, index) => {
-      const option = (
-        <Select.Option key={preset.id} value={index}>
-          {preset.name}
-        </Select.Option>
-      );
-      switch (preset.type) {
-        case PresetType.Universal:
-          SelectableDecodeParamsOptions.push(option);
-          SelectableEncodeParamsOptions.push(option);
-          break;
-        case PresetType.Decode:
-          SelectableDecodeParamsOptions.push(option);
-          break;
-        case PresetType.Encode:
-          SelectableEncodeParamsOptions.push(option);
-          break;
-      }
-    });
-
-    return { SelectableDecodeParamsOptions, SelectableEncodeParamsOptions };
-  }, [presets]);
-
-  /**
-   * Removes output file from list
-   * @param id List index
-   */
-  const removeOutput = (id: string) => {
-    setInputs((inputs) => inputs.filter((input) => input.id !== id));
-  };
-
-  const outputsTableCols: TableColumnProps<TaskOutputParams>[] = [
-    {
-      title: "Output Files",
-      dataIndex: "path",
-      ellipsis: true,
-    },
-    {
-      title: "Encode Params",
-      dataIndex: "params",
-      ellipsis: true,
-      render: (_col, item, index) => {
-        const save = (params: string[]) => {
-          setOutputs((outputs) =>
-            outputs.map((output, i) => (i === index ? { ...output, params } : output))
-          );
-        };
-
-        return (
-          <Select allowClear size="mini" value={item.params} onChange={save}>
-            <Select.Option value={-1}>Custom</Select.Option>
-            {SelectableEncodeParamsOptions}
-          </Select>
-        );
-      },
-    },
-    {
-      title: "Operations",
-      dataIndex: "remove",
-      width: "6rem",
-      align: "center",
-      render: (_col, record) => {
-        return (
-          <Button
-            size="mini"
-            shape="circle"
-            type="primary"
-            status="danger"
-            icon={<IconDelete />}
-            onClick={() => removeOutput(record.id)}
-          ></Button>
-        );
-      },
-    },
-  ];
 
   /**
    * Add input files vis Tauri
@@ -402,26 +377,6 @@ export default function ComplexTaskEditor({ visible, onVisibleChange, task }: Ta
     }
   };
 
-  /**
-   * Submits and adds a new task to store
-   */
-  const submit = () => {
-    if (inputs.length === 0) {
-      Message.warning("Empty Input Files");
-      return;
-    }
-    if (outputs.length === 0) {
-      Message.warning("Empty Output Files");
-      return;
-    }
-
-    addTask({
-      inputs,
-      outputs,
-    });
-    onVisibleChange(false);
-  };
-
   return (
     <Modal
       simple
@@ -462,14 +417,7 @@ export default function ComplexTaskEditor({ visible, onVisibleChange, task }: Ta
         <InputTable inputs={inputs} setInputs={setInputs} />
 
         {/* Output Files Table */}
-        <Table
-          stripe
-          size="mini"
-          rowKey="id"
-          pagination={false}
-          columns={outputsTableCols}
-          data={outputs}
-        ></Table>
+        <OutputTable outputs={outputs} setOutputs={setOutputs} />
       </Space>
     </Modal>
   );

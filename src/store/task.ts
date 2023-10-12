@@ -48,9 +48,9 @@ export type TaskParams = {
 };
 
 export enum ParamsSource {
-  Auto = 0,
-  Custom = 1,
-  FromPreset = 2,
+  Auto = 1,
+  Custom = 2,
+  FromPreset = 3,
 }
 
 export type TaskInputParams = {
