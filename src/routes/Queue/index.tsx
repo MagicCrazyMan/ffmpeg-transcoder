@@ -1,43 +1,40 @@
 import { Button, Space, Table, TableColumnProps, Tooltip } from "@arco-design/web-react";
 import { IconDown, IconNav, IconRight } from "@arco-design/web-react/icon";
 import { useState } from "react";
-import { Task, useTaskStore } from "../../store/task";
+import { Task, TaskInputParams, TaskOutputParams, useTaskStore } from "../../store/task";
 import ComplexTaskEditor from "./ComplexTaskEditor";
 import Operations from "./Operations";
 import Progress from "./Progress";
 import Settings from "./Settings";
 
+/**
+ * Inputs & Outputs files list component
+ */
+const FilesList = ({ params }: { params: (TaskInputParams | TaskOutputParams)[] }) => {
+  if (params.length === 1) {
+    return <div>{params[0].path}</div>;
+  } else {
+    const paths = params.map((input, index) => <li key={index}>{input.path}</li>);
+    return <ul className="list-disc list-inside">{paths}</ul>;
+  }
+};
+
+/**
+ * Page managing tasks queue.
+ */
 export default function QueuePage() {
   const tasks = useTaskStore((state) => state.tasks);
 
   const [taskEditorVisible, setTaskEditorVisible] = useState(false);
 
-  const tableCols: TableColumnProps[] = [
+  const tableCols: TableColumnProps<Task>[] = [
     {
       title: "Inputs",
-      render: (_, record: Task) => {
-        if (record.params.inputs.length === 1) {
-          return <div>{record.params.inputs[0].path}</div>;
-        } else {
-          const paths = record.params.inputs.map((input, index) => (
-            <li key={index}>{input.path}</li>
-          ));
-          return <ul className="list-disc list-inside">{paths}</ul>;
-        }
-      },
+      render: (_, record) => <FilesList params={record.params.inputs} />,
     },
     {
       title: "Outputs",
-      render: (_, record: Task) => {
-        if (record.params.outputs.length === 1) {
-          return <div>{record.params.outputs[0].path}</div>;
-        } else {
-          const paths = record.params.outputs.map((output, index) => (
-            <li key={index}>{output.path}</li>
-          ));
-          return <ul className="list-disc list-inside">{paths}</ul>;
-        }
-      },
+      render: (_, record) => <FilesList params={record.params.outputs} />,
     },
     {
       title: "Progress",
@@ -45,26 +42,25 @@ export default function QueuePage() {
       bodyCellStyle: {
         lineHeight: "1",
       },
-      render: (_, record: Task) => <Progress task={record} />,
+      render: (_, record) => <Progress task={record} />,
     },
     {
       title: "Operations",
       fixed: "right",
       align: "center",
       width: "10rem",
-      render: (_, record: Task) => <Operations task={record} />,
+      render: (_, record) => <Operations task={record} />,
     },
   ];
 
   return (
-    <Space className="w-full" direction="vertical">
+    <Space size="medium" direction="vertical">
       {/* Buttons */}
       <Space>
         {/* Add Complex Task Button */}
         <Tooltip content="Add Complex Task">
           <Button
             shape="circle"
-            size="small"
             type="primary"
             icon={<IconNav />}
             onClick={() => setTaskEditorVisible(true)}
@@ -99,7 +95,7 @@ export default function QueuePage() {
       {/* Complex Task Editor Dialog */}
       <ComplexTaskEditor
         visible={taskEditorVisible}
-        onVisibleChanged={(visible) => setTaskEditorVisible(visible)}
+        onVisibleChange={(visible) => setTaskEditorVisible(visible)}
       ></ComplexTaskEditor>
 
       {/* Model Displaying Task Details */}

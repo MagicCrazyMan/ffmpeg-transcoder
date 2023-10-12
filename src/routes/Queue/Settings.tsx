@@ -1,6 +1,6 @@
 import { Collapse, Form, Typography } from "@arco-design/web-react";
-import { Task, TaskInputParams } from "../../store/task";
 import { useMemo } from "react";
+import { Task, TaskInputParams } from "../../store/task";
 
 const Inputs = ({ params }: { params: TaskInputParams }) => {
   return (

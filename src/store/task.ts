@@ -2,12 +2,35 @@ import { listen } from "@tauri-apps/api/event";
 import { v4 } from "uuid";
 import { create } from "zustand";
 import { Metadata } from "../tauri/task";
+import { Preset } from "./preset";
 
 export type TaskStoreState = {
+  /**
+   * Tasks list
+   */
   tasks: Task[];
+  /**
+   * Updates state of a task by id.
+   * @param id Task id
+   * @param task New task state
+   */
   updateTask: (id: string, task: Partial<Task>) => void;
+  /**
+   * Removes a task by id
+   * @param id Task id
+   */
   removeTask: (id: string) => void;
+  /**
+   * Adds a new task from specified task params.
+   * @param params Task params
+   */
   addTask: (params: TaskParams) => void;
+  /**
+   * Resets a task.
+   * Only a task in {@link TaskState.Finished}, {@link TaskState.Stopped} or {@link TaskState.Errored} state could be reset
+   * @param id 
+   * @returns 
+   */
   resetTask: (id: string) => void;
 };
 
@@ -24,14 +47,29 @@ export type TaskParams = {
   outputs: TaskOutputParams[];
 };
 
+export enum ParamsSource {
+  Auto = 0,
+  Custom = 1,
+  FromPreset = 2,
+}
+
 export type TaskInputParams = {
+  id: string;
   path: string;
-  params?: string[];
+  source: ParamsSource;
+  /**
+   * - if `source` is {@link ParamsSource.Auto}, `undefined`.
+   * - if `source` is {@link ParamsSource.Custom}, `string`.
+   * - if `source` is {@link ParamsSource.FromPreset}, a deep copy of preset.
+   */
+  params?: string[] | Preset;
 };
 
 export type TaskOutputParams = {
+  id: string;
   path?: string;
-  params?: string[];
+  source: ParamsSource;
+  params?: string[] | Preset;
 };
 
 export enum TaskState {
@@ -79,7 +117,7 @@ export type TaskMessageFinished = {
 };
 
 export type TaskMessageErrored = {
-  type: TaskState.Finished;
+  type: TaskState.Errored;
   id: string;
   reason: string;
 };
@@ -111,10 +149,19 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
       id: v4(),
       commanding: false,
       params: {
-        inputs: [{ path: "D:\\Captures\\2023-09-10 23-35-22.mp4", params: ["-c:v", "av1_cuvid"] }],
+        inputs: [
+          {
+            id: v4(),
+            path: "D:\\Captures\\2023-09-10 23-35-22.mp4",
+            source: ParamsSource.Custom,
+            params: ["-c:v", "av1_cuvid"],
+          },
+        ],
         outputs: [
           {
+            id: v4(),
             path: "F:\\Transcode\\2023-09-10 23-35-22(2).mp4",
+            source: ParamsSource.Custom,
             params: ["-c:v", "hevc_nvenc", "-b:v", "2000", "-preset", "fast", "-c:a", "copy"],
           },
         ],
@@ -126,13 +173,17 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
       params: {
         inputs: [
           {
+            id: v4(),
             path: "E:\\Music\\Hatsune Miku\\[180110][LIVE]MAGICAL MIRAI 2017\\[Vmoe]Hatsune Miku「Magical Mirai 2017」[BDrip][1920x1080p][HEVC_YUV420p10_60fps_2FLAC_5.1ch&2.0ch_Chapter][Effect Subtitles].mkv",
+            source: ParamsSource.Custom,
             params: [],
           },
         ],
         outputs: [
           {
+            id: v4(),
             path: "F:\\Transcode\\2.mp4",
+            source: ParamsSource.Custom,
             params: ["-c:v", "hevc_nvenc", "-b:v", "2000", "-preset", "fast", "-c:a", "copy"],
           },
         ],
@@ -178,6 +229,12 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
     const tasks = get().tasks;
     const i = tasks.findIndex((task) => task.id === id);
     if (i !== -1) {
+      const task = tasks[i]
+      // only a task in finished, stopped or errored state could be reset
+      if (task.message?.type !== TaskState.Finished && task.message?.type !== TaskState.Stopped && task.message?.type !== TaskState.Errored) {
+        return
+      }
+
       tasks[i] = {
         id: v4(),
         commanding: false,

@@ -1,7 +1,6 @@
 use std::str::FromStr;
 
 use serde_json::{Map, Value};
-use serde_with::serde_as;
 
 use crate::{
     app::config::Config,
@@ -58,7 +57,6 @@ pub struct TaskInputParams {
     params: Vec<String>,
 }
 
-#[serde_as]
 #[derive(Debug, serde::Deserialize)]
 pub struct TaskOutputParams {
     /// Output path could be None in some situation,

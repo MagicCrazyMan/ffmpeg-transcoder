@@ -1,30 +1,203 @@
 import {
   Button,
-  InputTag,
+  Form,
+  FormInstance,
+  Input,
   Message,
   Modal,
+  Popconfirm,
+  Select,
   Space,
   Table,
   TableColumnProps,
 } from "@arco-design/web-react";
 import { IconDelete } from "@arco-design/web-react/icon";
 import { open, save } from "@tauri-apps/api/dialog";
-import { useState } from "react";
-import { Task, TaskInputParams, TaskOutputParams, useTaskStore } from "../../store/task";
+import { cloneDeep } from "lodash";
+import { Dispatch, ReactNode, SetStateAction, useCallback, useMemo, useRef, useState } from "react";
+import { v4 } from "uuid";
+import { Preset, PresetType, usePresetStore } from "../../store/preset";
+import {
+  ParamsSource,
+  Task,
+  TaskInputParams,
+  TaskOutputParams,
+  useTaskStore,
+} from "../../store/task";
 
 export type TaskEditorProps = {
   visible: boolean;
-  onVisibleChanged: (visible: boolean) => void;
+  onVisibleChange: (visible: boolean) => void;
   task?: Task;
 };
 
-export default function ComplexTaskEditor({ visible, onVisibleChanged, task }: TaskEditorProps) {
-  const addTask = useTaskStore((state) => state.addTask);
+type ParamsEditorFormData = {
+  selection: ParamsSource.Auto | ParamsSource.Custom | string;
+  custom?: string;
+};
 
-  const [inputs, setInputs] = useState<TaskInputParams[]>(task?.params.inputs ?? []);
-  const [outputs, setOutputs] = useState<TaskOutputParams[]>(task?.params.outputs ?? []);
+const ParamsEditor = ({
+  input,
+  options, // onChange,
+}: {
+  input: TaskInputParams;
+  options: ReactNode[];
+  onChange: (
+    id: string,
+    value: Partial<ParamsEditorFormData>,
+    values: Partial<ParamsEditorFormData>
+  ) => void;
+}) => {
+  const presets = usePresetStore((state) => state.presets);
+  const formRef = useRef<FormInstance<ParamsEditorFormData>>(null);
 
-  const inputsTableCols: TableColumnProps[] = [
+  let initialValues: ParamsEditorFormData;
+  switch (input.source) {
+    case ParamsSource.Auto:
+      initialValues = {
+        selection: ParamsSource.Auto,
+      };
+      break;
+    case ParamsSource.Custom:
+      initialValues = {
+        selection: ParamsSource.Custom,
+        custom: "",
+      };
+      break;
+    case ParamsSource.FromPreset: {
+      const params = input.params as Preset;
+      const preset = presets.find(({ id }) => params.id === id);
+      if (preset) {
+        initialValues = {
+          selection: preset.id,
+        };
+      } else {
+        initialValues = {
+          selection: ParamsSource.Custom,
+          custom: "",
+        };
+      }
+      break;
+    }
+  }
+  const [formValues, setFormValues] = useState<ParamsEditorFormData>(initialValues);
+
+  return (
+    <Form
+      size="mini"
+      ref={formRef}
+      initialValues={formValues}
+      onChange={(data) => setFormValues((state) => ({ ...state, ...data }))}
+    >
+      <Space size={2} direction="vertical">
+        {/* Params Source Selector */}
+        <Form.Item
+          field="selection"
+          style={{ marginBottom: 0 }}
+          labelCol={{ span: 0 }}
+          wrapperCol={{ span: 24 }}
+        >
+          <Select size="mini">
+            <Select.Option value={ParamsSource.Auto}>Auto</Select.Option>
+            <Select.Option value={ParamsSource.Custom}>Custom</Select.Option>
+            {options}
+          </Select>
+        </Form.Item>
+
+        {/* Custom Params Source Input */}
+        {formValues.selection === ParamsSource.Custom ? (
+          <Form.Item
+            field="custom"
+            style={{ marginBottom: 0 }}
+            labelCol={{ span: 0 }}
+            wrapperCol={{ span: 24 }}
+            rules={[{ required: true, message: "params is required" }]}
+          >
+            <Input allowClear></Input>
+          </Form.Item>
+        ) : null}
+      </Space>
+    </Form>
+  );
+};
+
+const Operations = ({
+  input,
+  onRemove,
+}: {
+  input: TaskInputParams;
+  onRemove: (id: string) => void;
+}) => {
+  return (
+    <Button
+      size="mini"
+      shape="circle"
+      type="primary"
+      status="danger"
+      icon={<IconDelete />}
+      onClick={() => onRemove(input.id)}
+    ></Button>
+  );
+};
+
+const InputTable = ({
+  inputs,
+  setInputs,
+}: {
+  inputs: TaskInputParams[];
+  setInputs: Dispatch<SetStateAction<TaskInputParams[]>>;
+}) => {
+  const presets = usePresetStore((state) => state.presets);
+  const options = useMemo(
+    () =>
+      presets
+        .filter(
+          (preset) => preset.type === PresetType.Universal || preset.type === PresetType.Decode
+        )
+        .map((preset) => (
+          <Select.Option key={preset.id} value={preset.id}>
+            {preset.name}
+          </Select.Option>
+        )),
+    [presets]
+  );
+
+  const save = useCallback(
+    (id: string, value: Partial<ParamsEditorFormData>) => {
+      let source: ParamsSource, params: Preset | string[] | undefined;
+      if (value.selection === ParamsSource.Auto) {
+        params = undefined;
+      } else if (value.selection === ParamsSource.Custom) {
+        source = value.selection;
+        params = [];
+      } else {
+        source = ParamsSource.FromPreset;
+        params = cloneDeep({ ...presets.find((p) => p.id)! });
+      }
+
+      setInputs((inputs) =>
+        inputs.map((input) => {
+          if (input.id === id) {
+            return {
+              ...input,
+              source,
+              params,
+            };
+          } else {
+            return input;
+          }
+        })
+      );
+    },
+    [presets, setInputs]
+  );
+
+  const remove = useCallback(
+    (id: string) => setInputs((inputs) => inputs.filter((input) => input.id !== id)),
+    [setInputs]
+  );
+
+  const tableCols: TableColumnProps<TaskInputParams>[] = [
     {
       title: "Input Files",
       dataIndex: "path",
@@ -32,51 +205,117 @@ export default function ComplexTaskEditor({ visible, onVisibleChanged, task }: T
     },
     {
       title: "Decode Params",
-      dataIndex: "params",
+      dataIndex: "source",
       ellipsis: true,
-      render: (_col, item: TaskInputParams, index) => {
-        const save = (params: string[]) => {
-          inputs[index] = { ...inputs[index], params: [...params] };
-          setInputs([...inputs]);
-        };
-
-        return (
-          <InputTag
-            allowClear
-            saveOnBlur
-            size="mini"
-            value={item.params}
-            onChange={save}
-          ></InputTag>
-        );
-      },
+      render: (_col, input) => <ParamsEditor options={options} input={input} onChange={save} />,
     },
     {
       title: "Operations",
       dataIndex: "remove",
       width: "6rem",
       align: "center",
-      render: (_col, _item, index) => {
-        const remove = () => {
-          inputs.splice(index, 1);
-          setInputs([...inputs]);
-        };
-
-        return (
-          <Button
-            size="mini"
-            shape="circle"
-            type="primary"
-            status="danger"
-            icon={<IconDelete />}
-            onClick={remove}
-          ></Button>
-        );
-      },
+      render: (_col, input) => <Operations input={input} onRemove={remove} />,
     },
   ];
 
-  const outputsTableCols: TableColumnProps[] = [
+  return (
+    <Table
+      stripe
+      size="mini"
+      rowKey="id"
+      pagination={false}
+      columns={tableCols}
+      data={inputs}
+    ></Table>
+  );
+};
+
+const Footer = ({
+  doubleConfirmCancellation,
+  onCancel,
+  submittable,
+}: {
+  doubleConfirmCancellation: boolean;
+  onCancel: () => void;
+  submittable: boolean;
+}) => {
+  return (
+    <>
+      {/* Cancel & Double Confirm */}
+      {doubleConfirmCancellation ? (
+        <Popconfirm
+          focusLock
+          title="unsaved task, sure to cancel?"
+          disabled={!doubleConfirmCancellation}
+          onOk={onCancel}
+        >
+          <Button status="danger">Cancel</Button>
+        </Popconfirm>
+      ) : (
+        <Button status="danger" onClick={onCancel}>
+          Cancel
+        </Button>
+      )}
+
+      {/* Add Task Button */}
+      <Button type="primary" disabled={!submittable}>
+        Add Task
+      </Button>
+    </>
+  );
+};
+
+export default function ComplexTaskEditor({ visible, onVisibleChange, task }: TaskEditorProps) {
+  const addTask = useTaskStore((state) => state.addTask);
+  const presets = usePresetStore((state) => state.presets);
+
+  const [inputs, setInputs] = useState<TaskInputParams[]>(task?.params.inputs ?? []);
+  const [outputs, setOutputs] = useState<TaskOutputParams[]>(task?.params.outputs ?? []);
+  const submittable = useMemo(() => inputs.length !== 0 && outputs.length !== 0, [inputs, outputs]);
+  const doubleConfirmCancellation = useMemo(
+    () => inputs.length !== 0 || outputs.length !== 0,
+    [inputs, outputs]
+  );
+
+  /**
+   * Selectable params options
+   */
+  const { SelectableDecodeParamsOptions, SelectableEncodeParamsOptions } = useMemo(() => {
+    const SelectableDecodeParamsOptions: ReactNode[] = [];
+    const SelectableEncodeParamsOptions: ReactNode[] = [];
+
+    presets.forEach((preset, index) => {
+      const option = (
+        <Select.Option key={preset.id} value={index}>
+          {preset.name}
+        </Select.Option>
+      );
+      switch (preset.type) {
+        case PresetType.Universal:
+          SelectableDecodeParamsOptions.push(option);
+          SelectableEncodeParamsOptions.push(option);
+          break;
+        case PresetType.Decode:
+          SelectableDecodeParamsOptions.push(option);
+          break;
+        case PresetType.Encode:
+          SelectableEncodeParamsOptions.push(option);
+          break;
+      }
+    });
+
+    return { SelectableDecodeParamsOptions, SelectableEncodeParamsOptions };
+  }, [presets]);
+
+  /**
+   * Removes output file from list
+   * @param id List index
+   */
+  const removeOutput = (id: string) => {
+    setInputs((inputs) => inputs.filter((input) => input.id !== id));
+  };
+
+  const outputsTableCols: TableColumnProps<TaskOutputParams>[] = [
     {
       title: "Output Files",
       dataIndex: "path",
@@ -86,20 +325,18 @@ export default function ComplexTaskEditor({ visible, onVisibleChanged, task }: T
       title: "Encode Params",
       dataIndex: "params",
       ellipsis: true,
-      render: (_col, item: TaskInputParams, index) => {
+      render: (_col, item, index) => {
         const save = (params: string[]) => {
-          outputs[index] = { ...outputs[index], params: [...params] };
-          setOutputs([...outputs]);
+          setOutputs((outputs) =>
+            outputs.map((output, i) => (i === index ? { ...output, params } : output))
+          );
         };
 
         return (
-          <InputTag
-            allowClear
-            saveOnBlur
-            size="mini"
-            value={item.params}
-            onChange={save}
-          ></InputTag>
+          <Select allowClear size="mini" value={item.params} onChange={save}>
+            <Select.Option value={-1}>Custom</Select.Option>
+            {SelectableEncodeParamsOptions}
+          </Select>
         );
       },
     },
@@ -108,12 +345,7 @@ export default function ComplexTaskEditor({ visible, onVisibleChanged, task }: T
       dataIndex: "remove",
       width: "6rem",
       align: "center",
-      render: (_col, _item, index) => {
-        const remove = () => {
-          outputs.splice(index, 1);
-          setOutputs([...outputs]);
-        };
-
+      render: (_col, record) => {
         return (
           <Button
             size="mini"
@@ -121,7 +353,7 @@ export default function ComplexTaskEditor({ visible, onVisibleChanged, task }: T
             type="primary"
             status="danger"
             icon={<IconDelete />}
-            onClick={remove}
+            onClick={() => removeOutput(record.id)}
           ></Button>
         );
       },
@@ -132,15 +364,21 @@ export default function ComplexTaskEditor({ visible, onVisibleChanged, task }: T
    * Add input files vis Tauri
    */
   const addInputFiles = async () => {
-    const files = await open({
+    const files = (await open({
       title: "Add Input Files",
       directory: false,
       multiple: true,
-    });
+    })) as string[] | null;
 
     if (files) {
-      inputs.push(...(files as string[]).map((file) => ({ path: file })));
-      setInputs([...inputs]);
+      setInputs((inputs) => [
+        ...inputs,
+        ...files.map((file) => ({
+          id: v4(),
+          path: file,
+          source: ParamsSource.Auto,
+        })),
+      ]);
     }
   };
 
@@ -153,10 +391,14 @@ export default function ComplexTaskEditor({ visible, onVisibleChanged, task }: T
     });
 
     if (file) {
-      outputs.push({
-        path: file,
-      });
-      setOutputs([...outputs]);
+      setOutputs((outputs) => [
+        ...outputs,
+        {
+          id: v4(),
+          path: file,
+          source: ParamsSource.Auto,
+        },
+      ]);
     }
   };
 
@@ -177,7 +419,7 @@ export default function ComplexTaskEditor({ visible, onVisibleChanged, task }: T
       inputs,
       outputs,
     });
-    onVisibleChanged(false);
+    onVisibleChange(false);
   };
 
   return (
@@ -186,49 +428,49 @@ export default function ComplexTaskEditor({ visible, onVisibleChanged, task }: T
       maskClosable={false}
       style={{
         width: "60%",
-        height: "80%",
+        maxHeight: "80%",
         overflowY: "auto",
       }}
       visible={visible}
-      onCancel={() => onVisibleChanged(false)}
-      okText="Add Task"
-      onOk={submit}
+      footer={
+        <Footer
+          doubleConfirmCancellation={doubleConfirmCancellation}
+          onCancel={() => onVisibleChange(false)}
+          submittable={submittable}
+        />
+      }
       afterClose={() => {
         setInputs([]);
         setOutputs([]);
       }}
     >
-      {/* Buttons */}
-      <Space className="mb-4">
-        {/* Add Input Button */}
-        <Button size="small" type="primary" onClick={addInputFiles}>
-          Add Input Files
-        </Button>
+      <Space direction="vertical">
+        {/* Buttons */}
+        <Space>
+          {/* Add Input Button */}
+          <Button size="small" type="primary" onClick={addInputFiles}>
+            Add Input Files
+          </Button>
 
-        {/* Add Output Button */}
-        <Button size="small" type="primary" onClick={addOutputFile}>
-          Add Output File
-        </Button>
+          {/* Add Output Button */}
+          <Button size="small" type="primary" onClick={addOutputFile}>
+            Add Output File
+          </Button>
+        </Space>
+
+        {/* Input Files Table */}
+        <InputTable inputs={inputs} setInputs={setInputs} />
+
+        {/* Output Files Table */}
+        <Table
+          stripe
+          size="mini"
+          rowKey="id"
+          pagination={false}
+          columns={outputsTableCols}
+          data={outputs}
+        ></Table>
       </Space>
-
-      {/* Input Files Table */}
-      <Table
-        stripe
-        className="mb-4"
-        size="mini"
-        pagination={false}
-        columns={inputsTableCols}
-        data={inputs}
-      ></Table>
-
-      {/* Output Files Table */}
-      <Table
-        stripe
-        size="mini"
-        pagination={false}
-        columns={outputsTableCols}
-        data={outputs}
-      ></Table>
     </Modal>
   );
 }

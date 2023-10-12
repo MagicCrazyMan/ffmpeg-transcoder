@@ -1,7 +1,21 @@
 import { invoke } from "@tauri-apps/api";
-import { TaskParams } from "../store/task";
 
-export const startTask = async (id: string, params: TaskParams) => {
+export type NormalizedTaskParams = {
+  inputs: NormalizedTaskInputParams[];
+  outputs: NormalizedTaskOutputParams[];
+};
+
+export type NormalizedTaskInputParams = {
+  path: string;
+  params: string[];
+};
+
+export type NormalizedTaskOutputParams = {
+  path?: string;
+  params: string[];
+};
+
+export const startTask = async (id: string, params: NormalizedTaskParams) => {
   return await invoke<void>("start_task", { id, params });
 };
 
