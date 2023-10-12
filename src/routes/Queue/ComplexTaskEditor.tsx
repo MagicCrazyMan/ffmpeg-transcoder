@@ -163,10 +163,14 @@ const Operations = ({
 };
 
 const UniverseTable = ({
+  pathTitle,
+  sourceTitle,
   presetOptions,
   records,
   setRecords,
 }: {
+  pathTitle: string;
+  sourceTitle: string;
   presetOptions: ReactNode[];
   records: (TaskInputParams | TaskOutputParams)[];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -198,12 +202,12 @@ const UniverseTable = ({
   const columns: TableColumnProps<TaskInputParams | TaskOutputParams>[] = useMemo(
     () => [
       {
-        title: "Input Files",
+        title: pathTitle,
         dataIndex: "path",
         ellipsis: true,
       },
       {
-        title: "Decode Params",
+        title: sourceTitle,
         dataIndex: "source",
         ellipsis: true,
         render: (_col, input) => (
@@ -218,7 +222,7 @@ const UniverseTable = ({
         render: (_col, input) => <Operations record={input} onRemove={onRemove} />,
       },
     ],
-    [presetOptions, onSave, onRemove]
+    [pathTitle, sourceTitle, presetOptions, onSave, onRemove]
   );
 
   return (
@@ -256,7 +260,13 @@ const InputTable = ({
   );
 
   return (
-    <UniverseTable presetOptions={options} records={inputs} setRecords={setInputs}></UniverseTable>
+    <UniverseTable
+      pathTitle="Input Files"
+      sourceTitle="Decode Params"
+      presetOptions={options}
+      records={inputs}
+      setRecords={setInputs}
+    ></UniverseTable>
   );
 };
 
@@ -284,6 +294,8 @@ const OutputTable = ({
 
   return (
     <UniverseTable
+      pathTitle="Output Files"
+      sourceTitle="Encode Params"
       presetOptions={options}
       records={outputs}
       setRecords={setOutputs}
