@@ -48,17 +48,15 @@ type EditingPreset = Preset & { editingParams: string };
 
 const EditableContext = createContext<{
   getForm: () => FormInstance<EditingPreset> | null;
-  getRowIndex: () => number;
 } | null>(null);
 
 /**
  * Editable Row Component
  */
-const EditableRow = ({ children, record, className, rowIndex, ...rest }: RowProps) => {
+const EditableRow = ({ children, record, className, ...rest }: RowProps) => {
   const refForm = useRef<FormInstance<EditingPreset>>(null);
   const getForm = () => refForm.current;
 
-  const getRowIndex = useCallback(() => rowIndex, [rowIndex]);
   const initialValue: EditingPreset = {
     ...record,
     editingParams: record.params.join(" "),
@@ -67,7 +65,6 @@ const EditableRow = ({ children, record, className, rowIndex, ...rest }: RowProp
     <EditableContext.Provider
       value={{
         getForm,
-        getRowIndex,
       }}
     >
       <Form
@@ -87,12 +84,7 @@ const editableCells: Record<
   string,
   {
     cell(props: CellProps<keyof Preset>): ReactNode;
-    editingCell(
-      submit: () => void,
-      presets: Preset[],
-      index: number,
-      props: CellProps<keyof Preset>
-    ): ReactNode;
+    editingCell(submit: () => void, props: CellProps<keyof Preset>): ReactNode;
   }
 > = {
   /**
@@ -102,19 +94,8 @@ const editableCells: Record<
     cell({ children }: CellProps<"name">): ReactNode {
       return <div className="inline-block">{children}</div>;
     },
-    editingCell(submit, presets, index): ReactNode {
-      const rules: RulesProps[] = [
-        { required: true },
-        {
-          validator(value: string, callback) {
-            if (presets.some((preset, i) => index !== i && preset.name === value)) {
-              callback("name already exists");
-            } else {
-              callback();
-            }
-          },
-        },
-      ];
+    editingCell(submit): ReactNode {
+      const rules: RulesProps[] = [{ required: true }];
 
       return (
         <Form.Item
@@ -199,7 +180,7 @@ const editableCells: Record<
         </Space>
       );
     },
-    editingCell(submit): ReactNode {
+    editingCell(submit, { rowData }: CellProps<"params">): ReactNode {
       return (
         <Form.Item
           field="editingParams"
@@ -208,7 +189,7 @@ const editableCells: Record<
           wrapperCol={{ span: 24 }}
           rules={[{ required: true, message: "params is required" }]}
         >
-          <Input.TextArea autoFocus onPressEnter={submit} />
+          <Input.TextArea autoFocus={!rowData.isTemp} onPressEnter={submit} />
         </Form.Item>
       );
     },
@@ -221,8 +202,7 @@ const editableCells: Record<
 const EditableCell = (props: CellProps<keyof Preset>) => {
   const { children, className, rowData, column, onHandleSave } = props;
 
-  const { getForm, getRowIndex } = useContext(EditableContext)!;
-  const presets = usePresetStore((state) => state.presets);
+  const { getForm } = useContext(EditableContext)!;
 
   const cellRef = useRef<HTMLDivElement | null>(null);
   const [editing, setEditing] = useState(!!rowData.isTemp);
@@ -234,21 +214,19 @@ const EditableCell = (props: CellProps<keyof Preset>) => {
     getForm?.()
       ?.validate()
       .then((partial) => {
-        let preset: Preset;
-        if (partial.editingParams) {
-          preset = {
-            ...rowData,
-            params: partial.editingParams
-              .split(" ")
-              .map((param) => param.trim())
-              .filter((param) => !!param),
-          };
-        } else {
-          preset = {
-            ...rowData,
-            ...partial,
-          };
-        }
+        const preset = {
+          ...rowData,
+          ...partial,
+          params: partial.editingParams
+            ? partial.editingParams
+                .split(" ")
+                .map((param) => param.trim())
+                .filter((param) => !!param)
+            : rowData.params,
+        };
+
+        // delete editingParams field
+        delete (preset as Partial<EditingPreset>).editingParams;
 
         if (onHandleSave) onHandleSave(preset);
         setEditing(false);
@@ -282,18 +260,14 @@ const EditableCell = (props: CellProps<keyof Preset>) => {
     return () => {
       document.removeEventListener("click", onClick, { capture: true });
     };
-  }, [column, submit, presets, editing, getRowIndex]);
+  }, [column, submit, editing]);
 
   // returns children if cell not editable
   if (!column.editable) return <div className={className}>{children}</div>;
 
   // returns editing cell if cell is temporary preset or cell is current editing
   if (editing) {
-    return (
-      <div ref={cellRef}>
-        {editableCells[column.dataIndex!].editingCell(submit, presets, getRowIndex(), props)}
-      </div>
-    );
+    return <div ref={cellRef}>{editableCells[column.dataIndex!].editingCell(submit, props)}</div>;
   }
 
   // returns a cell that could enable editing by clicking on it
@@ -334,8 +308,8 @@ const SortableEditableItem = SortableElement((props: RowProps) => <EditableRow {
 export default function PresetsPage() {
   const {
     presets,
-    movePreset,
-    copyPreset,
+    duplicatePreset,
+    swapPreset,
     updatePreset,
     removePreset,
     tempPreset,
@@ -359,24 +333,20 @@ export default function PresetsPage() {
   /**
    * Save preset when cell value change
    */
-  const onCell = useCallback(
-    (_: Preset, index: number) => {
-      return {
-        onHandleSave: (row: Preset) => {
-          if (row.isTemp) {
-            updateTempPreset(row);
-            // tries to persist it immediately
-            persistTempPreset();
-          } else {
-            updatePreset(index, row);
-          }
-        },
-      };
-    },
-    [updatePreset, updateTempPreset, persistTempPreset]
-  );
+  const onCell = () => {
+    return {
+      onHandleSave: (preset: Preset) => {
+        if (preset.isTemp) {
+          updateTempPreset(preset);
+          persistTempPreset(); // tries to persist it immediately
+        } else {
+          updatePreset(preset.id, preset);
+        }
+      },
+    };
+  };
 
-  const tableCols: TableColumnProps[] = [
+  const tableCols: TableColumnProps<Preset>[] = [
     {
       title: "Name",
       dataIndex: "name",
@@ -408,15 +378,7 @@ export default function PresetsPage() {
       title: "Operations",
       width: "120px",
       align: "center",
-      render: (_, preset: Preset, index) => {
-        const remove = () => {
-          if (preset.isTemp) {
-            disableTempPreset();
-          } else {
-            removePreset(index);
-          }
-        };
-
+      render: (_, preset) => {
         if (preset.isTemp) {
           // temporary preset requires no double confirming
           return (
@@ -442,7 +404,7 @@ export default function PresetsPage() {
                 focusLock
                 title="Confirm"
                 content="Click again to delete this preset"
-                onOk={remove}
+                onOk={() => removePreset(preset.id)}
               >
                 <Tooltip
                   position="left"
@@ -468,7 +430,7 @@ export default function PresetsPage() {
                   shape="circle"
                   type="primary"
                   icon={<IconCopy />}
-                  onClick={() => copyPreset(index)}
+                  onClick={() => duplicatePreset(preset.id)}
                 ></Button>
               </Tooltip>
             </Space>
@@ -485,14 +447,11 @@ export default function PresetsPage() {
   /**
    * Rearrange item index on sort end
    */
-  const onSortEnd = useCallback(
-    ({ oldIndex, newIndex }: { oldIndex: number; newIndex: number }) => {
-      if (oldIndex !== newIndex) {
-        movePreset(newIndex, oldIndex);
-      }
-    },
-    [movePreset]
-  );
+  const onSortEnd = ({ oldIndex, newIndex }: { oldIndex: number; newIndex: number }) => {
+    if (oldIndex !== newIndex) {
+      swapPreset(newIndex, oldIndex);
+    }
+  };
   /**
    * Draggable container element
    */
@@ -558,7 +517,7 @@ export default function PresetsPage() {
       <Table
         stripe
         size="mini"
-        rowKey="name"
+        rowKey="id"
         className="draggable-table"
         pagination={false}
         columns={tableCols}

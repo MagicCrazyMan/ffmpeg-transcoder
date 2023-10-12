@@ -21,28 +21,27 @@ export type PresetStoreState = {
   //  */
   // addPreset: (type: PresetType, name: string, params: string[], remark?: string) => void;
   /**
-   * Moves a preset from old index to new index
-   * @param newIndex New index
-   * @param oldIndex Old index
+   * Swaps two presets by ids
+   * @param i1 Index of preset 1
+   * @param i2 Index of preset 2
    */
-  movePreset: (newIndex: number, oldIndex: number) => void;
+  swapPreset: (i1: number, i2: number) => void;
   /**
    * Copies a existing preset, and gives it a new name.
-   * @param index Preset index
-   * @param newName New name for the copied preset
+   * @param id Preset id
    */
-  copyPreset: (index: number, newName?: string) => void;
+  duplicatePreset: (id: string) => void;
   /**
    * Updates a existing preset
-   * @param index Preset index
+   * @param id Preset id
    * @param preset Partial preset data that should be updated
    */
-  updatePreset: (index: number, preset: Partial<Omit<Preset, "name">>) => void;
+  updatePreset: (id: string, preset: Partial<Preset>) => void;
   /**
    * Removes a existing preset
-   * @param index Preset index
+   * @param id Preset id
    */
-  removePreset: (index: number) => void;
+  removePreset: (id: string) => void;
   /**
    * Enables temporary preset
    */
@@ -137,43 +136,51 @@ export const usePresetStore = create<PresetStoreState>((set, get, api) => {
   //   set({ presets: [...get().presets, newPreset] });
   // };
 
-  const copyPreset = (index: number, newName?: string) => {
-    const presets = get().presets;
+  const duplicatePreset = (id: string) => {
+    set((state) => {
+      const presets = state.presets.reduce((v, p) => {
+        v.push(p);
+        // duplicate new preset right next to target preset
+        if (p.id === id) {
+          v.push({
+            ...p,
+            id: v4(),
+            name: `${p.name} (2)`,
+          });
+        }
 
-    const preset = presets[index];
-    const newPreset: Preset = {
-      ...preset,
-      id: v4(),
-      name: newName ? newName : `${preset.name} (2)`,
-    };
+        return v;
+      }, [] as Preset[]);
 
-    presets.splice(index + 1, 0, newPreset);
-    set({ presets: [...presets] });
+      return { presets };
+    });
   };
 
-  const movePreset = (newIndex: number, oldIndex: number) => {
-    const presets = get().presets;
-    if (newIndex > presets.length - 1 || oldIndex > presets.length - 1) return;
-
-    const preset = presets[oldIndex];
-    presets[oldIndex] = presets[newIndex];
-    presets[newIndex] = preset;
-    set({ presets: [...presets] });
+  const swapPreset = (i1: number, i2: number) => {
+    set((state) => {
+      const presets = state.presets.map((p, i) => {
+        if (i === i1) {
+          return state.presets[i2];
+        } else if (i === i2) {
+          return state.presets[i1];
+        } else {
+          return p;
+        }
+      });
+      return { presets };
+    });
   };
 
-  const updatePreset = (index: number, preset: Partial<Preset>) => {
-    const presets = get().presets;
-    presets[index] = {
-      ...presets[index],
-      ...preset,
-    };
-    set({ presets: [...presets] });
+  const updatePreset = (id: string, preset: Partial<Preset>) => {
+    set((state) => ({
+      presets: state.presets.map((p) => (p.id === id ? { ...p, ...preset } : p)),
+    }));
   };
 
-  const removePreset = (index: number) => {
-    const presets = get().presets;
-    presets.splice(index, 1);
-    set({ presets: [...presets] });
+  const removePreset = (id: string) => {
+    set((state) => ({
+      presets: state.presets.filter((p) => p.id !== id),
+    }));
   };
 
   const tempPreset = undefined as Preset | undefined;
@@ -182,10 +189,10 @@ export const usePresetStore = create<PresetStoreState>((set, get, api) => {
     set({
       tempPreset: {
         id: v4(),
-        isTemp: true,
         name: "",
         type: PresetType.Universal,
         params: [],
+        isTemp: true,
       },
     });
   };
@@ -219,8 +226,8 @@ export const usePresetStore = create<PresetStoreState>((set, get, api) => {
   return {
     presets,
     // addPreset,
-    copyPreset,
-    movePreset,
+    duplicatePreset,
+    swapPreset,
     updatePreset,
     removePreset,
     tempPreset,
