@@ -7,20 +7,11 @@ import {
   IconSettings,
   IconStop,
 } from "@arco-design/web-react/icon";
-import { usePresetStore } from "../../store/preset";
-import { ParamsSource, Task, TaskState, useTaskStore } from "../../store/task";
-import {
-  NormalizedTaskInputParams,
-  NormalizedTaskOutputParams,
-  pauseTask,
-  resumeTask,
-  startTask,
-  stopTask,
-} from "../../tauri/task";
+import { Task, TaskState, useTaskStore } from "../../store/task";
+import { pauseTask, resumeTask, startTask, stopTask } from "../../tauri/task";
 
 const StartButton = ({ task }: { task: Task }) => {
   const updateTask = useTaskStore((state) => state.updateTask);
-  const presets = usePresetStore((state) => state.presets);
 
   /**
    * Starts a task
@@ -28,38 +19,8 @@ const StartButton = ({ task }: { task: Task }) => {
   const start = () => {
     if (task.commanding) return;
 
-    const inputs: NormalizedTaskInputParams[] = [];
-    const outputs: NormalizedTaskOutputParams[] = [];
-    // normalizes inputs params
-    for (const { path, source, params } of task.params.inputs) {
-      switch (source) {
-        case ParamsSource.Auto:
-          inputs.push({
-            path,
-            params: [],
-          });
-          break;
-        case ParamsSource.Custom:
-          inputs.push({
-            path,
-            params: params as string[],
-          });
-          break;
-        case ParamsSource.FromPreset: {
-          const presetParams = presets.find((preset) => preset.id === params)?.params;
-          if (presetParams) {
-            inputs.push({
-              path,
-              params: presetParams,
-            });
-          } else {
-          }
-        }
-      }
-    }
-
     updateTask(task.id, { commanding: true });
-    startTask(task.id, { inputs, outputs }).finally(() => {
+    startTask(task.id, task.params).finally(() => {
       updateTask(task.id, { commanding: false });
     });
   };

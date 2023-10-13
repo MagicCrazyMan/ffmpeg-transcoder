@@ -1,4 +1,6 @@
 import { invoke } from "@tauri-apps/api";
+import { ParamsSource, TaskInputParams, TaskOutputParams, TaskParams } from "../store/task";
+import { Preset } from "../store/preset";
 
 export type NormalizedTaskParams = {
   inputs: NormalizedTaskInputParams[];
@@ -15,8 +17,39 @@ export type NormalizedTaskOutputParams = {
   params: string[];
 };
 
-export const startTask = async (id: string, params: NormalizedTaskParams) => {
-  return await invoke<void>("start_task", { id, params });
+const normalizeTaskParams = ({
+  source,
+  path,
+  params,
+}: TaskInputParams | TaskOutputParams): NormalizedTaskInputParams | NormalizedTaskOutputParams => {
+  switch (source) {
+    case ParamsSource.Auto:
+      return {
+        path,
+        params: [],
+      };
+    case ParamsSource.Custom:
+      return {
+        path,
+        params: params as string[],
+      };
+    case ParamsSource.FromPreset: {
+      return {
+        path,
+        params: (params as Preset).params,
+      };
+    }
+  }
+};
+
+export const startTask = async (id: string, params: TaskParams) => {
+  return await invoke<void>("start_task", {
+    id,
+    params: {
+      inputs: params.inputs.map((input) => normalizeTaskParams(input)),
+      outputs: params.outputs.map((input) => normalizeTaskParams(input)),
+    } as NormalizedTaskParams,
+  });
 };
 
 export const stopTask = async (id: string) => {

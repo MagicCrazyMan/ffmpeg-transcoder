@@ -35,7 +35,10 @@ impl TaskParams {
                 .params
                 .iter()
                 .map(|param| param.as_str())
-                .chain([output.path.as_ref().map(|path| path.as_str()).unwrap_or("")])
+                .chain(match &output.path {
+                    Some(path) => [path.as_ref(), "", ""],
+                    None => ["-f", "null", "-"],
+                })
         });
         let append_args = [("-y")];
         let args = prepend_args
