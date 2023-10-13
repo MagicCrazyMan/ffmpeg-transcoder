@@ -211,15 +211,20 @@ const EditableCell = (props: CellProps<keyof Preset>) => {
     getForm?.()
       ?.validate()
       .then((partial) => {
-        console.log(partial);
-
         if (onHandleSave)
-          onHandleSave({
-            ...rowData,
-            ...partial,
-            // remove all tailing spaces
-            params: partial.params.filter((param) => !!param),
-          });
+          if (partial.params) {
+            onHandleSave({
+              ...rowData,
+              ...partial,
+              // remove all tailing spaces
+              params: partial.params.filter((param) => !!param),
+            });
+          } else {
+            onHandleSave({
+              ...rowData,
+              ...partial,
+            });
+          }
         setEditing(false);
       });
   }, [getForm, onHandleSave, rowData]);
