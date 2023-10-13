@@ -40,27 +40,36 @@ export type TaskEditorProps = {
   task?: Task;
 };
 
-type EditableTaskParams = {
+type EditableTaskInputParams = {
   id: string;
   path: string;
   selection: ParamsSource.Auto | ParamsSource.Custom | string;
   custom?: string[];
 };
 
+type EditableTaskOutputParams = {
+  id: string;
+  path?: string;
+  selection: ParamsSource.Auto | ParamsSource.Custom | string;
+  custom?: string[];
+};
+
 const ParamsEditor = ({
   index,
+  type,
   presetOptions,
   record,
 }: {
   index: number;
+  type: "inputs" | "outputs";
   presetOptions: ReactNode[];
-  record: EditableTaskParams;
+  record: EditableTaskInputParams | EditableTaskOutputParams;
 }) => {
   return (
     <Space size={2} style={{ width: "100%" }} direction="vertical">
       {/* Params Source Selector */}
       <Form.Item
-        field={`inputs[${index}].selection`}
+        field={`${type}[${index}].selection`}
         style={{ marginBottom: 0 }}
         labelCol={{ span: 0 }}
         wrapperCol={{ span: 24 }}
@@ -76,7 +85,7 @@ const ParamsEditor = ({
       {/* Custom Params Input */}
       {record.selection === ParamsSource.Custom ? (
         <Form.Item
-          field={`inputs[${index}].custom`}
+          field={`${type}[${index}].custom`}
           style={{ marginBottom: 0 }}
           labelCol={{ span: 0 }}
           wrapperCol={{ span: 24 }}
@@ -97,7 +106,7 @@ const Operations = ({
   record,
   onRemove,
 }: {
-  record: EditableTaskParams;
+  record: EditableTaskInputParams | EditableTaskOutputParams;
   onRemove: (id: string) => void;
 }) => {
   return (
@@ -135,14 +144,15 @@ const UniverseTable = ({ type }: { type: "inputs" | "outputs" }) => {
     [type, presets]
   );
 
-  const setRecords = useMemo(
-    () => (type === "inputs" ? setInputs : setOutputs),
-    [type, setInputs, setOutputs]
-  );
-
   const removeFromTable = useCallback(
-    (id: string) => setRecords((records) => records.filter((record) => record.id !== id)),
-    [setRecords]
+    (id: string) => {
+      if (type === "inputs") {
+        setInputs((records) => records.filter((record) => record.id !== id));
+      } else {
+        setOutputs((records) => records.filter((record) => record.id !== id));
+      }
+    },
+    [type, setInputs, setOutputs]
   );
   const removeFromForm = useCallback(
     (id: string) => {
@@ -164,19 +174,20 @@ const UniverseTable = ({ type }: { type: "inputs" | "outputs" }) => {
     [removeFromTable, removeFromForm]
   );
 
-  const columns: TableColumnProps<EditableTaskParams>[] = useMemo(
+  const columns: TableColumnProps<EditableTaskInputParams | EditableTaskOutputParams>[] = useMemo(
     () => [
       {
         title: type === "inputs" ? "Input Files" : "Output Files",
         dataIndex: "path",
         ellipsis: true,
+        render: (_col, record) => record.path ?? "NULL",
       },
       {
         title: type === "inputs" ? "Decode Params" : "Encode Params",
         dataIndex: "selection",
         ellipsis: true,
         render: (_col, record, index) => (
-          <ParamsEditor index={index} presetOptions={options} record={record} />
+          <ParamsEditor index={index} presetOptions={options} type={type} record={record} />
         ),
       },
       {
@@ -240,17 +251,20 @@ const Footer = ({
 };
 
 const Context = createContext<{
-  inputs: EditableTaskParams[];
-  setInputs: Dispatch<SetStateAction<EditableTaskParams[]>>;
-  outputs: EditableTaskParams[];
-  setOutputs: Dispatch<SetStateAction<EditableTaskParams[]>>;
+  inputs: EditableTaskInputParams[];
+  setInputs: Dispatch<SetStateAction<EditableTaskInputParams[]>>;
+  outputs: EditableTaskOutputParams[];
+  setOutputs: Dispatch<SetStateAction<EditableTaskOutputParams[]>>;
   getFormInstance: () => FormInstance<{
-    inputs: EditableTaskParams[];
-    outputs: EditableTaskParams[];
+    inputs: EditableTaskInputParams[];
+    outputs: EditableTaskOutputParams[];
   }> | null;
 } | null>(null);
 
-const toTaskParams = ({ selection, path, custom }: EditableTaskParams, presets: Preset[]) => {
+const toTaskParams = (
+  { selection, path, custom }: EditableTaskInputParams | EditableTaskOutputParams,
+  presets: Preset[]
+) => {
   let source: ParamsSource, params: string[] | Preset | undefined;
   if (selection === ParamsSource.Auto) {
     source = ParamsSource.Auto;
@@ -273,7 +287,7 @@ const toTaskParams = ({ selection, path, custom }: EditableTaskParams, presets: 
 const fromTaskParams = (
   { path, source, params }: TaskInputParams | TaskOutputParams,
   presets: Preset[]
-): EditableTaskParams => {
+): EditableTaskInputParams | EditableTaskOutputParams => {
   switch (source) {
     case ParamsSource.Auto:
       return {
@@ -312,16 +326,19 @@ export default function ComplexTaskEditor({ visible, onVisibleChange, task }: Ta
   const addTask = useTaskStore((state) => state.addTask);
   const presets = usePresetStore((state) => state.presets);
 
-  const [inputs, setInputs] = useState<EditableTaskParams[]>(
-    task?.params.inputs.map((input) => fromTaskParams(input, presets)) ?? []
+  const [inputs, setInputs] = useState<EditableTaskInputParams[]>(
+    task?.params.inputs.map((input) => fromTaskParams(input, presets) as EditableTaskInputParams) ??
+      []
   );
-  const [outputs, setOutputs] = useState<EditableTaskParams[]>(
-    task?.params.outputs.map((output) => fromTaskParams(output, presets)) ?? []
+  const [outputs, setOutputs] = useState<EditableTaskOutputParams[]>(
+    task?.params.outputs.map(
+      (output) => fromTaskParams(output, presets) as EditableTaskOutputParams
+    ) ?? []
   );
   const formInstance = useRef<
     FormInstance<{
-      inputs: EditableTaskParams[];
-      outputs: EditableTaskParams[];
+      inputs: EditableTaskInputParams[];
+      outputs: EditableTaskOutputParams[];
     }>
   >(null);
   const formInitialValues = useMemo(
@@ -335,6 +352,8 @@ export default function ComplexTaskEditor({ visible, onVisibleChange, task }: Ta
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onFormChange = () => {
     const formValues = formInstance.current!.getFieldsValue();
+    console.log(formValues);
+
     if (formValues.inputs) {
       const formInputs = formValues.inputs;
       setInputs((state) => state.map((input, index) => ({ ...input, ...formInputs[index] })));
@@ -356,14 +375,15 @@ export default function ComplexTaskEditor({ visible, onVisibleChange, task }: Ta
     })) as string[] | null;
 
     if (files && formInstance.current) {
-      const inputs: EditableTaskParams[] = files.map((file) => ({
+      const inputs: EditableTaskInputParams[] = files.map((file) => ({
         id: v4(),
         path: file,
         selection: ParamsSource.Auto,
       }));
-      formInstance.current.setFieldsValue({
-        inputs: [...formInstance.current.getFieldValue("inputs"), ...cloneDeep(inputs)],
-      });
+      formInstance.current.setFieldValue("inputs", [
+        ...(formInstance.current.getFieldValue("inputs") ?? []),
+        ...cloneDeep(inputs),
+      ]);
       setInputs((state) => [...state, ...cloneDeep(inputs)]);
     }
   };
@@ -377,16 +397,33 @@ export default function ComplexTaskEditor({ visible, onVisibleChange, task }: Ta
     });
 
     if (file && formInstance.current) {
-      const output: EditableTaskParams = {
+      const output: EditableTaskInputParams = {
         id: v4(),
         path: file,
         selection: ParamsSource.Auto,
       };
-      formInstance.current.setFieldsValue({
-        outputs: [...formInstance.current.getFieldValue("outputs"), { ...output }],
-      });
+      formInstance.current.setFieldValue("outputs", [
+        ...(formInstance.current.getFieldValue("outputs") ?? []),
+        { ...output },
+      ]);
       setOutputs((state) => [...state, { ...output }]);
     }
+  };
+
+  /**
+   * Add NULL output
+   */
+  const addNullOutput = () => {
+    const output: EditableTaskOutputParams = {
+      id: v4(),
+      selection: ParamsSource.Auto,
+    };
+
+    formInstance.current?.setFieldValue("outputs", [
+      ...(formInstance.current.getFieldValue("outputs") ?? []),
+      { ...output },
+    ]);
+    setOutputs((state) => [...state, { ...output }]);
   };
 
   const doubleConfirmCancellation = useMemo(
@@ -437,14 +474,19 @@ export default function ComplexTaskEditor({ visible, onVisibleChange, task }: Ta
       <Space direction="vertical">
         {/* Buttons */}
         <Space>
-          {/* Add Input Button */}
+          {/* Add Input Files Button */}
           <Button size="small" type="primary" onClick={addInputFiles}>
             Add Input Files
           </Button>
 
-          {/* Add Output Button */}
+          {/* Add Output File Button */}
           <Button size="small" type="primary" onClick={addOutputFile}>
             Add Output File
+          </Button>
+
+          {/* Add NULL Output Button */}
+          <Button size="small" type="primary" status="warning" onClick={addNullOutput}>
+            Add NULL Output
           </Button>
         </Space>
 

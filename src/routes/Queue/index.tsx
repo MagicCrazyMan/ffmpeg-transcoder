@@ -12,9 +12,9 @@ import Settings from "./Settings";
  */
 const FilesList = ({ params }: { params: (TaskInputParams | TaskOutputParams)[] }) => {
   if (params.length === 1) {
-    return <div>{params[0].path}</div>;
+    return <div>{params[0].path ?? "NULL"}</div>;
   } else {
-    const paths = params.map((input, index) => <li key={index}>{input.path}</li>);
+    const paths = params.map((input, index) => <li key={index}>{input.path ?? "NULL"}</li>);
     return <ul className="list-disc list-inside">{paths}</ul>;
   }
 };

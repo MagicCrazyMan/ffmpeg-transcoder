@@ -67,8 +67,13 @@ export type TaskInputParams = {
 
 export type TaskOutputParams = {
   id: string;
-  path: string;
+  path?: string;
   source: ParamsSource;
+  /**
+   * - if `source` is {@link ParamsSource.Auto}, `undefined`.
+   * - if `source` is {@link ParamsSource.Custom}, `string`.
+   * - if `source` is {@link ParamsSource.FromPreset}, a deep copy of preset.
+   */
   params?: string[] | Preset;
 };
 
