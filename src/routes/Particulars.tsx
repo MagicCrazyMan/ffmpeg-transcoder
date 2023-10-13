@@ -2,13 +2,13 @@ import { Descriptions, Image, Tag } from "@arco-design/web-react";
 import { useMemo } from "react";
 import FFmpegDarkThemeLogo from "../assets/ffmpeg_dark_theme.svg";
 import FFmpegLightThemeLogo from "../assets/ffmpeg_light_theme.svg";
-import { useAppStore } from "../store/app";
+import { Theme, useAppStore } from "../store/app";
 
 /**
  * A page informing ffmpeg and system basic information.
  */
 export default function ParticularsPage() {
-  const darkTheme = useAppStore((state) => state.theme);
+  const currentTheme = useAppStore((state) => state.currentTheme);
 
   const systemParticulars = useAppStore((state) => state.systemParticulars!);
   const descriptionsData = useMemo(() => {
@@ -30,7 +30,7 @@ export default function ParticularsPage() {
         value: (
           <Image
             preview={false}
-            src={darkTheme ? FFmpegDarkThemeLogo : FFmpegLightThemeLogo}
+            src={currentTheme === Theme.Dark ? FFmpegDarkThemeLogo : FFmpegLightThemeLogo}
           ></Image>
         ),
       },
@@ -55,7 +55,7 @@ export default function ParticularsPage() {
         value: configurations,
       },
     ];
-  }, [systemParticulars, darkTheme]);
+  }, [systemParticulars, currentTheme]);
 
   return (
     <Descriptions

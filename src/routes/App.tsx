@@ -42,7 +42,7 @@ const SidebarMenu = () => {
  * Theme switcher
  */
 const ThemeSwitcher = () => {
-  const { configuration, setLocalConfiguration } = useAppStore((state) => state);
+  const { currentTheme, configuration, setLocalConfiguration } = useAppStore((state) => state);
 
   const icon = useMemo(() => {
     switch (configuration.theme) {
@@ -80,7 +80,7 @@ const ThemeSwitcher = () => {
         shape="circle"
         icon={icon}
         onClick={() => {
-          if (configuration.theme === Theme.Dark) {
+          if (currentTheme === Theme.Dark) {
             setLocalConfiguration({ theme: Theme.Light });
           } else {
             setLocalConfiguration({ theme: Theme.Dark });

@@ -42,6 +42,8 @@ const setArcoTheme = (theme: Theme) => {
     document.body.removeAttribute("arco-theme");
     document.body.style.colorScheme = "light";
   }
+
+  return exactTheme;
 };
 
 /**
@@ -228,7 +230,7 @@ const DEFAULT_CONFIGURATION: Configuration = {
     { name: "Portable Network Graphics", extensions: ["png"] },
     { name: "Scalable Vector Graphics", extensions: ["svg"] },
     { name: "Web Picture format", extensions: ["webp"] },
-    { name: "Custom", extensions: ["*"] },
+    { name: "Custom", extensions: [""] },
   ],
 };
 
@@ -293,6 +295,10 @@ export type AppState = {
   setLocalConfiguration: (configuration: Partial<Configuration>) => void;
 
   /**
+   * Current using theme.
+   */
+  currentTheme: Theme.Dark | Theme.Light;
+  /**
    * File filters for open file dialog.
    *
    * This field synchronize from {@link Configuration.openFileFilters}.
@@ -329,7 +335,6 @@ export type AppState = {
 export const useAppStore = create<AppState>((set, get, api) => {
   const localConfiguration = loadLocalConfiguration();
   const configuration = { ...cloneDeep(DEFAULT_CONFIGURATION), ...localConfiguration };
-  setArcoTheme(configuration.theme);
   const setLocalConfiguration = (localConfiguration: Partial<Configuration>) => {
     // updates and stores local configuration
     set((state) => {
@@ -346,7 +351,7 @@ export const useAppStore = create<AppState>((set, get, api) => {
   api.subscribe((state, prevState) => {
     // updates acro if theme changed
     if (state.configuration.theme !== prevState.configuration.theme) {
-      setArcoTheme(state.configuration.theme);
+      set({ currentTheme: setArcoTheme(state.configuration.theme) });
     }
 
     // updates open dialog filters if open file filters changed
@@ -359,6 +364,7 @@ export const useAppStore = create<AppState>((set, get, api) => {
     }
   });
 
+  const currentTheme = setArcoTheme(configuration.theme);
   const openDialogFilters: DialogFilter[] = formalizeOpenDialogFilters(
     configuration.openFileFilters
   );
@@ -381,6 +387,7 @@ export const useAppStore = create<AppState>((set, get, api) => {
     configuration,
     localConfiguration,
     setLocalConfiguration,
+    currentTheme,
     openDialogFilters,
     saveDialogFilters,
     systemParticulars,
