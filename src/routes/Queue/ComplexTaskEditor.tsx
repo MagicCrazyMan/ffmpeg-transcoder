@@ -74,7 +74,6 @@ const ParamsEditor = ({
         style={{ marginBottom: 0 }}
         labelCol={{ span: 0 }}
         wrapperCol={{ span: 24 }}
-        onChange={(v) => console.log(v)}
       >
         <Select size="mini">
           <Select.Option value={ParamsSource.Auto}>Auto</Select.Option>

@@ -1,7 +1,7 @@
 import { DialogFilter } from "@tauri-apps/api/dialog";
 import { cloneDeep } from "lodash";
 import { create } from "zustand";
-import { getSystemParticulars, type SystemParticulars } from "../tauri/particulars";
+import { type SystemParticulars } from "../tauri/system";
 
 /**
  * Theme color mode.
@@ -57,14 +57,39 @@ export type OpenFileFilters = {
   text: string[];
 };
 
+export enum LogLevel {
+  Off = "OFF",
+  Error = "ERROR",
+  Warn = "WARN",
+  Info = "INFO",
+  Debug = "DEBUG",
+  Trace = "TRACE",
+}
+
 /**
  * App configuration
  */
 export type Configuration = {
   /**
+   * FFmpeg binary program
+   */
+  loglevel: LogLevel;
+  /**
+   * FFmpeg binary program
+   */
+  ffmpeg: string;
+  /**
+   * FFprobe binary program
+   */
+  ffprobe: string;
+  /**
    * Current theme
    */
   theme: Theme;
+  /**
+   * Default save directory, optional
+   */
+  saveDirectory?: string;
   /**
    * File filters for open dialog
    */
@@ -76,6 +101,9 @@ export type Configuration = {
 };
 
 const DEFAULT_CONFIGURATION: Configuration = {
+  loglevel: LogLevel.Info,
+  ffmpeg: "ffmpeg",
+  ffprobe: "ffprobe",
   theme: Theme.FollowSystem,
   openFileFilters: {
     videos: [
@@ -316,9 +344,9 @@ export type AppState = {
    */
   systemParticulars: null | SystemParticulars;
   /**
-   * Fetches and updates system particulars of current machine via Tauri
+   * Sets system particulars
    */
-  updateSystemParticulars: () => Promise<void>;
+  setSystemParticulars: (systemParticulars: SystemParticulars | null) => void;
 
   /**
    * A convenient utility to join multiple strings into a path
@@ -371,8 +399,8 @@ export const useAppStore = create<AppState>((set, get, api) => {
   const saveDialogFilters: DialogFilter[] = cloneDeep(configuration.saveFileFilters);
 
   const systemParticulars = null as null | SystemParticulars;
-  const updateSystemParticulars = async () => {
-    set({ systemParticulars: await getSystemParticulars() });
+  const setSystemParticulars = (systemParticulars: SystemParticulars | null) => {
+    set({ systemParticulars: systemParticulars });
   };
 
   const join = (...paths: string[]) => {
@@ -391,7 +419,7 @@ export const useAppStore = create<AppState>((set, get, api) => {
     openDialogFilters,
     saveDialogFilters,
     systemParticulars,
-    updateSystemParticulars,
+    setSystemParticulars,
     join,
   };
 });

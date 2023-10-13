@@ -1,6 +1,7 @@
 import {
   IconInfoCircleFill,
   IconSearch,
+  IconSettings,
   IconTags,
   IconUnorderedList,
 } from "@arco-design/web-react/icon";
@@ -50,6 +51,16 @@ export const pageRoutes: PageRouteObject[] = [
     icon: <IconInfoCircleFill />,
     async lazy() {
       const { default: Component } = await import("../routes/Particulars");
+      return { Component };
+    },
+  },
+  {
+    id: "settings",
+    path: "settings",
+    title: "Settings",
+    icon: <IconSettings />,
+    async lazy() {
+      const { default: Component } = await import("../routes/Settings");
       return { Component };
     },
   },

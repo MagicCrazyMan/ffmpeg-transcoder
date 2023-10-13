@@ -80,7 +80,7 @@ impl TaskStateMachineNode for Idle {
             .spawn()
             .map_err(|err| match err.kind() {
                 std::io::ErrorKind::NotFound => Error::ffmpeg_not_found(&item.data.program),
-                _ => Error::ffmpeg_unavailable(&item.data.program, err),
+                _ => Error::ffmpeg_unavailable_with_raw_error(&item.data.program, err),
             });
         let process = match process {
             Ok(process) => Arc::new(Mutex::new(process)),

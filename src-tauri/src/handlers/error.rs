@@ -5,59 +5,52 @@ use std::fmt::Display;
 /// otherwise, it send only an [`ErrorKind`] and some necessary keywords.
 /// Then, frontend will buildup messages for different language itself.
 #[derive(Debug, serde::Serialize)]
+#[serde(tag = "type")]
 #[non_exhaustive]
 pub enum Error {
     /// Fallback error
     Internal {
-        code: usize,
         #[serde(skip_serializing)]
-        raw_error: Box<dyn std::error::Error>,
+        raw_error: Box<dyn std::error::Error + Send>,
     },
     FFmpegNotFound {
-        code: usize,
         #[serde(skip_serializing)]
         program: String,
     },
     FFprobeNotFound {
-        code: usize,
         #[serde(skip_serializing)]
         program: String,
     },
     FFmpegUnavailable {
-        code: usize,
         #[serde(skip_serializing)]
         program: String,
         #[serde(skip_serializing)]
-        raw_error: Box<dyn std::error::Error>,
+        raw_error: Option<Box<dyn std::error::Error + Send>>,
     },
     FFprobeUnavailable {
-        code: usize,
         #[serde(skip_serializing)]
         program: String,
         #[serde(skip_serializing)]
-        raw_error: Box<dyn std::error::Error>,
+        raw_error: Option<Box<dyn std::error::Error + Send>>,
     },
     DirectoryNotFound {
-        code: usize,
         path: String,
     },
-    TaskIdUnavailable {
-        code: usize,
+    TaskNotFound {
         id: String,
     },
-    TaskNotFound {
-        code: usize,
-        id: String,
+    ConfigurationNotLoaded,
+    ConfigurationUnavailable {
+        reasons: Vec<Error>,
     },
 }
 
 impl Error {
     pub fn internal<E>(raw_error: E) -> Self
     where
-        E: std::error::Error + 'static,
+        E: std::error::Error + Send + 'static,
     {
         Self::Internal {
-            code: 0,
             raw_error: Box::new(raw_error),
         }
     }
@@ -67,7 +60,6 @@ impl Error {
         S: Into<String>,
     {
         Self::FFmpegNotFound {
-            code: 1,
             program: program.into(),
         }
     }
@@ -77,32 +69,49 @@ impl Error {
         S: Into<String>,
     {
         Self::FFprobeNotFound {
-            code: 2,
             program: program.into(),
         }
     }
 
-    pub fn ffmpeg_unavailable<S, E>(program: S, raw_error: E) -> Self
+    pub fn ffmpeg_unavailable_with_raw_error<S, E>(program: S, raw_error: E) -> Self
     where
         S: Into<String>,
-        E: std::error::Error + 'static,
+        E: std::error::Error + Send + 'static,
     {
         Self::FFmpegUnavailable {
-            code: 3,
             program: program.into(),
-            raw_error: Box::new(raw_error),
+            raw_error: Some(Box::new(raw_error)),
         }
     }
 
-    pub fn ffprobe_unavailable<S, E>(program: S, raw_error: E) -> Self
+    pub fn ffmpeg_unavailable<S>(program: S) -> Self
     where
         S: Into<String>,
-        E: std::error::Error + 'static,
+    {
+        Self::FFmpegUnavailable {
+            program: program.into(),
+            raw_error: None,
+        }
+    }
+
+    pub fn ffprobe_unavailable_with_raw_error<S, E>(program: S, raw_error: E) -> Self
+    where
+        S: Into<String>,
+        E: std::error::Error + Send + 'static,
     {
         Self::FFprobeUnavailable {
-            code: 4,
             program: program.into(),
-            raw_error: Box::new(raw_error),
+            raw_error: Some(Box::new(raw_error)),
+        }
+    }
+
+    pub fn ffprobe_unavailable<S>(program: S) -> Self
+    where
+        S: Into<String>,
+    {
+        Self::FFprobeUnavailable {
+            program: program.into(),
+            raw_error: None,
         }
     }
 
@@ -110,43 +119,22 @@ impl Error {
     where
         S: Into<String>,
     {
-        Self::DirectoryNotFound {
-            code: 5,
-            path: path.into(),
-        }
-    }
-
-    pub fn task_id_unavailable<S>(id: S) -> Self
-    where
-        S: Into<String>,
-    {
-        Self::TaskIdUnavailable {
-            code: 6,
-            id: id.into(),
-        }
+        Self::DirectoryNotFound { path: path.into() }
     }
 
     pub fn task_not_found<S>(id: S) -> Self
     where
         S: Into<String>,
     {
-        Self::TaskNotFound {
-            code: 7,
-            id: id.into(),
-        }
+        Self::TaskNotFound { id: id.into() }
     }
 
-    pub fn code(&self) -> usize {
-        match self {
-            Error::Internal { code, .. } => *code,
-            Error::FFmpegNotFound { code, .. } => *code,
-            Error::FFprobeNotFound { code, .. } => *code,
-            Error::FFmpegUnavailable { code, .. } => *code,
-            Error::FFprobeUnavailable { code, .. } => *code,
-            Error::DirectoryNotFound { code, .. } => *code,
-            Error::TaskIdUnavailable { code, .. } => *code,
-            Error::TaskNotFound { code, .. } => *code,
-        }
+    pub fn configuration_not_loaded() -> Self {
+        Self::ConfigurationNotLoaded
+    }
+
+    pub fn configuration_unavailable(reasons: Vec<Self>) -> Self {
+        Self::ConfigurationUnavailable { reasons }
     }
 }
 
@@ -166,24 +154,43 @@ impl Display for Error {
             }
             Error::FFmpegUnavailable {
                 program, raw_error, ..
-            } => f.write_fmt(format_args!(
-                "ffmpeg binary unavailable: \"{}\" {}",
-                program, raw_error
-            )),
+            } => match raw_error {
+                Some(err) => f.write_fmt(format_args!(
+                    "ffmpeg binary unavailable: \"{}\" {}",
+                    program, err
+                )),
+                None => f.write_fmt(format_args!("ffmpeg binary unavailable: \"{}\"", program,)),
+            },
             Error::FFprobeUnavailable {
                 program, raw_error, ..
-            } => f.write_fmt(format_args!(
-                "ffmpeg binary unavailable: \"{}\" {}",
-                program, raw_error
-            )),
+            } => match raw_error {
+                Some(err) => f.write_fmt(format_args!(
+                    "ffprobe binary unavailable: \"{}\" {}",
+                    program, err
+                )),
+                None => f.write_fmt(format_args!("ffprobe binary unavailable: \"{}\"", program,)),
+            },
             Error::DirectoryNotFound { path, .. } => {
                 f.write_fmt(format_args!("directory not found: \"{}\"", path))
             }
-            Error::TaskIdUnavailable { id, .. } => {
-                f.write_fmt(format_args!("task id unavailable: \"{}\"", id))
-            }
             Error::TaskNotFound { id, .. } => {
                 f.write_fmt(format_args!("task with specified id not found: \"{}\"", id))
+            }
+            Error::ConfigurationNotLoaded => f.write_str("configuration not loaded"),
+            Error::ConfigurationUnavailable { reasons } => {
+                #[cfg(windows)]
+                static LINE_ENDING: &'static str = "\r\n";
+                #[cfg(not(windows))]
+                static LINE_ENDING: &'static str = "\n";
+
+                f.write_fmt(format_args!(
+                    "configuration unavailable: {}",
+                    reasons
+                        .iter()
+                        .map(|reason| reason.to_string())
+                        .collect::<Vec<_>>()
+                        .join(LINE_ENDING),
+                ))
             }
         }
     }

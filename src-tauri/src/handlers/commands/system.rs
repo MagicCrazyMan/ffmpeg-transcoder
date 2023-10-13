@@ -3,10 +3,36 @@ use std::{collections::HashMap, path::MAIN_SEPARATOR_STR, sync::OnceLock};
 use regex::Regex;
 
 use crate::{
-    app::config::Config,
-    handlers::{commands::process::invoke_ffmpeg, error::Error},
+    handlers::{
+        config::{AppConfig, Config},
+        error::Error,
+    },
     with_default_args,
 };
+
+use super::process::{invoke_ffmpeg, invoke_ffprobe};
+
+#[tauri::command]
+pub async fn verify_ffmpeg(ffmpeg: String) -> Result<(), Error> {
+    let output = invoke_ffmpeg(&ffmpeg, with_default_args!("-version")).await?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    if stdout.trim_start().starts_with("ffmpeg version") {
+        Ok(())
+    } else {
+        Err(Error::ffmpeg_unavailable(ffmpeg))
+    }
+}
+
+#[tauri::command]
+pub async fn verify_ffprobe(ffprobe: String) -> Result<(), Error> {
+    let output = invoke_ffprobe(&ffprobe, with_default_args!("-version")).await?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    if stdout.trim_start().starts_with("ffprobe version") {
+        Ok(())
+    } else {
+        Err(Error::ffprobe_unavailable(ffprobe))
+    }
+}
 
 /// System basic information.
 #[derive(Debug, serde::Serialize)]
@@ -60,10 +86,11 @@ pub struct FFmpegCodec {
 
 /// A command returns current system and ffmpeg particulars.
 #[tauri::command]
-pub async fn system_particulars(
-    config: tauri::State<'_, Config>,
+pub async fn load_configuration(
+    app_config: tauri::State<'_, AppConfig>,
+    config: Config,
 ) -> Result<SystemParticulars, Error> {
-    let ffmpeg = config.binary().ffmpeg();
+    let ffmpeg = config.ffmpeg();
     let ffmpeg_banner = ffmpeg_banner(ffmpeg).await?;
     let ffmpeg_codecs = ffmpeg_codecs(ffmpeg).await?;
     let ffmpeg_particular = FFmpegParticulars {
@@ -75,6 +102,8 @@ pub async fn system_particulars(
         path_separator: MAIN_SEPARATOR_STR.to_string(),
         ffmpeg: ffmpeg_particular,
     };
+
+    *app_config.lock().await = Some(config);
 
     Ok(system_particulars)
 }

@@ -5,6 +5,7 @@ use tokio::sync::Mutex;
 
 use super::item::TaskItem;
 
+/// Task managing store center.
 pub struct TaskStore {
     store: Arc<Mutex<HashMap<uuid::Uuid, TaskItem>>>,
 }

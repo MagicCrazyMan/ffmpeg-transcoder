@@ -1,10 +1,11 @@
 import { Button, ConfigProvider, Dropdown, Icon, Layout, Menu, Spin } from "@arco-design/web-react";
 import enUS from "@arco-design/web-react/es/locale/en-US";
 import { IconMoonFill, IconSunFill, IconThunderbolt } from "@arco-design/web-react/icon";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { pageRoutes } from "../router";
 import { Theme, useAppStore } from "../store/app";
+import { loadConfiguration } from "../tauri/system";
 
 /**
  * Sidebar menu
@@ -151,13 +152,30 @@ const LoadingPage = () => {
  * App entry
  */
 export default function App() {
-  const systemParticulars = useAppStore((state) => state.systemParticulars);
-  const updateSystemParticulars = useAppStore((state) => state.updateSystemParticulars);
+  const navigate = useNavigate();
+  const { configuration, setSystemParticulars } = useAppStore((state) => state);
 
-  if (systemParticulars) {
-    return <MainPage />;
-  } else {
-    updateSystemParticulars();
+  const [isLoading, setLoading] = useState(true);
+  // gets system particulars, and redirects to settings page if error occurs
+  // execute only once
+  useEffect(() => {
+    loadConfiguration(configuration)
+      .then((systemParticulars) => {
+        setSystemParticulars(systemParticulars);
+      })
+      .catch((err) => {
+        console.error(err);
+        navigate("settings");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (isLoading) {
     return <LoadingPage />;
+  } else {
+    return <MainPage />;
   }
 }

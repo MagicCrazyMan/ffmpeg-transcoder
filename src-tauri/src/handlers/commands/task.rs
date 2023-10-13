@@ -3,8 +3,7 @@ use std::str::FromStr;
 use serde_json::{Map, Value};
 
 use crate::{
-    app::config::Config,
-    handlers::{error::Error, task::store::TaskStore},
+    handlers::{config::AppConfig, error::Error, task::store::TaskStore},
     with_default_args,
 };
 
@@ -78,15 +77,20 @@ pub struct TaskId {
 #[tauri::command]
 pub async fn start_task(
     app_handle: tauri::AppHandle,
-    config: tauri::State<'_, Config>,
+    config: tauri::State<'_, AppConfig>,
     task_store: tauri::State<'_, TaskStore>,
     id: String,
     params: TaskParams,
 ) -> Result<(), Error> {
+    let config = config.lock().await;
+    let Some(config) = config.as_ref() else {
+        return Err(Error::configuration_not_loaded());
+    };
+
     // find maximum duration from all inputs
     let mut total_duration = 0.0;
     for input in params.inputs.iter() {
-        let raw = media_metadata_inner(config.binary().ffprobe(), &input.path).await?;
+        let raw = media_metadata_inner(config.ffprobe(), &input.path).await?;
         let obj: Map<String, Value> = match serde_json::from_str(&raw) {
             Ok(obj) => obj,
             Err(_) => continue,
@@ -127,7 +131,7 @@ pub async fn start_task(
             args,
             app_handle,
             total_duration,
-            config.binary().ffmpeg().to_string(),
+            config.ffmpeg().to_string(),
         )
         .await;
 
@@ -170,7 +174,7 @@ where
         let raw = self.into();
         match uuid::Uuid::from_str(&raw) {
             Ok(uuid) => Ok(uuid),
-            Err(_) => Err(Error::task_id_unavailable(raw)),
+            Err(_) => Err(Error::task_not_found(raw)),
         }
     }
 }
@@ -198,9 +202,14 @@ async fn media_metadata_inner(ffprobe: &str, path: &str) -> Result<String, Error
 /// this command return plain json text from stdout directly without serializing to json object.
 #[tauri::command]
 pub async fn media_metadata(
-    config: tauri::State<'_, Config>,
+    config: tauri::State<'_, AppConfig>,
     path: String,
 ) -> Result<String, Error> {
-    let metadata = media_metadata_inner(config.binary().ffprobe(), &path).await?;
+    let config = config.lock().await;
+    let Some(config) = config.as_ref() else {
+        return Err(Error::configuration_not_loaded());
+    };
+
+    let metadata = media_metadata_inner(config.ffprobe(), &path).await?;
     Ok(metadata)
 }

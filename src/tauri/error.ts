@@ -1,21 +1,51 @@
-/**
- * Tauri error kinds.
- */
-export enum TauriErrorKind {
-  Internal = 0,
-  FFmpegNotFound = 1,
-  FFprobeNotFound = 2,
-  FFmpegUnavailable = 3,
-  FFprobeUnavailable = 4,
-  DirectoryNotFound = 5,
-}
+export type TauriError =
+  | InternalError
+  | FFmpegNotFoundError
+  | FFprobeNotFoundError
+  | FFmpegUnavailableError
+  | FFprobeUnavailableError
+  | DirectoryNotFoundError
+  | TaskNotFoundError
+  | ConfigurationNotLoadedError
+  | ConfigurationUnavailableError;
 
-/**
- * Tauri error.
- */
-export type TauriError = {
-  kind: TauriErrorKind;
-  keywords: string[];
+export type InternalError = {
+  type: "Internal";
+};
+
+export type FFmpegNotFoundError = {
+  type: "FFmpegNotFound";
+};
+
+export type FFprobeNotFoundError = {
+  type: "FFprobeNotFound";
+};
+
+export type FFmpegUnavailableError = {
+  type: "FFmpegUnavailable";
+};
+
+export type FFprobeUnavailableError = {
+  type: "FFprobeUnavailable";
+};
+
+export type DirectoryNotFoundError = {
+  type: "DirectoryNotFound";
+  path: string;
+};
+
+export type TaskNotFoundError = {
+  type: "TaskNotFound";
+  id: string;
+};
+
+export type ConfigurationNotLoadedError = {
+  type: "ConfigurationNotLoaded";
+};
+
+export type ConfigurationUnavailableError = {
+  type: "ConfigurationUnavailable";
+  reasons: TauriError[];
 };
 
 /**
@@ -25,18 +55,24 @@ export type TauriError = {
  * @returns SHort message
  */
 export const toShortMessage = (error: TauriError) => {
-  switch (error.kind) {
-    case TauriErrorKind.Internal:
+  switch (error.type) {
+    case "Internal":
       return "Interval Error";
-    case TauriErrorKind.FFmpegNotFound:
-      return "ffmpeg not found";
-    case TauriErrorKind.FFprobeNotFound:
-      return "ffprobe not found";
-    case TauriErrorKind.FFmpegUnavailable:
-      return "ffmpeg unavailabled";
-    case TauriErrorKind.FFprobeUnavailable:
-      return "ffprobe unavailabled";
-    case TauriErrorKind.DirectoryNotFound:
-      return "directory not found";
+    case "FFmpegNotFound":
+      return "ffmpeg program not found";
+    case "FFprobeNotFound":
+      return "ffprobe program not found";
+    case "FFmpegUnavailable":
+      return "ffmpeg program unavailable";
+    case "FFprobeUnavailable":
+      return "ffprobe program unavailable";
+    case "DirectoryNotFound":
+      return `directory ${error.path} not found`;
+    case "TaskNotFound":
+      return `task ${error.id} not found`;
+    case "ConfigurationNotLoaded":
+      return "configuration not loaded";
+    case "ConfigurationUnavailable":
+      return "configuration unavailable";
   }
 };
