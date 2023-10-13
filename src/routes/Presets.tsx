@@ -494,7 +494,7 @@ export default function PresetsPage() {
   };
 
   return (
-    <Space size="medium" direction="vertical">
+    <Space size="medium" direction="vertical" className="w-full">
       {/* Add Preset */}
       <Tooltip triggerProps={{ mouseEnterDelay: 1000 }} content="Add New Preset">
         <Button
