@@ -67,7 +67,7 @@ export type TaskInputParams = {
 
 export type TaskOutputParams = {
   id: string;
-  path?: string;
+  path: string;
   source: ParamsSource;
   params?: string[] | Preset;
 };

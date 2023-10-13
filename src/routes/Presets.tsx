@@ -186,7 +186,7 @@ const editableCells: Record<
           wrapperCol={{ span: 24 }}
           rules={[{ required: true, message: "params is required" }]}
         >
-          <Input.TextArea autoFocus={!rowData.isTemp} onPressEnter={submit} />
+          <Input.TextArea allowClear autoFocus={!rowData.isTemp} onPressEnter={submit} />
         </Form.Item>
       );
     },
