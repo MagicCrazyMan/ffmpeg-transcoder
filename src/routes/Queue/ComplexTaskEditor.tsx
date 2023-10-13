@@ -25,6 +25,7 @@ import {
   useState,
 } from "react";
 import { v4 } from "uuid";
+import { useAppStore } from "../../store/app";
 import { Preset, PresetType, usePresetStore } from "../../store/preset";
 import {
   ParamsSource,
@@ -323,6 +324,7 @@ const fromTaskParams = (
 };
 
 export default function ComplexTaskEditor({ visible, onVisibleChange, task }: TaskEditorProps) {
+  const { openDialogFilters, saveDialogFilters } = useAppStore((state) => state);
   const addTask = useTaskStore((state) => state.addTask);
   const presets = usePresetStore((state) => state.presets);
 
@@ -352,8 +354,6 @@ export default function ComplexTaskEditor({ visible, onVisibleChange, task }: Ta
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onFormChange = () => {
     const formValues = formInstance.current!.getFieldsValue();
-    console.log(formValues);
-
     if (formValues.inputs) {
       const formInputs = formValues.inputs;
       setInputs((state) => state.map((input, index) => ({ ...input, ...formInputs[index] })));
@@ -370,7 +370,7 @@ export default function ComplexTaskEditor({ visible, onVisibleChange, task }: Ta
   const addInputFiles = async () => {
     const files = (await open({
       title: "Add Input Files",
-      filters: [],
+      filters: openDialogFilters,
       directory: false,
       multiple: true,
     })) as string[] | null;
@@ -395,6 +395,7 @@ export default function ComplexTaskEditor({ visible, onVisibleChange, task }: Ta
   const addOutputFile = async () => {
     const file = await save({
       title: "Add Output File",
+      filters: saveDialogFilters,
     });
 
     if (file && formInstance.current) {

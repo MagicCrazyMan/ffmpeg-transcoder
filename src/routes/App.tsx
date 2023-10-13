@@ -42,7 +42,7 @@ const SidebarMenu = () => {
  * Theme switcher
  */
 const ThemeSwitcher = () => {
-  const { configuration, setConfiguration } = useAppStore((state) => state);
+  const { configuration, setLocalConfiguration } = useAppStore((state) => state);
 
   const icon = useMemo(() => {
     switch (configuration.theme) {
@@ -69,7 +69,7 @@ const ThemeSwitcher = () => {
     [configuration, icon]
   );
   const droplist = (
-    <Menu onClickMenuItem={(theme) => setConfiguration({ theme: theme as Theme })}>
+    <Menu onClickMenuItem={(theme) => setLocalConfiguration({ theme: theme as Theme })}>
       {droplistItems}
     </Menu>
   );
@@ -81,9 +81,9 @@ const ThemeSwitcher = () => {
         icon={icon}
         onClick={() => {
           if (configuration.theme === Theme.Dark) {
-            setConfiguration({ theme: Theme.Light });
+            setLocalConfiguration({ theme: Theme.Light });
           } else {
-            setConfiguration({ theme: Theme.Dark });
+            setLocalConfiguration({ theme: Theme.Dark });
           }
         }}
       ></Button>
