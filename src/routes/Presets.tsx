@@ -395,6 +395,20 @@ export default function PresetsPage() {
         } else {
           return (
             <Space>
+              {/* Copy Button */}
+              <Tooltip
+                position="left"
+                triggerProps={{ mouseEnterDelay: 1000 }}
+                content="Copy Preset"
+              >
+                <Button
+                  shape="circle"
+                  type="primary"
+                  icon={<IconCopy />}
+                  onClick={() => duplicatePreset(preset.id)}
+                ></Button>
+              </Tooltip>
+
               {/* Delete Button */}
               <Popconfirm
                 focusLock
@@ -415,20 +429,6 @@ export default function PresetsPage() {
                   ></Button>
                 </Tooltip>
               </Popconfirm>
-
-              {/* Copy Button */}
-              <Tooltip
-                position="left"
-                triggerProps={{ mouseEnterDelay: 1000 }}
-                content="Copy Preset"
-              >
-                <Button
-                  shape="circle"
-                  type="primary"
-                  icon={<IconCopy />}
-                  onClick={() => duplicatePreset(preset.id)}
-                ></Button>
-              </Tooltip>
             </Space>
           );
         }
