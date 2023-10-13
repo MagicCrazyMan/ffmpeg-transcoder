@@ -42,31 +42,36 @@ const SidebarMenu = () => {
  * Theme switcher
  */
 const ThemeSwitcher = () => {
-  const theme = useAppStore((state) => state.theme);
-  const setTheme = useAppStore((state) => state.setTheme);
+  const { configuration, setConfiguration } = useAppStore((state) => state);
 
   const icon = useMemo(() => {
-    switch (theme) {
+    switch (configuration.theme) {
       case Theme.Light:
         return <IconSunFill />;
       case Theme.Dark:
         return <IconMoonFill />;
-      case Theme.Default:
+      case Theme.FollowSystem:
         return <IconThunderbolt />;
     }
-  }, [theme]);
+  }, [configuration]);
 
-  const droplistItems = [
-    [Theme.Light, "Light Theme"],
-    [Theme.Dark, "Dark Theme"],
-    [Theme.Default, "Follow System"],
-  ].map(([t, s]) => (
-    <Menu.Item key={t}>
-      {theme === t ? icon : <Icon />} {s}
-    </Menu.Item>
-  ));
+  const droplistItems = useMemo(
+    () =>
+      [
+        [Theme.Light, "Light Theme"],
+        [Theme.Dark, "Dark Theme"],
+        [Theme.FollowSystem, "Follow System"],
+      ].map(([t, s]) => (
+        <Menu.Item key={t}>
+          {configuration.theme === t ? icon : <Icon />} {s}
+        </Menu.Item>
+      )),
+    [configuration, icon]
+  );
   const droplist = (
-    <Menu onClickMenuItem={(theme) => setTheme(theme as Theme)}>{droplistItems}</Menu>
+    <Menu onClickMenuItem={(theme) => setConfiguration({ theme: theme as Theme })}>
+      {droplistItems}
+    </Menu>
   );
 
   return (
@@ -75,10 +80,10 @@ const ThemeSwitcher = () => {
         shape="circle"
         icon={icon}
         onClick={() => {
-          if (theme === Theme.Dark) {
-            setTheme(Theme.Light);
+          if (configuration.theme === Theme.Dark) {
+            setConfiguration({ theme: Theme.Light });
           } else {
-            setTheme(Theme.Dark);
+            setConfiguration({ theme: Theme.Dark });
           }
         }}
       ></Button>

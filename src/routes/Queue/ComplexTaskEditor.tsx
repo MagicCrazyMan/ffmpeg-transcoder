@@ -370,6 +370,7 @@ export default function ComplexTaskEditor({ visible, onVisibleChange, task }: Ta
   const addInputFiles = async () => {
     const files = (await open({
       title: "Add Input Files",
+      filters: [],
       directory: false,
       multiple: true,
     })) as string[] | null;
