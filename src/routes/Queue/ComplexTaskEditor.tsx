@@ -58,7 +58,11 @@ const ParamsEditor = ({
   return (
     <Space size={2} style={{ width: "100%" }} direction="vertical">
       {/* Params Source Selector */}
-      <Select size="mini" value={record.selection} onChange={(value) => onChange(record.id, { selection: value })}>
+      <Select
+        size="mini"
+        value={record.selection}
+        onChange={(value) => onChange(record.id, { selection: value })}
+      >
         <Select.Option value={ParamsSource.Auto}>Auto</Select.Option>
         <Select.Option value={ParamsSource.Custom}>Custom</Select.Option>
         {presetOptions}
@@ -195,7 +199,7 @@ const InputTable = ({
 
   const onRemove = useCallback(
     (id: string) => {
-      setInputs((state) => state.filter((record) => record.id === id));
+      setInputs((state) => state.filter((record) => record.id !== id));
     },
     [setInputs]
   );
@@ -254,7 +258,7 @@ const OutputTable = ({
 
   const onRemove = useCallback(
     (id: string) => {
-      setOutputs((state) => state.filter((record) => record.id === id));
+      setOutputs((state) => state.filter((record) => record.id !== id));
     },
     [setOutputs]
   );
@@ -488,13 +492,11 @@ export default function ComplexTaskEditor({ visible, onVisibleChange, task }: Ta
           </Button>
         </Space>
 
-        <Space direction="vertical">
-          {/* Input Files Table */}
-          <InputTable inputs={inputs} setInputs={setInputs}></InputTable>
+        {/* Input Files Table */}
+        <InputTable inputs={inputs} setInputs={setInputs}></InputTable>
 
-          {/* Output Files Table */}
-          <OutputTable outputs={outputs} setOutputs={setOutputs}></OutputTable>
-        </Space>
+        {/* Output Files Table */}
+        <OutputTable outputs={outputs} setOutputs={setOutputs}></OutputTable>
       </Space>
     </Modal>
   );
