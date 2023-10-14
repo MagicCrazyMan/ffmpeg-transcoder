@@ -87,6 +87,10 @@ export type Configuration = {
    */
   theme: Theme;
   /**
+   * Maximum running tasks
+   */
+  maxRunning: number;
+  /**
    * Default save directory, optional
    */
   saveDirectory?: string;
@@ -105,6 +109,7 @@ const DEFAULT_CONFIGURATION: Configuration = {
   ffmpeg: "ffmpeg",
   ffprobe: "ffprobe",
   theme: Theme.FollowSystem,
+  maxRunning: 1,
   openFileFilters: {
     videos: [
       "webm",

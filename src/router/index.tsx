@@ -15,12 +15,12 @@ export type PageRouteObject = {
 
 export const pageRoutes: PageRouteObject[] = [
   {
-    id: "queue",
-    path: "queue",
-    title: "Queue",
+    id: "tasks",
+    path: "tasks",
+    title: "Tasks",
     icon: <IconUnorderedList />,
     async lazy() {
-      const { default: Component } = await import("../routes/Queue");
+      const { default: Component } = await import("../routes/Tasks");
       return { Component };
     },
   },

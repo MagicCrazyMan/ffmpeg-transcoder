@@ -68,7 +68,7 @@
     },
     "windows": [
       {
-        "url": "/queue",
+        "url": "/tasks",
         "fullscreen": false,
         "resizable": true,
         "title": "FFmpeg Transcoder",

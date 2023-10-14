@@ -1,8 +1,23 @@
 import { listen } from "@tauri-apps/api/event";
 import { v4 } from "uuid";
 import { create } from "zustand";
+import {
+  startTask as startTaskTauri,
+  stopTask as stopTaskTauri,
+  resumeTask as resumeTaskTauri,
+  pauseTask as pauseTaskTauri,
+} from "../tauri/task";
+import {
+  FFmpegNotFoundError,
+  FFmpegUnavailableError,
+  FFprobeNotFoundError,
+  FFprobeUnavailableError,
+  TaskNotFoundError,
+  toMessage,
+} from "../tauri/error";
 import { Metadata } from "../tauri/task";
 import { Preset } from "./preset";
+import { useAppStore } from "./app";
 
 export type TaskStoreState = {
   /**
@@ -16,6 +31,21 @@ export type TaskStoreState = {
    */
   updateTask: (id: string, task: Partial<Task>) => void;
   /**
+   * Starts or resumes a task by id.
+   * @param id Task id
+   */
+  startTask: (id: string) => void;
+  /**
+   * Pauses a task by id.
+   * @param id Task id
+   */
+  pauseTask: (id: string) => void;
+  /**
+   * Stops a task by id.
+   * @param id Task id
+   */
+  stopTask: (id: string) => void;
+  /**
    * Removes a task by id
    * @param id Task id
    */
@@ -27,8 +57,8 @@ export type TaskStoreState = {
   addTask: (params: TaskParams) => void;
   /**
    * Resets a task.
-   * Only a task in {@link TaskState.Finished}, {@link TaskState.Stopped} or {@link TaskState.Errored} state could be reset
-   * @param id
+   * Only a task in `Finished`, `Stopped` or `Errored` state could be reset
+   * @param id Task id
    * @returns
    */
   resetTask: (id: string) => void;
@@ -39,7 +69,6 @@ export type Task = {
   params: TaskParams;
   state: TaskState;
   metadata?: boolean | Metadata[];
-  lastMessage?: TaskMessage;
 };
 
 export type TaskParams = {
@@ -77,81 +106,53 @@ export type TaskOutputParams = {
   params?: string[] | Preset;
 };
 
-export enum TaskState {
-  Idle = "Idle",
-  Commanding = "Commanding",
-  Queueing = "Queueing",
-  Starting = "Starting",
-  Running = "Running",
-  Pausing = "Pausing",
-  Stopped = "Stopped",
-  Finished = "Finished",
-  Errored = "Errored",
-}
+export type TaskState =
+  | TaskStateIdle
+  | TaskStateCommanding
+  | TaskStateQueueing
+  | TaskStateRunning
+  | TaskStatePausing
+  | TaskStateStopped
+  | TaskStateFinished
+  | TaskStateErrored;
 
-// export type TaskMessageStart = {
-//   state: "Start";
-//   id: string;
-// };
-
-export type TaskMessageRunning = {
-  state: TaskState.Running;
-  id: string;
-  total_duration: number;
-  raw: string[];
-  frame?: number;
-  fps?: number;
-  bitrate?: number;
-  total_size?: number;
-  output_time_ms?: number;
-  dup_frames?: number;
-  drop_frames?: number;
-  speed?: number;
+export type TaskStateIdle = {
+  type: "Idle";
 };
 
-export type TaskMessagePausing = {
-  state: TaskState.Pausing;
-  id: string;
+export type TaskStateCommanding = {
+  type: "Commanding";
+  prevState: TaskState;
 };
 
-export type TaskMessageStopped = {
-  state: TaskState.Stopped;
-  id: string;
+export type TaskStateQueueing = {
+  type: "Queueing";
 };
 
-export type TaskMessageFinished = {
-  state: TaskState.Finished;
-  id: string;
+export type TaskStateRunning = {
+  type: "Running";
+  message: TaskMessageRunning;
 };
 
-export type TaskMessageErrored = {
-  state: TaskState.Errored;
-  id: string;
+export type TaskStatePausing = {
+  type: "Pausing";
+  lastRunningMessage?: TaskMessageRunning;
+};
+
+export type TaskStateStopped = {
+  type: "Stopped";
+};
+
+export type TaskStateFinished = {
+  type: "Finished";
+};
+
+export type TaskStateErrored = {
+  type: "Errored";
   reason: string;
 };
 
-export type TaskMessage =
-  //   | TaskMessageStart
-  | TaskMessageRunning
-  | TaskMessagePausing
-  | TaskMessageStopped
-  | TaskMessageFinished
-  | TaskMessageErrored;
-
-export const TASK_MESSAGE_EVENT = "transcoding";
-
-/**
- * Starts listening task messages from backend.
- * @param updateTask Updater.
- */
-const listenTaskMessages = (updateTask: (id: string, task: Partial<Task>) => void) => {
-  listen<TaskMessage>(TASK_MESSAGE_EVENT, (event) => {
-    const message = event.payload;
-    updateTask(message.id, { lastMessage: message });
-  });
-};
-
-export const useTaskStore = create<TaskStoreState>((set) => {
+export const useTaskStore = create<TaskStoreState>((set, get) => {
   const tasks: Task[] = [
     {
       id: v4(),
@@ -173,7 +174,9 @@ export const useTaskStore = create<TaskStoreState>((set) => {
           },
         ],
       },
-      state: TaskState.Idle,
+      state: {
+        type: "Idle",
+      },
     },
     {
       id: v4(),
@@ -195,7 +198,9 @@ export const useTaskStore = create<TaskStoreState>((set) => {
           },
         ],
       },
-      state: TaskState.Idle,
+      state: {
+        type: "Idle",
+      },
     },
   ];
 
@@ -214,6 +219,89 @@ export const useTaskStore = create<TaskStoreState>((set) => {
     }));
   };
 
+  const startTask = (id: string) => {
+    const tasks = get().tasks;
+    const task = tasks.find((task) => task.id === id)!;
+
+    if (task.state.type !== "Idle" && task.state.type !== "Pausing") return;
+
+    // if exceeds max running count, set to queueing state
+    if (
+      tasks.filter((task) => task.state.type === "Queueing").length + 1 >
+      useAppStore.getState().configuration.maxRunning
+    ) {
+      updateTask(task.id, { state: { type: "Queueing" } });
+      return;
+    }
+
+    updateTask(task.id, { state: { type: "Commanding", prevState: task.state } });
+
+    let promise: Promise<void>;
+    if (task.state.type === "Idle") {
+      promise = startTaskTauri(task.id, task.params);
+    } else {
+      promise = resumeTaskTauri(task.id);
+    }
+
+    promise.catch(
+      (
+        err:
+          | FFmpegNotFoundError
+          | FFprobeNotFoundError
+          | FFmpegUnavailableError
+          | FFprobeUnavailableError
+          | TaskNotFoundError
+      ) => {
+        console.error(err);
+        updateTask(task.id, {
+          state: {
+            type: "Errored",
+            reason: toMessage({ type: err.type }),
+          },
+        });
+      }
+    );
+  };
+
+  const pauseTask = (id: string) => {
+    const tasks = get().tasks;
+    const task = tasks.find((task) => task.id === id)!;
+
+    if (task.state.type === "Running") {
+      updateTask(task.id, { state: { type: "Commanding", prevState: task.state } });
+      pauseTaskTauri(task.id).catch((err: TaskNotFoundError) => {
+        console.error(err);
+        updateTask(task.id, {
+          state: {
+            type: "Errored",
+            reason: toMessage({ type: err.type }),
+          },
+        });
+      });
+    } else if (task.state.type === "Queueing") {
+      updateTask(task.id, { state: { type: "Idle" } });
+    }
+  };
+
+  const stopTask = (id: string) => {
+    const task = get().tasks.find((task) => task.id === id)!;
+
+    if (task.state.type === "Running" || task.state.type === "Pausing") {
+      updateTask(task.id, { state: { type: "Commanding", prevState: task.state } });
+      stopTaskTauri(task.id).catch((err: TaskNotFoundError) => {
+        console.error(err);
+        updateTask(task.id, {
+          state: {
+            type: "Errored",
+            reason: toMessage({ type: err.type }),
+          },
+        });
+      });
+    } else if (task.state.type === "Queueing") {
+      updateTask(task.id, { state: { type: "Stopped" } });
+    }
+  };
+
   const removeTask = (id: string) => {
     set((state) => ({
       tasks: state.tasks.filter((task) => task.id !== id),
@@ -227,7 +315,7 @@ export const useTaskStore = create<TaskStoreState>((set) => {
         {
           id: v4(),
           params,
-          state: TaskState.Idle,
+          state: { type: "Idle" },
         },
       ],
     }));
@@ -240,7 +328,7 @@ export const useTaskStore = create<TaskStoreState>((set) => {
           return {
             id: v4(),
             params: task.params,
-            state: TaskState.Idle,
+            state: { type: "Idle" },
           };
         } else {
           return task;
@@ -249,15 +337,120 @@ export const useTaskStore = create<TaskStoreState>((set) => {
     }));
   };
 
-  // starts listen to task message.
-  // listener lives until app quits, thus, it is no need to unlisten it
-  listenTaskMessages(updateTask);
-
   return {
     tasks,
     updateTask,
+    startTask,
+    pauseTask,
+    stopTask,
     removeTask,
     addTask,
     resetTask,
   };
 });
+
+export type TaskMessageRunning = {
+  state: TaskStateRunning["type"];
+  id: string;
+  total_duration: number;
+  raw: string[];
+  frame?: number;
+  fps?: number;
+  bitrate?: number;
+  total_size?: number;
+  output_time_ms?: number;
+  dup_frames?: number;
+  drop_frames?: number;
+  speed?: number;
+};
+
+export type TaskMessagePausing = {
+  state: TaskStatePausing["type"];
+  id: string;
+};
+
+export type TaskMessageStopped = {
+  state: TaskStateStopped["type"];
+  id: string;
+};
+
+export type TaskMessageFinished = {
+  state: TaskStateFinished["type"];
+  id: string;
+};
+
+export type TaskMessageErrored = {
+  state: TaskStateErrored["type"];
+  id: string;
+  reason: string;
+};
+
+export type TaskMessage =
+  | TaskMessageRunning
+  | TaskMessagePausing
+  | TaskMessageStopped
+  | TaskMessageFinished
+  | TaskMessageErrored;
+
+export const TASK_MESSAGE_EVENT = "transcoding";
+
+/**
+ * Starts listening task messages from backend.
+ * @param updateTask Updater.
+ */
+const listenTaskMessages = () => {
+  listen<TaskMessage>(TASK_MESSAGE_EVENT, (event) => {
+    const { tasks, updateTask, startTask } = useTaskStore.getState();
+
+    const message = event.payload;
+
+    // updates task state
+    switch (message.state) {
+      case "Pausing": {
+        const task = tasks.find((task) => task.id === message.id);
+        let lastRunningMessage: TaskMessageRunning | undefined;
+        if (task) {
+          if (task.state.type === "Commanding" && task.state.prevState.type === "Running") {
+            lastRunningMessage = task.state.prevState.message;
+          }
+        }
+
+        updateTask(message.id, {
+          state: {
+            type: "Pausing",
+            lastRunningMessage,
+          },
+        });
+        break;
+      }
+      case "Errored":
+        updateTask(message.id, { state: { type: message.state, reason: message.reason } });
+        break;
+      case "Running":
+        updateTask(message.id, { state: { type: message.state, message: message } });
+        break;
+      case "Stopped":
+      case "Finished":
+        updateTask(message.id, { state: { type: message.state } });
+        break;
+    }
+
+    // starts next task if some tasks in queueing
+    switch (message.state) {
+      case "Running":
+        break;
+      case "Pausing":
+      case "Stopped":
+      case "Finished":
+      case "Errored": {
+        const next = tasks.find((task) => task.state.type === "Queueing");
+        if (next) startTask(next.id);
+        break;
+      }
+    }
+  });
+};
+
+// starts listen to task message.
+// listener lives until app quits, thus, it is no need to unlisten it
+listenTaskMessages();

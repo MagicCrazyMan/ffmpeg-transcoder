@@ -1,4 +1,12 @@
-import { Button, Form, FormInstance, Grid, Input, Select } from "@arco-design/web-react";
+import {
+  Button,
+  Form,
+  FormInstance,
+  Grid,
+  Input,
+  InputNumber,
+  Select,
+} from "@arco-design/web-react";
 import { IconFile, IconFolder } from "@arco-design/web-react/icon";
 import { open } from "@tauri-apps/api/dialog";
 import { useEffect, useRef, useState } from "react";
@@ -131,6 +139,17 @@ export default function Settings() {
             </Select>
           </Form.Item>
         </Grid.Col>
+      </Grid.Row>
+
+      <Grid.Row gutter={8}>
+        <Grid.Col span={12}>
+          {/* Max Running Tasks */}
+          <Form.Item field="maxRunning" label="Max Running Tasks">
+            <InputNumber min={1}></InputNumber>
+          </Form.Item>
+        </Grid.Col>
+
+        <Grid.Col span={12}></Grid.Col>
       </Grid.Row>
 
       {/* FFmpeg Program */}
