@@ -1,5 +1,5 @@
 import { Button, Space, Table, TableColumnProps, Tooltip } from "@arco-design/web-react";
-import { IconDown, IconNav, IconRight } from "@arco-design/web-react/icon";
+import { IconDown, IconFolder, IconNav, IconRight } from "@arco-design/web-react/icon";
 import { useState } from "react";
 import { Task, TaskInputParams, TaskOutputParams, useTaskStore } from "../../store/task";
 import ComplexTaskEditor from "./ComplexTaskEditor";
@@ -11,8 +11,32 @@ import Status from "./Status";
  * Inputs & Outputs files list component
  */
 const FilesList = ({ params }: { params: (TaskInputParams | TaskOutputParams)[] }) => {
+  const openDirectory = (path?: string) => {
+    if (!path) return;
+  };
+
   if (params.length === 1) {
-    return <div>{params[0].path ?? "NULL"}</div>;
+    if (params[0].path) {
+      return (
+        <div className="flex items-center">
+          <Button
+            className="flex-shrink-0 flex-grow-0"
+            size="default"
+            type="text"
+            shape="circle"
+            icon={<IconFolder />}
+            onClick={() => openDirectory(params[0].path)}
+          ></Button>
+          <div>{params[0].path ?? "NULL"}</div>
+        </div>
+      );
+    } else {
+      return (
+        <div>
+          <span>{params[0].path ?? "NULL"}</span>
+        </div>
+      );
+    }
   } else {
     const paths = params.map((input, index) => <li key={index}>{input.path ?? "NULL"}</li>);
     return <ul className="list-disc list-inside">{paths}</ul>;
