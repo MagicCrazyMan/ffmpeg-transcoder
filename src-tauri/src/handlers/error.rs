@@ -13,6 +13,7 @@ pub enum Error {
         #[serde(skip_serializing)]
         raw_error: Box<dyn std::error::Error + Send>,
     },
+    ProcessUnexpectedKilled,
     FFmpegNotFound {
         #[serde(skip_serializing)]
         program: String,
@@ -32,6 +33,9 @@ pub enum Error {
         program: String,
         #[serde(skip_serializing)]
         raw_error: Option<Box<dyn std::error::Error + Send>>,
+    },
+    FFmpegRuntimeError {
+        reason: String,
     },
     DirectoryNotFound {
         path: String,
@@ -53,6 +57,10 @@ impl Error {
         Self::Internal {
             raw_error: Box::new(raw_error),
         }
+    }
+
+    pub fn process_unexpected_killed() -> Self {
+        Self::ProcessUnexpectedKilled
     }
 
     pub fn ffmpeg_not_found<S>(program: S) -> Self
@@ -115,6 +123,15 @@ impl Error {
         }
     }
 
+    pub fn ffmpeg_runtime_error<S>(reason: S) -> Self
+    where
+        S: Into<String>,
+    {
+        Self::FFmpegRuntimeError {
+            reason: reason.into(),
+        }
+    }
+
     pub fn directory_not_found<S>(path: S) -> Self
     where
         S: Into<String>,
@@ -146,6 +163,7 @@ impl Display for Error {
             Error::Internal { raw_error, .. } => {
                 f.write_fmt(format_args!("internal error: {}", raw_error))
             }
+            Error::ProcessUnexpectedKilled => f.write_str("process unexpected killed"),
             Error::FFmpegNotFound { program, .. } => {
                 f.write_fmt(format_args!("ffmpeg binary not found: \"{}\"", program))
             }
@@ -170,6 +188,9 @@ impl Display for Error {
                 )),
                 None => f.write_fmt(format_args!("ffprobe binary unavailable: \"{}\"", program,)),
             },
+            Error::FFmpegRuntimeError { reason } => {
+                f.write_fmt(format_args!("ffmpeg runtime error: {}", reason))
+            }
             Error::DirectoryNotFound { path, .. } => {
                 f.write_fmt(format_args!("directory not found: \"{}\"", path))
             }

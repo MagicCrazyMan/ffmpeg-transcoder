@@ -163,8 +163,13 @@ impl TaskStateMachineNode for Running {
     }
 
     async fn pause(self: Box<Self>, _task: Task) -> Box<dyn TaskStateMachineNode> {
-        let process = self.process;
+        self.watchdog_cancellations.0.cancel();
+        self.watchdog_cancellations.1.cancel();
+        if let Err(err) = self.watchdog_handle.await {
+            return Box::new(Errored::from_err(err));
+        }
 
+        let process = self.process;
         #[cfg(windows)]
         {
             if let Err(err) = process
@@ -183,14 +188,7 @@ impl TaskStateMachineNode for Running {
         #[cfg(not(windows))]
         {}
 
-        self.watchdog_cancellations.0.cancel();
-        self.watchdog_cancellations.1.cancel();
-
-        if let Err(err) = self.watchdog_handle.await {
-            Box::new(Errored::from_err(err))
-        } else {
-            Box::new(Pausing { process })
-        }
+        Box::new(Pausing { process })
     }
 
     async fn resume(self: Box<Self>, task: Task) -> Box<dyn TaskStateMachineNode> {
@@ -199,6 +197,12 @@ impl TaskStateMachineNode for Running {
     }
 
     async fn stop(self: Box<Self>, _task: Task) -> Box<dyn TaskStateMachineNode> {
+        self.watchdog_cancellations.0.cancel();
+        self.watchdog_cancellations.1.cancel();
+        if let Err(err) = self.watchdog_handle.await {
+            return Box::new(Errored::from_err(err));
+        }
+
         let mut process = self.process.lock().await;
         let kill = async {
             process.start_kill()?;
@@ -210,13 +214,7 @@ impl TaskStateMachineNode for Running {
         // MUST drop here, or watchdog_handle can NEVER get mutex lock of process
         drop(process);
 
-        self.watchdog_cancellations.0.cancel();
-        self.watchdog_cancellations.1.cancel();
-        if let Err(err) = self.watchdog_handle.await {
-            Box::new(Errored::from_err(err))
-        } else {
-            Box::new(Stopped)
-        }
+        Box::new(Stopped)
     }
 
     async fn finish(self: Box<Self>, _task: Task) -> Box<dyn TaskStateMachineNode> {
@@ -478,22 +476,15 @@ impl TaskStateMachineNode for Finished {
     }
 }
 
-async fn start_capture(
-    process: Arc<Mutex<Child>>,
+fn start_capture(
+    stdout: ChildStdout,
+    stderr: ChildStderr,
     task: Task,
     watchdog_cancellations: (CancellationToken, CancellationToken),
 ) -> (
-    JoinHandle<(ChildStdout, Result<bool, String>)>,
-    JoinHandle<(ChildStderr, Result<(), String>)>,
+    JoinHandle<(ChildStdout, Result<bool, Error>)>,
+    JoinHandle<(ChildStderr, Result<(), Error>)>,
 ) {
-    let (stdout, stderr) = {
-        let mut process = process.lock().await;
-        let stdout = process.stdout.take().unwrap(); // safely unwrap
-        let stderr = process.stderr.take().unwrap(); // safely unwrap
-
-        (stdout, stderr)
-    };
-
     // spawn a thread to capture stdout
     let state_cloned = Arc::clone(&task.state);
     let stdout_cancellation_cloned = watchdog_cancellations.0.clone();
@@ -515,11 +506,11 @@ async fn start_capture(
                 }
                 len = reader.read_line(&mut line) => {
                     match len {
-                        Ok(len) =>  len,
+                        Ok(len) => len,
                         Err(err) => {
                             match err.kind() {
-                                std::io::ErrorKind::UnexpectedEof => break Ok(false),
-                                _ => break Err(err.to_string()),
+                                std::io::ErrorKind::UnexpectedEof => break Err(Error::process_unexpected_killed()),
+                                _ => break Err(Error::internal(err)),
                             }
                         },
                     }
@@ -528,7 +519,7 @@ async fn start_capture(
 
             // should stop or reach eof
             if len == 0 {
-                break Ok(false);
+                break Err(Error::process_unexpected_killed());
             }
 
             let trimmed_line = line.trim();
@@ -586,7 +577,7 @@ async fn start_capture(
                         if let Some(msg) = msg {
                             match task.data.app_handle.emit_all(TASK_MESSAGE_EVENT, &msg) {
                                 Ok(_) => trace!("[{}] send message to frontend", task.data.id),
-                                Err(err) => break Err(err.to_string()),
+                                Err(err) => break Err(Error::internal(err)),
                             }
 
                             message.clear();
@@ -622,8 +613,8 @@ async fn start_capture(
                     Ok(len) => len,
                     Err(err) => {
                         match err.kind() {
-                            std::io::ErrorKind::UnexpectedEof => return (reader.into_inner(), Ok(())),
-                            _ => return (reader.into_inner(), Err(err.to_string())),
+                            std::io::ErrorKind::UnexpectedEof => return (reader.into_inner(), Err(Error::process_unexpected_killed())),
+                            _ => return (reader.into_inner(), Err(Error::internal(err))),
                         }
                     },
                 }
@@ -632,13 +623,22 @@ async fn start_capture(
 
         // should stop or reach eof
         if len == 0 {
-            (reader.into_inner(), Ok(()))
+            (reader.into_inner(), Err(Error::process_unexpected_killed()))
         } else {
-            (reader.into_inner(), Err(line.trim().to_string()))
+            (reader.into_inner(), Err(Error::ffmpeg_runtime_error(line)))
         }
     });
 
     (stdout_handle, stderr_handle)
+}
+
+enum ProcessStatus {
+    PauseOrFinish(
+        Result<(ChildStdout, Result<bool, Error>), tokio::task::JoinError>,
+        Result<(ChildStderr, Result<(), Error>), tokio::task::JoinError>,
+    ),
+    Exit,
+    Killed(Error),
 }
 
 fn start_watchdog(
@@ -649,60 +649,98 @@ fn start_watchdog(
     tokio::spawn(async move {
         info!("[{}] start subprocess output capturing", task.data.id);
 
+        let mut process = process.lock().await;
+
+        let stdout = process.stdout.take().unwrap(); // safely unwrap
+        let stderr = process.stderr.take().unwrap(); // safely unwrap
+
+        // strange bug, stdin becomes None when trying to pause a running job.
+        // only takes it out here and puts it back when watchdog stopping could make it works.
+        let stdin = process.stdin.take().unwrap(); // safely unwrap
+
         // spawns threads to capture log from stdout and stderr.
         // stdout and stdin are taken out from subprocess
         let (stdout_handle, stderr_handle) =
-            start_capture(Arc::clone(&process), task.clone(), watchdog_cancellations).await;
+            start_capture(stdout, stderr, task.clone(), watchdog_cancellations);
 
-        // waits for watchdog finished
-        let (stdout_handle_result, stderr_handle_result) =
-            tokio::join!(stdout_handle, stderr_handle);
+        // waits for watchdog finished or process killed
+        let status = tokio::select! {
+            handles = tokio::spawn(async move { tokio::join!(stdout_handle, stderr_handle) }) => {
+                match handles {
+                    Ok((h1, h2)) => ProcessStatus::PauseOrFinish(h1, h2),
+                    Err(err) => ProcessStatus::Killed(Error::internal(err))
+                }
+            },
+            status = process.wait() => {
+                match status {
+                    Ok(status) => {
+                        if status.success() {
+                            ProcessStatus::Exit
+                        } else {
+                            ProcessStatus::Killed(Error::process_unexpected_killed())
+                        }
+                    },
+                    Err(err) => ProcessStatus::Killed(Error::internal(err))
+                }
+            },
+        };
 
-        let mut process = process.lock().await;
-        let ((stdout, stdout_result), (stderr, stderr_result)) =
-            match (stdout_handle_result, stderr_handle_result) {
-                (Ok(stdout_handle_result), Ok(stderr_handle_result)) => {
-                    (stdout_handle_result, stderr_handle_result)
-                }
-                (Err(err), Ok(_)) => {
-                    let reason = format!("stdout handle exited failure: {err}");
-                    tokio::spawn(async move { task.error(reason).await });
-                    return;
-                }
-                (Ok(_), Err(err)) => {
-                    let reason = format!("stderr handle exited failure: {err}");
-                    tokio::spawn(async move { task.error(reason).await });
-                    return;
-                }
-                (Err(err0), Err(err1)) => {
-                    let reason = format!(
-                        "stdout handle exited failure: {err0}. stderr handle exited failure: {err1}"
-                    );
-                    tokio::spawn(async move { task.error(reason).await });
-                    return;
-                }
-            };
-        process.stdout = Some(stdout);
-        process.stderr = Some(stderr);
+        match status {
+            ProcessStatus::PauseOrFinish(stdout_handle_result, stderr_handle_result) => {
+                let ((stdout, stdout_result), (stderr, stderr_result)) = match (
+                    stdout_handle_result,
+                    stderr_handle_result,
+                ) {
+                    (Ok(stdout_handle_result), Ok(stderr_handle_result)) => {
+                        (stdout_handle_result, stderr_handle_result)
+                    }
+                    (Err(err), Ok(_)) => {
+                        let reason = format!("stdout handle exited failure: {err}");
+                        tokio::spawn(async move { task.error(reason).await });
+                        return;
+                    }
+                    (Ok(_), Err(err)) => {
+                        let reason = format!("stderr handle exited failure: {err}");
+                        tokio::spawn(async move { task.error(reason).await });
+                        return;
+                    }
+                    (Err(err0), Err(err1)) => {
+                        let reason = format!(
+                                "stdout handle exited failure: {err0}. stderr handle exited failure: {err1}"
+                            );
+                        tokio::spawn(async move { task.error(reason).await });
+                        return;
+                    }
+                };
+                process.stdout = Some(stdout);
+                process.stderr = Some(stderr);
+                process.stdin = Some(stdin);
 
-        match (stdout_result, stderr_result) {
-            (Ok(finished), Ok(_)) => {
-                if finished {
-                    tokio::spawn(async move { task.finish().await });
-                } else {
-                    // pause, do nothing
+                match (stdout_result, stderr_result) {
+                    (Ok(finished), Ok(_)) => {
+                        if finished {
+                            tokio::spawn(async move { task.finish().await });
+                        } else {
+                            // pause, do nothing
+                        }
+                    }
+                    (Ok(_), Err(err)) => {
+                        let reason = err.to_string();
+                        tokio::spawn(async move { task.error(reason).await });
+                    }
+                    (Err(err), Ok(_)) | (Err(err), Err(_)) => {
+                        // sends stdout error only when both handles throw errors
+                        let reason = err.to_string();
+                        tokio::spawn(async move { task.error(reason).await });
+                    }
                 }
             }
-            (Ok(_), Err(err)) => {
-                let reason = format!("stderr capturing thread exited failure: {err}");
-                tokio::spawn(async move { task.error(reason).await });
+            ProcessStatus::Exit => {
+                // do nothing, waits for watchdog stops and send finish event there
             }
-            (Err(err), Ok(_)) => {
-                let reason = format!("stdout capturing thread exited failure: {err}");
-                tokio::spawn(async move { task.error(reason).await });
-            }
-            (Err(err0), Err(err1)) => {
-                let reason = format!("stdout capturing thread exited failure: {err0}. stderr capturing thread exited failure: {err1}");
+            ProcessStatus::Killed(err) => {
+                // unexpected killed
+                let reason = err.to_string();
                 tokio::spawn(async move { task.error(reason).await });
             }
         }

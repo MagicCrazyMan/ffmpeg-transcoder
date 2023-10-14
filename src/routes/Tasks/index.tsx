@@ -5,6 +5,7 @@ import { Task, TaskInputParams, TaskOutputParams, useTaskStore } from "../../sto
 import ComplexTaskEditor from "./ComplexTaskEditor";
 import Operations from "./Operations";
 import Progress from "./Progress";
+import Status from "./Status";
 
 /**
  * Inputs & Outputs files list component
@@ -28,6 +29,15 @@ export default function QueuePage() {
 
   const tableCols: TableColumnProps<Task>[] = [
     {
+      title: "Status",
+      width: "64px",
+      align: "center",
+      bodyCellStyle: {
+        lineHeight: "1",
+      },
+      render: (_, record) => <Status task={record} />,
+    },
+    {
       title: "Inputs",
       render: (_, record) => <FilesList params={record.params.inputs} />,
     },
@@ -37,7 +47,8 @@ export default function QueuePage() {
     },
     {
       title: "Progress",
-      width: "12rem",
+      width: "20%",
+      ellipsis: true,
       bodyCellStyle: {
         lineHeight: "1",
       },
@@ -47,7 +58,7 @@ export default function QueuePage() {
       title: "Operations",
       fixed: "right",
       align: "center",
-      width: "10rem",
+      width: "128px",
       render: (_, record) => <Operations task={record} />,
     },
   ];

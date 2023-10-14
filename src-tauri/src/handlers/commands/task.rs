@@ -94,25 +94,32 @@ pub async fn start_task(
             Err(_) => continue,
         };
 
-        let streams = match obj.get("streams").unwrap_or(&Value::Null) {
-            Value::Array(streams) => streams,
-            _ => continue,
+        // extract duration from format
+        if let Some(Value::Object(format)) = obj.get("format") {
+            if let Some(Value::String(duration)) = format.get("duration") {
+                if let Ok(duration) = duration.parse::<f64>() {
+                    if duration > total_duration {
+                        total_duration = duration;
+                    }
+                }
+            }
+        }
+
+        // extract duration from streams
+        let Some(Value::Array(streams)) = obj.get("streams") else {
+            continue;
         };
-
         for stream in streams {
-            let stream = match stream {
-                Value::Object(stream) => stream,
-                _ => continue,
+            let Value::Object(stream) = stream else {
+                continue;
             };
 
-            let duration = match stream.get("duration").unwrap_or(&Value::Null) {
-                Value::String(duration) => duration,
-                _ => continue,
+            let Some(Value::String(duration)) = stream.get("duration") else {
+                continue;
             };
 
-            let duration = match duration.parse::<f64>() {
-                Ok(duration) => duration,
-                Err(_) => continue,
+            let Ok(duration) = duration.parse::<f64>() else {
+                continue;
             };
 
             if duration > total_duration {

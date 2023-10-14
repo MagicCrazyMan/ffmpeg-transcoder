@@ -127,6 +127,7 @@ export type TaskStateCommanding = {
 
 export type TaskStateQueueing = {
   type: "Queueing";
+  prevState: TaskStateIdle | TaskStatePausing;
 };
 
 export type TaskStateRunning = {
@@ -223,14 +224,22 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
     const tasks = get().tasks;
     const task = tasks.find((task) => task.id === id)!;
 
-    if (task.state.type !== "Idle" && task.state.type !== "Pausing") return;
+    if (
+      task.state.type !== "Idle" &&
+      task.state.type !== "Pausing" &&
+      task.state.type !== "Queueing"
+    )
+      return;
 
     // if exceeds max running count, set to queueing state
     if (
-      tasks.filter((task) => task.state.type === "Queueing").length + 1 >
+      tasks.filter((task) => task.state.type === "Running" || task.state.type === "Commanding")
+        .length +
+        1 >
       useAppStore.getState().configuration.maxRunning
     ) {
-      updateTask(task.id, { state: { type: "Queueing" } });
+      if (task.state.type !== "Queueing")
+        updateTask(task.id, { state: { type: "Queueing", prevState: task.state } });
       return;
     }
 
@@ -238,6 +247,10 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
 
     let promise: Promise<void>;
     if (task.state.type === "Idle") {
+      promise = startTaskTauri(task.id, task.params);
+    } else if (task.state.type === "Pausing") {
+      promise = resumeTaskTauri(task.id);
+    } else if (task.state.prevState.type === "Idle") {
       promise = startTaskTauri(task.id, task.params);
     } else {
       promise = resumeTaskTauri(task.id);
@@ -424,6 +437,7 @@ const listenTaskMessages = () => {
         break;
       }
       case "Errored":
+        console.error(message.reason);
         updateTask(message.id, { state: { type: message.state, reason: message.reason } });
         break;
       case "Running":

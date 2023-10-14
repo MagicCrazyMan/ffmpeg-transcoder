@@ -1,21 +1,16 @@
-import { Progress as ProgressBar, Spin } from "@arco-design/web-react";
-import {
-  IconCheckCircle,
-  IconCloseCircle,
-  IconMore,
-  IconPauseCircle,
-  IconStop,
-} from "@arco-design/web-react/icon";
+import { Progress as ProgressBar, Typography } from "@arco-design/web-react";
 import { Task } from "../../store/task";
 
 export default function Progress({ task }: { task: Task }) {
   switch (task.state.type) {
     case "Idle":
-      return <></>;
+      return <Typography.Text>Idle</Typography.Text>;
     case "Commanding":
-      return <Spin size={24}></Spin>;
+      return (
+        <Typography.Text style={{ color: "rgb(var(--primary-5))" }}>Commanding</Typography.Text>
+      );
     case "Queueing":
-      return <IconMore fontSize="24px" style={{ color: "rgb(var(--warning-6))" }} />;
+      return <Typography.Text style={{ color: "rgb(var(--warning-6))" }}>In Queue</Typography.Text>;
     case "Running": {
       const total = task.state.message.total_duration;
       const output = (task.state.message.output_time_ms ?? 0) / 1000000;
@@ -37,24 +32,27 @@ export default function Progress({ task }: { task: Task }) {
         const percent = (output / total) * 100;
 
         return (
-          <div className="flex gap-2">
-            <ProgressBar
-              animation
-              status="warning"
-              percent={percent}
-              strokeWidth={20}
-              formatText={(percent) => `${percent.toFixed(2)}%`}
-            />
-          </div>
+          <ProgressBar
+            status="warning"
+            percent={percent}
+            strokeWidth={20}
+            formatText={(percent) => `${percent.toFixed(2)}%`}
+          />
         );
       } else {
-        return <IconPauseCircle fontSize="24px" style={{ color: "rgb(var(--warning-6))" }} />;
+        return (
+          <Typography.Text style={{ color: "rgb(var(--warning-6))" }}>Pausing</Typography.Text>
+        );
       }
     case "Stopped":
-      return <IconStop fontSize="24px" style={{ color: "rgb(var(--danger-6))" }} />;
+      return <Typography.Text style={{ color: "rgb(var(--danger-6))" }}>Stopped</Typography.Text>;
     case "Finished":
-      return <IconCheckCircle fontSize="24px" style={{ color: "rgb(var(--success-6))" }} />;
+      return <Typography.Text style={{ color: "rgb(var(--success-6))" }}>Finished</Typography.Text>;
     case "Errored":
-      return <IconCloseCircle fontSize="24px" style={{ color: "rgb(var(--danger-6))" }} />;
+      return (
+        <Typography.Text style={{ color: "rgb(var(--danger-6))" }}>
+          {task.state.reason}
+        </Typography.Text>
+      );
   }
 }
