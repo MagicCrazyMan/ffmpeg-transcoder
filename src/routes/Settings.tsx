@@ -1,4 +1,6 @@
 import { Button, Form, FormInstance, Grid, Input, Select } from "@arco-design/web-react";
+import { IconFile, IconFolder } from "@arco-design/web-react/icon";
+import { open } from "@tauri-apps/api/dialog";
 import { useEffect, useRef, useState } from "react";
 import { unstable_useBlocker } from "react-router-dom";
 import { Configuration, LogLevel, Theme, useAppStore } from "../store/app";
@@ -10,8 +12,6 @@ import {
   toMessage,
 } from "../tauri/error";
 import { loadConfiguration, verifyDirectory, verifyFFmpeg, verifyFFprobe } from "../tauri/system";
-import { IconFolder } from "@arco-design/web-react/icon";
-import { open } from "@tauri-apps/api/dialog";
 
 /**
  * A page managing system settings.
@@ -28,6 +28,38 @@ export default function Settings() {
       blocker.reset();
     }
   }, [blocker, isBlocking]);
+
+  const selectFFmpeg = async () => {
+    const path = await open({
+      title: "Select FFmpeg Program",
+      multiple: false,
+    });
+
+    if (path) {
+      formInstance.current?.setFieldValue("ffmpeg", path as string);
+      formInstance.current?.validate(["ffmpeg"]).then((value) => {
+        setLocalConfiguration({
+          ffmpeg: value.ffmpeg as string,
+        });
+      });
+    }
+  };
+
+  const selectFFprobe = async () => {
+    const path = await open({
+      title: "Select FFprobe Program",
+      multiple: false,
+    });
+
+    if (path) {
+      formInstance.current?.setFieldValue("ffprobe", path as string);
+      formInstance.current?.validate(["ffprobe"]).then((value) => {
+        setLocalConfiguration({
+          ffprobe: value.ffprobe as string,
+        });
+      });
+    }
+  };
 
   const selectSaveDirectory = async () => {
     const path = await open({
@@ -119,7 +151,11 @@ export default function Settings() {
           },
         ]}
       >
-        <Input placeholder="ffmpeg program"></Input>
+        <Input
+          placeholder="ffmpeg program"
+          beforeStyle={{ padding: "0" }}
+          addBefore={<Button type="text" icon={<IconFile />} onClick={selectFFmpeg} />}
+        ></Input>
       </Form.Item>
 
       {/* FFprobe Program */}
@@ -140,7 +176,11 @@ export default function Settings() {
           },
         ]}
       >
-        <Input placeholder="ffprobe program"></Input>
+        <Input
+          placeholder="ffprobe program"
+          beforeStyle={{ padding: "0" }}
+          addBefore={<Button type="text" icon={<IconFile />} onClick={selectFFprobe} />}
+        ></Input>
       </Form.Item>
 
       {/* FFprobe Program */}
