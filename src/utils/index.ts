@@ -1,14 +1,24 @@
 /**
  * Converts a numerical value in seconds to duration.
  * @param value Numerical value in seconds.
+ * @param milliseconds Is show milliseconds
  */
-export const toDuration = (value: number | string) => {
+export const toDuration = (value: number | string, milliseconds = true) => {
   const num = typeof value === "number" ? value : parseFloat(value);
   const hours = Math.floor(num / 3600);
   const mins = Math.floor(num / 60 - hours * 60);
-  const secs = (num % 60).toFixed(3);
 
-  return `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(6, "0")}`;
+  if (milliseconds) {
+    const secs = (num % 60).toFixed(3);
+    return `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}:${secs
+      .toString()
+      .padStart(6, "0")}`;
+  } else {
+    const secs = (num % 60).toFixed(0);
+    return `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}:${secs
+      .toString()
+      .padStart(2, "0")}`;
+  }
 };
 
 /**

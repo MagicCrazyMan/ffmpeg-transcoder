@@ -15,8 +15,12 @@
     "allowlist": {
       "all": false,
       "shell": {
-        "all": false,
-        "open": true
+        "all": true,
+        "scope": [{
+          "name": "explorer",
+          "cmd": "explorer",
+          "args": true
+        }]
       },
       "dialog": {
         "all": false,
@@ -27,6 +31,9 @@
         "save": true
       },
       "window": {
+        "all": true
+      },
+      "os": {
         "all": true
       }
     },

@@ -7,8 +7,9 @@ import {
   Space,
   Table,
   TableColumnProps,
+  Tooltip,
 } from "@arco-design/web-react";
-import { IconDelete } from "@arco-design/web-react/icon";
+import { IconCopy, IconDelete, IconFilter } from "@arco-design/web-react/icon";
 import { open, save } from "@tauri-apps/api/dialog";
 import { cloneDeep } from "lodash";
 import { Dispatch, ReactNode, SetStateAction, useCallback, useMemo, useState } from "react";
@@ -56,9 +57,11 @@ const ParamsEditor = ({
   ) => void;
 }) => {
   return (
-    <Space size={2} style={{ width: "100%" }} direction="vertical">
+    <div className="flex flex-col gap-0.5">
       {/* Params Source Selector */}
       <Select
+        autoWidth
+        className="flex-1"
         size="mini"
         value={record.selection}
         onChange={(value) => onChange(record.id, { selection: value })}
@@ -77,26 +80,60 @@ const ParamsEditor = ({
           onChange={(value) => onChange(record.id, { custom: value })}
         ></Input.TextArea>
       ) : null}
-    </Space>
+    </div>
   );
 };
 
 const Operations = ({
   record,
   onRemove,
+  onApplyAll,
+  onConvertCustom,
 }: {
   record: EditableTaskInputParams | EditableTaskOutputParams;
   onRemove: (id: string) => void;
+  onApplyAll: (record: EditableTaskInputParams | EditableTaskOutputParams) => void;
+  onConvertCustom: (record: EditableTaskInputParams | EditableTaskOutputParams) => void;
 }) => {
   return (
-    <Button
-      size="mini"
-      shape="circle"
-      type="primary"
-      status="danger"
-      icon={<IconDelete />}
-      onClick={() => onRemove(record.id)}
-    ></Button>
+    <Space>
+      {/* Apply Params to All Records Button */}
+      <Tooltip content="Apply To All">
+        <Button
+          className="flex-shrink-0"
+          shape="circle"
+          size="mini"
+          type="primary"
+          icon={<IconCopy />}
+          onClick={() => onApplyAll(record)}
+        ></Button>
+      </Tooltip>
+
+      {/* Convert To Custom Button */}
+      {record.selection !== ParamsSource.Auto && record.selection !== ParamsSource.Custom ? (
+        <Tooltip content="Convert To Custom">
+          <Button
+            className="flex-shrink-0"
+            shape="circle"
+            size="mini"
+            status="warning"
+            type="primary"
+            icon={<IconFilter />}
+            onClick={() => onConvertCustom(record)}
+          ></Button>
+        </Tooltip>
+      ) : null}
+
+      {/* Delete Button */}
+      <Button
+        size="mini"
+        shape="circle"
+        type="primary"
+        status="danger"
+        icon={<IconDelete />}
+        onClick={() => onRemove(record.id)}
+      ></Button>
+    </Space>
   );
 };
 
@@ -107,6 +144,8 @@ const UniverseTable = ({
   records,
   onChange,
   onRemove,
+  onApplyAll,
+  onConvertCustom,
 }: {
   filesTitle: string;
   paramsTitle: string;
@@ -117,6 +156,8 @@ const UniverseTable = ({
     values: Partial<EditableTaskInputParams | EditableTaskOutputParams>
   ) => void;
   onRemove: (id: string) => void;
+  onApplyAll: (record: EditableTaskInputParams | EditableTaskOutputParams) => void;
+  onConvertCustom: (record: EditableTaskInputParams | EditableTaskOutputParams) => void;
 }) => {
   const columns: TableColumnProps<EditableTaskInputParams | EditableTaskOutputParams>[] = useMemo(
     () => [
@@ -137,12 +178,18 @@ const UniverseTable = ({
       {
         title: "Operations",
         dataIndex: "remove",
-        width: "6rem",
-        align: "center",
-        render: (_col, record) => <Operations record={record} onRemove={onRemove} />,
+        width: "7rem",
+        render: (_col, record) => (
+          <Operations
+            record={record}
+            onRemove={onRemove}
+            onApplyAll={onApplyAll}
+            onConvertCustom={onConvertCustom}
+          />
+        ),
       },
     ],
-    [presetOptions, filesTitle, paramsTitle, onRemove, onChange]
+    [presetOptions, filesTitle, paramsTitle, onRemove, onChange, onApplyAll, onConvertCustom]
   );
 
   return (
@@ -197,6 +244,40 @@ const InputTable = ({
     [setInputs]
   );
 
+  const onApplyAll = useCallback(
+    ({ id, selection, custom }: EditableTaskInputParams) => {
+      setInputs((state) =>
+        state.map((record) => {
+          if (record.id === id) {
+            return record;
+          } else {
+            return { ...record, selection, custom };
+          }
+        })
+      );
+    },
+    [setInputs]
+  );
+
+  const onConvertCustom = useCallback(
+    ({ id, selection }: EditableTaskInputParams) => {
+      setInputs((state) =>
+        state.map((record) => {
+          if (record.id === id) {
+            return {
+              ...record,
+              selection: ParamsSource.Custom,
+              custom: presets.find((preset) => preset.id === selection)?.params.join(" "),
+            };
+          } else {
+            return record;
+          }
+        })
+      );
+    },
+    [presets, setInputs]
+  );
+
   const onRemove = useCallback(
     (id: string) => {
       setInputs((state) => state.filter((record) => record.id !== id));
@@ -212,6 +293,8 @@ const InputTable = ({
       records={inputs}
       onChange={onChange}
       onRemove={onRemove}
+      onApplyAll={onApplyAll}
+      onConvertCustom={onConvertCustom}
     ></UniverseTable>
   );
 };
@@ -256,6 +339,40 @@ const OutputTable = ({
     [setOutputs]
   );
 
+  const onApplyAll = useCallback(
+    ({ id, selection, custom }: EditableTaskOutputParams) => {
+      setOutputs((state) =>
+        state.map((record) => {
+          if (record.id === id) {
+            return record;
+          } else {
+            return { ...record, selection, custom };
+          }
+        })
+      );
+    },
+    [setOutputs]
+  );
+
+  const onConvertCustom = useCallback(
+    ({ id, selection }: EditableTaskOutputParams) => {
+      setOutputs((state) =>
+        state.map((record) => {
+          if (record.id === id) {
+            return {
+              ...record,
+              selection: ParamsSource.Custom,
+              custom: presets.find((preset) => preset.id === selection)?.params.join(" "),
+            };
+          } else {
+            return record;
+          }
+        })
+      );
+    },
+    [presets, setOutputs]
+  );
+
   const onRemove = useCallback(
     (id: string) => {
       setOutputs((state) => state.filter((record) => record.id !== id));
@@ -271,6 +388,8 @@ const OutputTable = ({
       records={outputs}
       onChange={onChange}
       onRemove={onRemove}
+      onApplyAll={onApplyAll}
+      onConvertCustom={onConvertCustom}
     ></UniverseTable>
   );
 };
@@ -462,6 +581,7 @@ export default function ComplexTaskEditor({ visible, onVisibleChange, task }: Ta
     <Modal
       simple
       maskClosable={false}
+      getChildrenPopupContainer={() => document.body}
       style={{
         width: "60%",
         maxHeight: "80%",

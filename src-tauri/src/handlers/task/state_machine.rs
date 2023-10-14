@@ -598,6 +598,7 @@ fn start_capture(
     });
 
     // spawn a thread to capture stderr
+    // stderr capturing should not report any process error, only ffmpeg runtime error should be thrown
     let stderr_cancellation_cloned = watchdog_cancellations.1.clone();
     let stderr_handle = tokio::spawn(async move {
         let mut line = String::new();
@@ -613,17 +614,17 @@ fn start_capture(
                     Ok(len) => len,
                     Err(err) => {
                         match err.kind() {
-                            std::io::ErrorKind::UnexpectedEof => return (reader.into_inner(), Err(Error::process_unexpected_killed())),
-                            _ => return (reader.into_inner(), Err(Error::internal(err))),
+                            std::io::ErrorKind::UnexpectedEof => return (reader.into_inner(), Ok(())),
+                            _ => return (reader.into_inner(), Ok(())),
                         }
                     },
                 }
             }
         };
 
-        // should stop or reach eof
+        // stop if capturing any error output or reach eof
         if len == 0 {
-            (reader.into_inner(), Err(Error::process_unexpected_killed()))
+            (reader.into_inner(), Ok(()))
         } else {
             (reader.into_inner(), Err(Error::ffmpeg_runtime_error(line)))
         }

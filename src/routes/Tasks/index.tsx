@@ -1,5 +1,13 @@
 import { Button, Space, Table, TableColumnProps, Tooltip } from "@arco-design/web-react";
-import { IconDown, IconFolder, IconNav, IconRight } from "@arco-design/web-react/icon";
+import {
+  IconDown,
+  IconFolder,
+  IconNav,
+  IconPlayArrow,
+  IconRight,
+} from "@arco-design/web-react/icon";
+import { type } from "@tauri-apps/api/os";
+import { Command, open } from "@tauri-apps/api/shell";
 import { useState } from "react";
 import { Task, TaskInputParams, TaskOutputParams, useTaskStore } from "../../store/task";
 import ComplexTaskEditor from "./ComplexTaskEditor";
@@ -11,24 +19,52 @@ import Status from "./Status";
  * Inputs & Outputs files list component
  */
 const FilesList = ({ params }: { params: (TaskInputParams | TaskOutputParams)[] }) => {
-  const openDirectory = (path?: string) => {
+  const showInExplorer = async (path?: string) => {
     if (!path) return;
+    if ((await type()) !== "Windows_NT") return;
+
+    const split = path.split("\\");
+    split.pop();
+    const dir = split.join("\\");
+    const command = new Command("explorer", [dir]);
+    await command.spawn();
+  };
+
+  const openFile = async (path?: string) => {
+    if (!path) return;
+
+    await open(path);
   };
 
   if (params.length === 1) {
     if (params[0].path) {
       return (
-        <div className="flex items-center">
+        <Space size="mini">
+          {/* Show In Explorer Button */}
           <Button
-            className="flex-shrink-0 flex-grow-0"
-            size="default"
+            size="mini"
             type="text"
             shape="circle"
             icon={<IconFolder />}
-            onClick={() => openDirectory(params[0].path)}
+            onClick={(e) => {
+              e.stopPropagation();
+              showInExplorer(params[0].path);
+            }}
           ></Button>
-          <div>{params[0].path ?? "NULL"}</div>
-        </div>
+          {/* Open File Button */}
+          <Button
+            size="mini"
+            type="text"
+            shape="circle"
+            icon={<IconPlayArrow />}
+            onClick={(e) => {
+              e.stopPropagation();
+              openFile(params[0].path);
+            }}
+          ></Button>
+          {/* File Name */}
+          <div className="flex-1">{params[0].path ?? "NULL"}</div>
+        </Space>
       );
     } else {
       return (
@@ -122,7 +158,6 @@ export default function QueuePage() {
                 <IconRight />
               </button>
             ),
-          expandRowByClick: true,
         }}
       ></Table>
 
