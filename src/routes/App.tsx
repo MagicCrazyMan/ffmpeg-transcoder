@@ -29,11 +29,7 @@ const SidebarMenu = () => {
   }, [location]);
 
   return (
-    <Menu
-      tooltipProps={{ triggerProps: { mouseEnterDelay: 1000 } }}
-      defaultSelectedKeys={[pageRoutes[0].id]}
-      selectedKeys={selectedKey}
-    >
+    <Menu defaultSelectedKeys={[pageRoutes[0].id]} selectedKeys={selectedKey}>
       {menuItems}
     </Menu>
   );
@@ -111,7 +107,15 @@ const MainPage = () => {
   const [collapsed, setCollapse] = useState(true);
 
   return (
-    <ConfigProvider locale={enUS}>
+    <ConfigProvider
+      locale={enUS}
+      componentConfig={{
+        Menu: {
+          tooltipProps: { triggerProps: { mouseEnterDelay: 500 } },
+        },
+        Tooltip: { triggerProps: { mouseEnterDelay: 500 } },
+      }}
+    >
       <Layout className="h-full">
         {/* Sidebar */}
         <Layout.Sider collapsible collapsed={collapsed} onCollapse={setCollapse}>

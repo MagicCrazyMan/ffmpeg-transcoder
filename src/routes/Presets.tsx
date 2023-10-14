@@ -377,11 +377,7 @@ export default function PresetsPage() {
         if (preset.isTemp) {
           // temporary preset requires no double confirming
           return (
-            <Tooltip
-              position="left"
-              triggerProps={{ mouseEnterDelay: 1000 }}
-              content="Delete Preset"
-            >
+            <Tooltip position="left" content="Delete Preset">
               <Button
                 shape="circle"
                 type="primary"
@@ -395,11 +391,7 @@ export default function PresetsPage() {
           return (
             <Space>
               {/* Copy Button */}
-              <Tooltip
-                position="left"
-                triggerProps={{ mouseEnterDelay: 1000 }}
-                content="Copy Preset"
-              >
+              <Tooltip position="left" content="Copy Preset">
                 <Button
                   shape="circle"
                   type="primary"
@@ -415,11 +407,7 @@ export default function PresetsPage() {
                 content="Click again to delete this preset"
                 onOk={() => removePreset(preset.id)}
               >
-                <Tooltip
-                  position="left"
-                  triggerProps={{ mouseEnterDelay: 1000 }}
-                  content="Delete Preset"
-                >
+                <Tooltip position="left" content="Delete Preset">
                   <Button
                     shape="circle"
                     type="primary"
@@ -495,7 +483,7 @@ export default function PresetsPage() {
   return (
     <div className="flex flex-col gap-4">
       {/* Add Preset */}
-      <Tooltip triggerProps={{ mouseEnterDelay: 1000 }} content="Add New Preset">
+      <Tooltip content="Add New Preset">
         <Button
           shape="circle"
           type="primary"
