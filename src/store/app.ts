@@ -352,20 +352,12 @@ export type AppState = {
    * Sets system particulars
    */
   setSystemParticulars: (systemParticulars: SystemParticulars | null) => void;
-
-  /**
-   * A convenient utility to join multiple strings into a path
-   * using system based path separator.
-   * @param paths Path components
-   * @returns Joined path
-   */
-  join: (...paths: string[]) => string;
 };
 
 /**
  * App store
  */
-export const useAppStore = create<AppState>((set, get, api) => {
+export const useAppStore = create<AppState>((set, _get, api) => {
   const localConfiguration = loadLocalConfiguration();
   const configuration = { ...cloneDeep(DEFAULT_CONFIGURATION), ...localConfiguration };
   const setLocalConfiguration = (localConfiguration: Partial<Configuration>) => {
@@ -408,14 +400,6 @@ export const useAppStore = create<AppState>((set, get, api) => {
     set({ systemParticulars: systemParticulars });
   };
 
-  const join = (...paths: string[]) => {
-    const pathSeparator = get().systemParticulars?.path_separator ?? "/";
-    return paths
-      .flatMap((path) => path.split(pathSeparator))
-      .filter((subject) => !!subject)
-      .join(pathSeparator);
-  };
-
   return {
     configuration,
     localConfiguration,
@@ -425,6 +409,5 @@ export const useAppStore = create<AppState>((set, get, api) => {
     saveDialogFilters,
     systemParticulars,
     setSystemParticulars,
-    join,
   };
 });

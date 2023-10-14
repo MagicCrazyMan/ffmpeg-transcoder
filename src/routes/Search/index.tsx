@@ -1,7 +1,7 @@
 import { Button, Divider, Table, TableColumnProps } from "@arco-design/web-react";
+import { join } from "@tauri-apps/api/path";
 import { useEffect, useMemo, useState } from "react";
 import { v4 } from "uuid";
-import { useAppStore } from "../../store/app";
 import { TargetFile } from "../../tauri/fs";
 import DirectoryIO from "./DirectoryIO";
 import ExtensionFilter from "./ExtensionFilter";
@@ -14,8 +14,6 @@ import "./index.less";
  * and constructing tasks.
  */
 export default function SearchPage() {
-  const join = useAppStore((state) => state.join);
-
   const [inputDirectory, setInputDirectory] = useState("");
   const [outputDirectory, setOutputDirectory] = useState("");
   const [inputFiles, setInputFiles] = useState<TargetFile[]>([]);
@@ -61,13 +59,11 @@ export default function SearchPage() {
       input: join(inputDirectory, relative),
       output: outputDirectory ? join(outputDirectory, relative) : "",
     }));
-  }, [join, inputFiles, inputDirectory, outputDirectory]);
+  }, [inputFiles, inputDirectory, outputDirectory]);
 
-  useEffect(() => {
-  }, [inputFiles]);
+  useEffect(() => {}, [inputFiles]);
 
-  useEffect(() => {
-  }, [regularFilters]);
+  useEffect(() => {}, [regularFilters]);
 
   return (
     <div className="container">

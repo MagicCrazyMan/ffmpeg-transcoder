@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::{MAIN_SEPARATOR_STR, PathBuf}, sync::OnceLock};
+use std::{collections::HashMap, path::PathBuf, sync::OnceLock};
 
 use regex::Regex;
 
@@ -46,7 +46,6 @@ pub async fn verify_directory(path: String) -> Result<(), Error> {
 /// System basic information.
 #[derive(Debug, serde::Serialize)]
 pub struct SystemParticulars {
-    path_separator: String,
     ffmpeg: FFmpegParticulars,
 }
 
@@ -108,7 +107,6 @@ pub async fn load_configuration(
     };
 
     let system_particulars = SystemParticulars {
-        path_separator: MAIN_SEPARATOR_STR.to_string(),
         ffmpeg: ffmpeg_particular,
     };
 
