@@ -14,7 +14,7 @@ use super::{
 
 /// Task data.
 pub(super) struct TaskData {
-    pub(super) id: uuid::Uuid,
+    pub(super) id: String,
     pub(super) program: String,
     pub(super) args: Vec<String>,
     pub(super) total_duration: f64,
@@ -23,7 +23,7 @@ pub(super) struct TaskData {
 
 impl TaskData {
     pub(super) fn new(
-        id: uuid::Uuid,
+        id: String,
         program: String,
         args: Vec<String>,
         total_duration: f64,
@@ -41,21 +41,21 @@ impl TaskData {
 
 /// Task Item.
 #[derive(Clone)]
-pub struct TaskItem {
+pub struct Task {
     pub(super) data: Arc<TaskData>,
     pub(super) state: Arc<Mutex<Option<Box<dyn TaskStateMachineNode>>>>,
-    pub(super) store: Weak<Mutex<HashMap<uuid::Uuid, TaskItem>>>,
+    pub(super) store: Weak<Mutex<HashMap<String, Task>>>,
 }
 
-impl TaskItem {
+impl Task {
     /// Creates a new task item.
     pub(super) fn new(
-        id: uuid::Uuid,
+        id: String,
         app_handle: tauri::AppHandle,
         program: String,
         args: Vec<String>,
         total_duration: f64,
-        store: Weak<Mutex<HashMap<uuid::Uuid, TaskItem>>>,
+        store: Weak<Mutex<HashMap<String, Task>>>,
     ) -> Self {
         Self {
             data: Arc::new(TaskData::new(id, program, args, total_duration, app_handle)),
@@ -85,7 +85,7 @@ macro_rules! controls {
     };
 }
 
-impl TaskItem {
+impl Task {
     controls!(start, pause, resume, stop, finish);
 
     pub(super) async fn error<S>(&self, reason: S)
@@ -104,7 +104,7 @@ impl TaskItem {
         state.replace(next_state);
     }
 
-    async fn update_state(item: TaskItem, next_state_code: TaskStateCode, message: Option<String>) {
+    async fn update_state(item: Task, next_state_code: TaskStateCode, message: Option<String>) {
         // removes from store
         match next_state_code {
             TaskStateCode::Stopped | TaskStateCode::Finished | TaskStateCode::Errored => {
@@ -121,14 +121,9 @@ impl TaskItem {
 
         // sends message and logs
         let id = item.data.id.to_string();
-        let app_handle = &item.data.app_handle;
         let msg = match next_state_code {
-            // reserve, reset is possible in the future
-            // TaskStateCode::Idle => {
-            //     info!("[{}] job reset", id);
-            //     TaskMessage::start(id)
-            // },
             TaskStateCode::Idle | TaskStateCode::Running => unreachable!(),
+            // reserve, reset is possible in the future
             TaskStateCode::Pausing => {
                 info!("[{}] job paused", id);
                 TaskMessage::pausing(id)
@@ -148,7 +143,7 @@ impl TaskItem {
             }
         };
 
-        if let Err(err) = app_handle.emit_all(TASK_MESSAGE_EVENT, msg) {
+        if let Err(err) = item.data.app_handle.emit_all(TASK_MESSAGE_EVENT, msg) {
             warn!(
                 "[{}] error occurred while sending data to frontend: {}",
                 item.data.id, err

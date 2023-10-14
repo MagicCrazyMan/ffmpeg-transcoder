@@ -16,7 +16,7 @@ use crate::handlers::{
     task::message::{TaskMessage, TaskRunningMessage, TASK_MESSAGE_EVENT},
 };
 
-use super::item::TaskItem;
+use super::task::Task;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum TaskStateCode {
@@ -34,19 +34,19 @@ pub(super) trait TaskStateMachineNode: Send {
 
     fn message(&self) -> Option<&str>;
 
-    async fn start(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode>;
+    async fn start(self: Box<Self>, item: Task) -> Box<dyn TaskStateMachineNode>;
 
-    async fn pause(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode>;
+    async fn pause(self: Box<Self>, item: Task) -> Box<dyn TaskStateMachineNode>;
 
-    async fn resume(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode>;
+    async fn resume(self: Box<Self>, item: Task) -> Box<dyn TaskStateMachineNode>;
 
-    async fn stop(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode>;
+    async fn stop(self: Box<Self>, item: Task) -> Box<dyn TaskStateMachineNode>;
 
-    async fn finish(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode>;
+    async fn finish(self: Box<Self>, item: Task) -> Box<dyn TaskStateMachineNode>;
 
     async fn error(
         self: Box<Self>,
-        item: TaskItem,
+        item: Task,
         reason: String,
     ) -> Box<dyn TaskStateMachineNode>;
 }
@@ -63,7 +63,7 @@ impl TaskStateMachineNode for Idle {
         None
     }
 
-    async fn start(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+    async fn start(self: Box<Self>, item: Task) -> Box<dyn TaskStateMachineNode> {
         let mut command = Command::new(&item.data.program);
 
         #[cfg(windows)]
@@ -121,28 +121,28 @@ impl TaskStateMachineNode for Idle {
         next_state
     }
 
-    async fn pause(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+    async fn pause(self: Box<Self>, item: Task) -> Box<dyn TaskStateMachineNode> {
         warn!("[{}] attempting to pause a not start task", item.data.id);
         self
     }
 
-    async fn resume(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+    async fn resume(self: Box<Self>, item: Task) -> Box<dyn TaskStateMachineNode> {
         warn!("[{}] attempting to resume a not start task", item.data.id);
         self
     }
 
-    async fn stop(self: Box<Self>, _item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+    async fn stop(self: Box<Self>, _item: Task) -> Box<dyn TaskStateMachineNode> {
         Box::new(Stopped)
     }
 
-    async fn finish(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+    async fn finish(self: Box<Self>, item: Task) -> Box<dyn TaskStateMachineNode> {
         warn!("[{}] attempting to finish a not start task", item.data.id);
         self
     }
 
     async fn error(
         self: Box<Self>,
-        _item: TaskItem,
+        _item: Task,
         reason: String,
     ) -> Box<dyn TaskStateMachineNode> {
         Box::new(Errored::from_string(reason))
@@ -165,12 +165,12 @@ impl TaskStateMachineNode for Running {
         None
     }
 
-    async fn start(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+    async fn start(self: Box<Self>, item: Task) -> Box<dyn TaskStateMachineNode> {
         warn!("[{}] attempting to start a running task", item.data.id);
         self
     }
 
-    async fn pause(self: Box<Self>, _item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+    async fn pause(self: Box<Self>, _item: Task) -> Box<dyn TaskStateMachineNode> {
         let process = self.process;
 
         #[cfg(windows)]
@@ -201,12 +201,12 @@ impl TaskStateMachineNode for Running {
         }
     }
 
-    async fn resume(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+    async fn resume(self: Box<Self>, item: Task) -> Box<dyn TaskStateMachineNode> {
         warn!("[{}] attempting to resume a running task", item.data.id);
         self
     }
 
-    async fn stop(self: Box<Self>, _item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+    async fn stop(self: Box<Self>, _item: Task) -> Box<dyn TaskStateMachineNode> {
         let mut process = self.process.lock().await;
         let kill = async {
             process.start_kill()?;
@@ -227,7 +227,7 @@ impl TaskStateMachineNode for Running {
         }
     }
 
-    async fn finish(self: Box<Self>, _item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+    async fn finish(self: Box<Self>, _item: Task) -> Box<dyn TaskStateMachineNode> {
         self.watchdog_cancellations.0.cancel();
         self.watchdog_cancellations.1.cancel();
         if let Err(err) = self.watchdog_handle.await {
@@ -239,7 +239,7 @@ impl TaskStateMachineNode for Running {
 
     async fn error(
         self: Box<Self>,
-        item: TaskItem,
+        item: Task,
         reason: String,
     ) -> Box<dyn TaskStateMachineNode> {
         let stopped = self.stop(item).await;
@@ -265,17 +265,17 @@ impl TaskStateMachineNode for Pausing {
         None
     }
 
-    async fn start(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+    async fn start(self: Box<Self>, item: Task) -> Box<dyn TaskStateMachineNode> {
         warn!("[{}] attempting to start a pausing task", item.data.id);
         self
     }
 
-    async fn pause(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+    async fn pause(self: Box<Self>, item: Task) -> Box<dyn TaskStateMachineNode> {
         warn!("[{}] attempting to pause a pausing task", item.data.id);
         self
     }
 
-    async fn resume(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+    async fn resume(self: Box<Self>, item: Task) -> Box<dyn TaskStateMachineNode> {
         let process = self.process;
 
         #[cfg(windows)]
@@ -310,7 +310,7 @@ impl TaskStateMachineNode for Pausing {
         })
     }
 
-    async fn stop(self: Box<Self>, _item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+    async fn stop(self: Box<Self>, _item: Task) -> Box<dyn TaskStateMachineNode> {
         let mut process = self.process.lock().await;
         let kill = async {
             process.start_kill()?;
@@ -323,14 +323,14 @@ impl TaskStateMachineNode for Pausing {
         Box::new(Stopped)
     }
 
-    async fn finish(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+    async fn finish(self: Box<Self>, item: Task) -> Box<dyn TaskStateMachineNode> {
         warn!("[{}] attempting to finish a pausing task", item.data.id);
         self
     }
 
     async fn error(
         self: Box<Self>,
-        item: TaskItem,
+        item: Task,
         reason: String,
     ) -> Box<dyn TaskStateMachineNode> {
         let stopped = self.stop(item).await;
@@ -354,33 +354,33 @@ impl TaskStateMachineNode for Stopped {
         None
     }
 
-    async fn start(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+    async fn start(self: Box<Self>, item: Task) -> Box<dyn TaskStateMachineNode> {
         warn!("[{}] attempting to start a stopped task", item.data.id);
         self
     }
 
-    async fn pause(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+    async fn pause(self: Box<Self>, item: Task) -> Box<dyn TaskStateMachineNode> {
         warn!("[{}] attempting to pause a stopped task", item.data.id);
         self
     }
 
-    async fn resume(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+    async fn resume(self: Box<Self>, item: Task) -> Box<dyn TaskStateMachineNode> {
         warn!("[{}] attempting to resume a stopped task", item.data.id);
         self
     }
 
-    async fn stop(self: Box<Self>, _item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+    async fn stop(self: Box<Self>, _item: Task) -> Box<dyn TaskStateMachineNode> {
         self
     }
 
-    async fn finish(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+    async fn finish(self: Box<Self>, item: Task) -> Box<dyn TaskStateMachineNode> {
         warn!("[{}] attempting to finish a stopped task", item.data.id);
         self
     }
 
     async fn error(
         self: Box<Self>,
-        item: TaskItem,
+        item: Task,
         reason: String,
     ) -> Box<dyn TaskStateMachineNode> {
         warn!(
@@ -419,34 +419,34 @@ impl TaskStateMachineNode for Errored {
         Some(self.reason.as_str())
     }
 
-    async fn start(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+    async fn start(self: Box<Self>, item: Task) -> Box<dyn TaskStateMachineNode> {
         warn!("[{}] attempting to start a errored task", item.data.id);
         self
     }
 
-    async fn pause(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+    async fn pause(self: Box<Self>, item: Task) -> Box<dyn TaskStateMachineNode> {
         warn!("[{}] attempting to pause a errored task", item.data.id);
         self
     }
 
-    async fn resume(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+    async fn resume(self: Box<Self>, item: Task) -> Box<dyn TaskStateMachineNode> {
         warn!("[{}] attempting to resume a errored task", item.data.id);
         self
     }
 
-    async fn stop(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+    async fn stop(self: Box<Self>, item: Task) -> Box<dyn TaskStateMachineNode> {
         warn!("[{}] attempting to stop a errored task", item.data.id);
         self
     }
 
-    async fn finish(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+    async fn finish(self: Box<Self>, item: Task) -> Box<dyn TaskStateMachineNode> {
         warn!("[{}] attempting to finish a errored task", item.data.id);
         self
     }
 
     async fn error(
         self: Box<Self>,
-        item: TaskItem,
+        item: Task,
         reason: String,
     ) -> Box<dyn TaskStateMachineNode> {
         warn!(
@@ -469,33 +469,33 @@ impl TaskStateMachineNode for Finished {
         None
     }
 
-    async fn start(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+    async fn start(self: Box<Self>, item: Task) -> Box<dyn TaskStateMachineNode> {
         warn!("[{}] attempting to start a finished task", item.data.id);
         self
     }
 
-    async fn pause(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+    async fn pause(self: Box<Self>, item: Task) -> Box<dyn TaskStateMachineNode> {
         warn!("[{}] attempting to pause a finished task", item.data.id);
         self
     }
 
-    async fn resume(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+    async fn resume(self: Box<Self>, item: Task) -> Box<dyn TaskStateMachineNode> {
         warn!("[{}] attempting to resume a finished task", item.data.id);
         self
     }
 
-    async fn stop(self: Box<Self>, item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+    async fn stop(self: Box<Self>, item: Task) -> Box<dyn TaskStateMachineNode> {
         warn!("[{}] attempting to stop a finished task", item.data.id);
         self
     }
 
-    async fn finish(self: Box<Self>, _item: TaskItem) -> Box<dyn TaskStateMachineNode> {
+    async fn finish(self: Box<Self>, _item: Task) -> Box<dyn TaskStateMachineNode> {
         self
     }
 
     async fn error(
         self: Box<Self>,
-        item: TaskItem,
+        item: Task,
         reason: String,
     ) -> Box<dyn TaskStateMachineNode> {
         warn!(
@@ -508,7 +508,7 @@ impl TaskStateMachineNode for Finished {
 
 async fn start_capture(
     process: Arc<Mutex<Child>>,
-    item: TaskItem,
+    item: Task,
     watchdog_cancellations: (CancellationToken, CancellationToken),
 ) -> (
     JoinHandle<(ChildStdout, Result<bool, String>)>,
@@ -671,16 +671,16 @@ async fn start_capture(
 
 fn start_watchdog(
     process: Arc<Mutex<Child>>,
-    item: TaskItem,
+    task: Task,
     watchdog_cancellations: (CancellationToken, CancellationToken),
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
-        info!("[{}] start subprocess output capturing", item.data.id);
+        info!("[{}] start subprocess output capturing", task.data.id);
 
         // spawns threads to capture log from stdout and stderr.
         // stdout and stdin are taken out from subprocess
         let (stdout_handle, stderr_handle) =
-            start_capture(Arc::clone(&process), item.clone(), watchdog_cancellations).await;
+            start_capture(Arc::clone(&process), task.clone(), watchdog_cancellations).await;
 
         // waits for watchdog finished
         let (stdout_handle_result, stderr_handle_result) =
@@ -694,19 +694,19 @@ fn start_watchdog(
                 }
                 (Err(err), Ok(_)) => {
                     let reason = format!("stdout handle exited failure: {err}");
-                    tokio::spawn(async move { item.error(reason).await });
+                    tokio::spawn(async move { task.error(reason).await });
                     return;
                 }
                 (Ok(_), Err(err)) => {
                     let reason = format!("stderr handle exited failure: {err}");
-                    tokio::spawn(async move { item.error(reason).await });
+                    tokio::spawn(async move { task.error(reason).await });
                     return;
                 }
                 (Err(err0), Err(err1)) => {
                     let reason = format!(
                         "stdout handle exited failure: {err0}. stderr handle exited failure: {err1}"
                     );
-                    tokio::spawn(async move { item.error(reason).await });
+                    tokio::spawn(async move { task.error(reason).await });
                     return;
                 }
             };
@@ -716,22 +716,22 @@ fn start_watchdog(
         match (stdout_result, stderr_result) {
             (Ok(finished), Ok(_)) => {
                 if finished {
-                    tokio::spawn(async move { item.finish().await });
+                    tokio::spawn(async move { task.finish().await });
                 } else {
                     // pause, do nothing
                 }
             }
             (Ok(_), Err(err)) => {
                 let reason = format!("stderr capturing thread exited failure: {err}");
-                tokio::spawn(async move { item.error(reason).await });
+                tokio::spawn(async move { task.error(reason).await });
             }
             (Err(err), Ok(_)) => {
                 let reason = format!("stdout capturing thread exited failure: {err}");
-                tokio::spawn(async move { item.error(reason).await });
+                tokio::spawn(async move { task.error(reason).await });
             }
             (Err(err0), Err(err1)) => {
                 let reason = format!("stdout capturing thread exited failure: {err0}. stderr capturing thread exited failure: {err1}");
-                tokio::spawn(async move { item.error(reason).await });
+                tokio::spawn(async move { task.error(reason).await });
             }
         }
     })

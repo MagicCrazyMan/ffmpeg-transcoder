@@ -46,9 +46,9 @@ impl TaskRunningMessage {
 
 /// Task message informing task situation.
 #[derive(Debug, Clone, serde::Serialize)]
-#[serde(tag = "type")]
+#[serde(tag = "state")]
 pub(super) enum TaskMessage<'a> {
-    // Start { id: String },
+    Start { id: String },
     Running(&'a TaskRunningMessage),
     Pausing { id: String },
     Stopped { id: String },
@@ -57,9 +57,9 @@ pub(super) enum TaskMessage<'a> {
 }
 
 impl<'a> TaskMessage<'a> {
-    // pub(super) fn start(id: String) -> Self {
-    //     Self::Start { id }
-    // }
+    pub(super) fn start(id: String) -> Self {
+        Self::Start { id }
+    }
 
     pub(super) fn running(msg: &'a TaskRunningMessage) -> Self {
         Self::Running(msg)

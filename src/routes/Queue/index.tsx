@@ -34,11 +34,11 @@ const FilesList = ({ params }: { params: (TaskInputParams | TaskOutputParams)[] 
 };
 
 const Progress = ({ task }: { task: Task }) => {
-  if (task.message) {
-    switch (task.message.type) {
+  if (task.lastMessage) {
+    switch (task.lastMessage.state) {
       case TaskState.Running: {
-        const total = task.message.total_duration;
-        const output = (task.message.output_time_ms ?? 0) / 1000000;
+        const total = task.lastMessage.total_duration;
+        const output = (task.lastMessage.output_time_ms ?? 0) / 1000000;
         const percent = (output / total) * 100;
         return (
           <ProgressBar

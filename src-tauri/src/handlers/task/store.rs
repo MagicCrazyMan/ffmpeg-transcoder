@@ -3,11 +3,11 @@ use std::{collections::HashMap, sync::Arc};
 use log::warn;
 use tokio::sync::Mutex;
 
-use super::item::TaskItem;
+use super::task::Task;
 
 /// Task managing store center.
 pub struct TaskStore {
-    store: Arc<Mutex<HashMap<uuid::Uuid, TaskItem>>>,
+    store: Arc<Mutex<HashMap<String, Task>>>,
 }
 
 macro_rules! controls {
@@ -16,7 +16,7 @@ macro_rules! controls {
         $name:ident
     ) => {
         $(#[$meta])*
-        pub async fn $name(&self, id: &uuid::Uuid) {
+        pub async fn $name(&self, id: &str) {
             let mut store = self.store.lock().await;
             let Some(task) = store.get_mut(id) else {
                 warn!("jon id {} not found", id);
@@ -24,7 +24,8 @@ macro_rules! controls {
             };
 
             let task = task.clone();
-            tokio::spawn(async move { task.$name().await });
+            drop(store);
+            task.$name().await;
         }
     };
 }
@@ -41,13 +42,13 @@ impl TaskStore {
     /// Returns an identifier which points to the task.
     pub async fn start(
         &self,
-        id: uuid::Uuid,
+        id: String,
         args: Vec<String>,
         app_handle: tauri::AppHandle,
         total_duration: f64,
         program: String,
     ) {
-        let task = TaskItem::new(
+        let task = Task::new(
             id.clone(),
             app_handle,
             program,
@@ -56,7 +57,7 @@ impl TaskStore {
             Arc::downgrade(&self.store),
         );
 
-        let removed = self.store.lock().await.insert(id.clone(), task.clone());
+        let removed = self.store.lock().await.insert(id, task.clone());
         if let Some(removed) = removed {
             tokio::spawn(async move {
                 removed.error("duplicated task id").await;

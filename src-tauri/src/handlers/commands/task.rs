@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use serde_json::{Map, Value};
 
 use crate::{
@@ -123,7 +121,6 @@ pub async fn start_task(
         }
     }
 
-    let id = id.try_into_uuid()?;
     let args = params.to_args();
     task_store
         .start(
@@ -141,7 +138,6 @@ pub async fn start_task(
 /// A command stops a new task.
 #[tauri::command]
 pub async fn stop_task(task_store: tauri::State<'_, TaskStore>, id: String) -> Result<(), Error> {
-    let id = id.try_into_uuid()?;
     task_store.stop(&id).await;
     Ok(())
 }
@@ -149,7 +145,6 @@ pub async fn stop_task(task_store: tauri::State<'_, TaskStore>, id: String) -> R
 /// A command pauses a new task.
 #[tauri::command]
 pub async fn pause_task(task_store: tauri::State<'_, TaskStore>, id: String) -> Result<(), Error> {
-    let id = id.try_into_uuid()?;
     task_store.pause(&id).await;
     Ok(())
 }
@@ -157,26 +152,8 @@ pub async fn pause_task(task_store: tauri::State<'_, TaskStore>, id: String) -> 
 /// A command resumes a new task.
 #[tauri::command]
 pub async fn resume_task(task_store: tauri::State<'_, TaskStore>, id: String) -> Result<(), Error> {
-    let id = id.try_into_uuid()?;
     task_store.resume(&id).await;
     Ok(())
-}
-
-trait TryIntoUuid {
-    fn try_into_uuid(self) -> Result<uuid::Uuid, Error>;
-}
-
-impl<S> TryIntoUuid for S
-where
-    S: Into<String> + 'static,
-{
-    fn try_into_uuid(self) -> Result<uuid::Uuid, Error> {
-        let raw = self.into();
-        match uuid::Uuid::from_str(&raw) {
-            Ok(uuid) => Ok(uuid),
-            Err(_) => Err(Error::task_not_found(raw)),
-        }
-    }
 }
 
 async fn media_metadata_inner(ffprobe: &str, path: &str) -> Result<String, Error> {

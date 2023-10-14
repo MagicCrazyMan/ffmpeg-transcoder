@@ -28,8 +28,8 @@ export type TaskStoreState = {
   /**
    * Resets a task.
    * Only a task in {@link TaskState.Finished}, {@link TaskState.Stopped} or {@link TaskState.Errored} state could be reset
-   * @param id 
-   * @returns 
+   * @param id
+   * @returns
    */
   resetTask: (id: string) => void;
 };
@@ -37,9 +37,9 @@ export type TaskStoreState = {
 export type Task = {
   id: string;
   params: TaskParams;
-  commanding: boolean;
+  state: TaskState;
   metadata?: boolean | Metadata[];
-  message?: TaskMessage;
+  lastMessage?: TaskMessage;
 };
 
 export type TaskParams = {
@@ -78,6 +78,8 @@ export type TaskOutputParams = {
 };
 
 export enum TaskState {
+  Idle = "Idle",
+  Commanding = "Commanding",
   Queueing = "Queueing",
   Starting = "Starting",
   Running = "Running",
@@ -88,12 +90,12 @@ export enum TaskState {
 }
 
 // export type TaskMessageStart = {
-//   type: "Start";
+//   state: "Start";
 //   id: string;
 // };
 
 export type TaskMessageRunning = {
-  type: TaskState.Running;
+  state: TaskState.Running;
   id: string;
   total_duration: number;
   raw: string[];
@@ -108,22 +110,22 @@ export type TaskMessageRunning = {
 };
 
 export type TaskMessagePausing = {
-  type: TaskState.Pausing;
+  state: TaskState.Pausing;
   id: string;
 };
 
 export type TaskMessageStopped = {
-  type: TaskState.Stopped;
+  state: TaskState.Stopped;
   id: string;
 };
 
 export type TaskMessageFinished = {
-  type: TaskState.Finished;
+  state: TaskState.Finished;
   id: string;
 };
 
 export type TaskMessageErrored = {
-  type: TaskState.Errored;
+  state: TaskState.Errored;
   id: string;
   reason: string;
 };
@@ -145,15 +147,14 @@ export const TASK_MESSAGE_EVENT = "transcoding";
 const listenTaskMessages = (updateTask: (id: string, task: Partial<Task>) => void) => {
   listen<TaskMessage>(TASK_MESSAGE_EVENT, (event) => {
     const message = event.payload;
-    updateTask(message.id, { message });
+    updateTask(message.id, { lastMessage: message });
   });
 };
 
-export const useTaskStore = create<TaskStoreState>((set, get) => {
+export const useTaskStore = create<TaskStoreState>((set) => {
   const tasks: Task[] = [
     {
       id: v4(),
-      commanding: false,
       params: {
         inputs: [
           {
@@ -172,10 +173,10 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
           },
         ],
       },
+      state: TaskState.Idle,
     },
     {
       id: v4(),
-      commanding: false,
       params: {
         inputs: [
           {
@@ -194,61 +195,60 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
           },
         ],
       },
+      state: TaskState.Idle,
     },
   ];
 
-  const updateTask = (id: string, task: Partial<Task>) => {
-    const tasks = get().tasks;
-    const i = tasks.findIndex((task) => task.id === id);
-    if (i !== -1) {
-      const o = tasks[i];
-      const n = {
-        ...o,
-        ...task,
-      };
-      tasks[i] = n;
-      set({ tasks: [...tasks] });
-    }
+  const updateTask = (id: string, partial: Partial<Task>) => {
+    set((state) => ({
+      tasks: state.tasks.map((task) => {
+        if (task.id === id) {
+          return {
+            ...task,
+            ...partial,
+          };
+        } else {
+          return task;
+        }
+      }),
+    }));
   };
 
   const removeTask = (id: string) => {
-    const tasks = get().tasks;
-    const i = tasks.findIndex((task) => task.id === id);
-    if (i !== -1) {
-      tasks.splice(i, 1);
-      set({ tasks: [...tasks] });
-    }
+    set((state) => ({
+      tasks: state.tasks.filter((task) => task.id !== id),
+    }));
   };
 
   const addTask = (params: TaskParams) => {
-    const newTask = {
-      id: v4(),
-      commanding: false,
-      params,
-    };
-    set({
-      tasks: [...get().tasks, newTask],
-    });
+    set((state) => ({
+      tasks: [
+        ...state.tasks,
+        {
+          id: v4(),
+          params,
+          state: TaskState.Idle,
+        },
+      ],
+    }));
   };
 
   const resetTask = (id: string) => {
-    const tasks = get().tasks;
-    const i = tasks.findIndex((task) => task.id === id);
-    if (i !== -1) {
-      const task = tasks[i]
-      // only a task in finished, stopped or errored state could be reset
-      if (task.message?.type !== TaskState.Finished && task.message?.type !== TaskState.Stopped && task.message?.type !== TaskState.Errored) {
-        return
-      }
-
-      tasks[i] = {
-        id: v4(),
-        commanding: false,
-        params: tasks[i].params,
-      };
-      set({ tasks: [...tasks] });
-    }
+    set((state) => ({
+      tasks: state.tasks.map((task) => {
+        if (task.id === id) {
+          return {
+            id: v4(),
+            params: task.params,
+            state: TaskState.Idle,
+          };
+        } else {
+          return task;
+        }
+      }),
+    }));
   };
+
   // starts listen to task message.
   // listener lives until app quits, thus, it is no need to unlisten it
   listenTaskMessages(updateTask);

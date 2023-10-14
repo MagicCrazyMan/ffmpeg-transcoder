@@ -197,7 +197,7 @@ export default function Settings() {
                   callback();
                 })
                 .catch((err: FFprobeNotFoundError | FFprobeUnavailableError) => {
-                  callback(toMessage(err, false));
+                  callback(toMessage(err));
                 });
             },
           },

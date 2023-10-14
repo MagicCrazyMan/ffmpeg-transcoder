@@ -1,6 +1,14 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { invoke } from "@tauri-apps/api";
-import { ParamsSource, TaskInputParams, TaskOutputParams, TaskParams } from "../store/task";
 import { Preset } from "../store/preset";
+import { ParamsSource, TaskInputParams, TaskOutputParams, TaskParams } from "../store/task";
+import type {
+  FFprobeNotFoundError,
+  FFprobeUnavailableError,
+  FFmpegNotFoundError,
+  FFmpegUnavailableError,
+  TaskNotFoundError,
+} from "./error";
 
 export type NormalizedTaskParams = {
   inputs: NormalizedTaskInputParams[];
@@ -42,6 +50,19 @@ const normalizeTaskParams = ({
   }
 };
 
+/**
+ * Starts a task.
+ *
+ * # Errors
+ *
+ * - {@link FFprobeNotFoundError} if ffprobe program not found
+ * - {@link FFprobeUnavailableError} if ffprobe program unavailable
+ * - {@link FFmpegNotFoundError} if ffmpeg program not found
+ * - {@link FFmpegUnavailableError} if ffmpeg program unavailable
+ *
+ * @param id Task id
+ * @param params Task params
+ */
 export const startTask = async (id: string, params: TaskParams) => {
   return await invoke<void>("start_task", {
     id,
@@ -52,17 +73,38 @@ export const startTask = async (id: string, params: TaskParams) => {
   });
 };
 
-export const stopTask = async (id: string) => {
-  return await invoke<void>("stop_task", { id });
-};
+/**
+ * Stops a task.
+ *
+ * # Errors
+ *
+ * - {@link TaskNotFoundError} if task id not found
+ *
+ * @param id Task id
+ */
+export const stopTask = async (id: string) => await invoke<void>("stop_task", { id });
 
-export const pauseTask = async (id: string) => {
-  return await invoke<void>("pause_task", { id });
-};
+/**
+ * Pauses a task.
+ *
+ * # Errors
+ *
+ * - {@link TaskNotFoundError} if task id not found
+ *
+ * @param id Task id
+ */
+export const pauseTask = async (id: string) => await invoke<void>("pause_task", { id });
 
-export const resumeTask = async (id: string) => {
-  return await invoke<void>("resume_task", { id });
-};
+/**
+ * Resumes a task.
+ *
+ * # Errors
+ *
+ * - {@link TaskNotFoundError} if task id not found
+ *
+ * @param id Task id
+ */
+export const resumeTask = async (id: string) => await invoke<void>("resume_task", { id });
 
 export type Metadata = {
   streams: (VideoStream | AudioStream)[];

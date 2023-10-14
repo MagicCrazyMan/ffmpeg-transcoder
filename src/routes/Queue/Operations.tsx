@@ -7,7 +7,15 @@ import {
   IconSettings,
   IconStop,
 } from "@arco-design/web-react/icon";
-import { Task, TaskState, useTaskStore } from "../../store/task";
+import { Task, TaskMessageErrored, TaskState, useTaskStore } from "../../store/task";
+import {
+  FFmpegNotFoundError,
+  FFmpegUnavailableError,
+  FFprobeNotFoundError,
+  FFprobeUnavailableError,
+  TaskNotFoundError,
+  toMessage,
+} from "../../tauri/error";
 import { pauseTask, resumeTask, startTask, stopTask } from "../../tauri/task";
 
 const StartButton = ({ task }: { task: Task }) => {
@@ -15,12 +23,32 @@ const StartButton = ({ task }: { task: Task }) => {
 
   const start = (e: Event) => {
     e.stopPropagation();
-    if (task.commanding) return;
+    if (task.state !== TaskState.Idle) return;
 
-    updateTask(task.id, { commanding: true });
-    startTask(task.id, task.params).finally(() => {
-      updateTask(task.id, { commanding: false });
-    });
+    updateTask(task.id, { state: TaskState.Commanding });
+    startTask(task.id, task.params)
+      .finally(() => {
+        updateTask(task.id, { state: TaskState.Running });
+      })
+      .catch(
+        (
+          err:
+            | FFmpegNotFoundError
+            | FFprobeNotFoundError
+            | FFmpegUnavailableError
+            | FFprobeUnavailableError
+        ) => {
+          console.error(err);
+          updateTask(task.id, {
+            state: TaskState.Errored,
+            lastMessage: {
+              state: TaskState.Errored,
+              id: task.id,
+              reason: toMessage({ type: err.type }),
+            } as TaskMessageErrored,
+          });
+        }
+      );
   };
 
   return (
@@ -39,12 +67,21 @@ const PauseButton = ({ task }: { task: Task }) => {
 
   const pause = (e: Event) => {
     e.stopPropagation();
-    if (task.commanding) return;
+    if (task.state !== TaskState.Running) return;
 
-    updateTask(task.id, { commanding: true });
-    pauseTask(task.id).finally(() => {
-      updateTask(task.id, { commanding: false });
-    });
+    updateTask(task.id, { state: TaskState.Commanding });
+    pauseTask(task.id)
+      .catch((err: TaskNotFoundError) => {
+        console.error(err);
+        updateTask(task.id, {
+          state: TaskState.Errored,
+          lastMessage: {
+            state: TaskState.Errored,
+            id: task.id,
+            reason: toMessage({ type: err.type }),
+          } as TaskMessageErrored,
+        });
+      });
   };
 
   return (
@@ -64,12 +101,24 @@ const ResumeButton = ({ task }: { task: Task }) => {
 
   const resume = (e: Event) => {
     e.stopPropagation();
-    if (task.commanding) return;
+    if (task.state !== TaskState.Pausing) return;
 
-    updateTask(task.id, { commanding: true });
-    resumeTask(task.id).finally(() => {
-      updateTask(task.id, { commanding: false });
-    });
+    updateTask(task.id, { state: TaskState.Commanding });
+    resumeTask(task.id)
+      .finally(() => {
+        updateTask(task.id, { state: TaskState.Running });
+      })
+      .catch((err: TaskNotFoundError) => {
+        console.error(err);
+        updateTask(task.id, {
+          state: TaskState.Errored,
+          lastMessage: {
+            state: TaskState.Errored,
+            id: task.id,
+            reason: toMessage({ type: err.type }),
+          } as TaskMessageErrored,
+        });
+      });
   };
 
   return (
@@ -85,14 +134,27 @@ const ResumeButton = ({ task }: { task: Task }) => {
 
 const StopButton = ({ task }: { task: Task }) => {
   const updateTask = useTaskStore((state) => state.updateTask);
+
   const stop = (e: Event) => {
     e.stopPropagation();
-    if (task.commanding) return;
+    if (task.state !== TaskState.Running) return;
 
-    updateTask(task.id, { commanding: true });
-    stopTask(task.id).finally(() => {
-      updateTask(task.id, { commanding: false });
-    });
+    updateTask(task.id, { state: TaskState.Commanding });
+    stopTask(task.id)
+      .finally(() => {
+        updateTask(task.id, { state: TaskState.Stopped });
+      })
+      .catch((err: TaskNotFoundError) => {
+        console.error(err);
+        updateTask(task.id, {
+          state: TaskState.Errored,
+          lastMessage: {
+            state: TaskState.Errored,
+            id: task.id,
+            reason: toMessage({ type: err.type }),
+          } as TaskMessageErrored,
+        });
+      });
   };
 
   return (
@@ -147,9 +209,9 @@ const SettingsButton = () => {
 };
 
 export default function Operations({ task }: { task: Task }) {
-  if (task.message) {
+  if (task.lastMessage) {
     // task running
-    switch (task.message.type) {
+    switch (task.lastMessage.state) {
       case TaskState.Running: {
         return (
           <Space>
