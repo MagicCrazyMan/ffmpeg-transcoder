@@ -142,23 +142,75 @@ const UniverseTable = ({
   paramsTitle,
   presetOptions,
   records,
-  onChange,
-  onRemove,
-  onApplyAll,
-  onConvertCustom,
+  setRecords,
 }: {
   filesTitle: string;
   paramsTitle: string;
   presetOptions: ReactNode[];
   records: (EditableTaskInputParams | EditableTaskOutputParams)[];
-  onChange: (
-    id: string,
-    values: Partial<EditableTaskInputParams | EditableTaskOutputParams>
-  ) => void;
-  onRemove: (id: string) => void;
-  onApplyAll: (record: EditableTaskInputParams | EditableTaskOutputParams) => void;
-  onConvertCustom: (record: EditableTaskInputParams | EditableTaskOutputParams) => void;
+  setRecords: Dispatch<SetStateAction<(EditableTaskInputParams | EditableTaskOutputParams)[]>>;
 }) => {
+  const presets = usePresetStore((state) => state.presets);
+
+  const onChange = useCallback(
+    (id: string, values: Partial<EditableTaskInputParams | EditableTaskOutputParams>) => {
+      setRecords((state) =>
+        state.map((record) => {
+          if (record.id === id) {
+            return {
+              ...record,
+              ...values,
+            };
+          } else {
+            return record;
+          }
+        })
+      );
+    },
+    [setRecords]
+  );
+
+  const onApplyAll = useCallback(
+    ({ id, selection, custom }: EditableTaskInputParams | EditableTaskOutputParams) => {
+      setRecords((state) =>
+        state.map((record) => {
+          if (record.id === id) {
+            return record;
+          } else {
+            return { ...record, selection, custom };
+          }
+        })
+      );
+    },
+    [setRecords]
+  );
+
+  const onConvertCustom = useCallback(
+    ({ id, selection }: EditableTaskInputParams | EditableTaskOutputParams) => {
+      setRecords((state) =>
+        state.map((record) => {
+          if (record.id === id) {
+            return {
+              ...record,
+              selection: ParamsSource.Custom,
+              custom: presets.find((preset) => preset.id === selection)?.params.join(" "),
+            };
+          } else {
+            return record;
+          }
+        })
+      );
+    },
+    [presets, setRecords]
+  );
+
+  const onRemove = useCallback(
+    (id: string) => {
+      setRecords((state) => state.filter((record) => record.id !== id));
+    },
+    [setRecords]
+  );
+
   const columns: TableColumnProps<EditableTaskInputParams | EditableTaskOutputParams>[] = useMemo(
     () => [
       {
@@ -226,75 +278,14 @@ const InputTable = ({
     [presets]
   );
 
-  const onChange = useCallback(
-    (id: string, values: Partial<EditableTaskInputParams>) => {
-      setInputs((state) =>
-        state.map((record) => {
-          if (record.id === id) {
-            return {
-              ...record,
-              ...values,
-            };
-          } else {
-            return record;
-          }
-        })
-      );
-    },
-    [setInputs]
-  );
-
-  const onApplyAll = useCallback(
-    ({ id, selection, custom }: EditableTaskInputParams) => {
-      setInputs((state) =>
-        state.map((record) => {
-          if (record.id === id) {
-            return record;
-          } else {
-            return { ...record, selection, custom };
-          }
-        })
-      );
-    },
-    [setInputs]
-  );
-
-  const onConvertCustom = useCallback(
-    ({ id, selection }: EditableTaskInputParams) => {
-      setInputs((state) =>
-        state.map((record) => {
-          if (record.id === id) {
-            return {
-              ...record,
-              selection: ParamsSource.Custom,
-              custom: presets.find((preset) => preset.id === selection)?.params.join(" "),
-            };
-          } else {
-            return record;
-          }
-        })
-      );
-    },
-    [presets, setInputs]
-  );
-
-  const onRemove = useCallback(
-    (id: string) => {
-      setInputs((state) => state.filter((record) => record.id !== id));
-    },
-    [setInputs]
-  );
-
   return (
     <UniverseTable
       filesTitle="Input Files"
       paramsTitle="Decode Params"
       presetOptions={presetOptions}
       records={inputs}
-      onChange={onChange}
-      onRemove={onRemove}
-      onApplyAll={onApplyAll}
-      onConvertCustom={onConvertCustom}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setRecords={setInputs as any}
     ></UniverseTable>
   );
 };
@@ -321,75 +312,13 @@ const OutputTable = ({
     [presets]
   );
 
-  const onChange = useCallback(
-    (id: string, values: Partial<EditableTaskOutputParams>) => {
-      setOutputs((state) =>
-        state.map((record) => {
-          if (record.id === id) {
-            return {
-              ...record,
-              ...values,
-            };
-          } else {
-            return record;
-          }
-        })
-      );
-    },
-    [setOutputs]
-  );
-
-  const onApplyAll = useCallback(
-    ({ id, selection, custom }: EditableTaskOutputParams) => {
-      setOutputs((state) =>
-        state.map((record) => {
-          if (record.id === id) {
-            return record;
-          } else {
-            return { ...record, selection, custom };
-          }
-        })
-      );
-    },
-    [setOutputs]
-  );
-
-  const onConvertCustom = useCallback(
-    ({ id, selection }: EditableTaskOutputParams) => {
-      setOutputs((state) =>
-        state.map((record) => {
-          if (record.id === id) {
-            return {
-              ...record,
-              selection: ParamsSource.Custom,
-              custom: presets.find((preset) => preset.id === selection)?.params.join(" "),
-            };
-          } else {
-            return record;
-          }
-        })
-      );
-    },
-    [presets, setOutputs]
-  );
-
-  const onRemove = useCallback(
-    (id: string) => {
-      setOutputs((state) => state.filter((record) => record.id !== id));
-    },
-    [setOutputs]
-  );
-
   return (
     <UniverseTable
       filesTitle="Output Files"
       paramsTitle="Encode Params"
       presetOptions={presetOptions}
       records={outputs}
-      onChange={onChange}
-      onRemove={onRemove}
-      onApplyAll={onApplyAll}
-      onConvertCustom={onConvertCustom}
+      setRecords={setOutputs}
     ></UniverseTable>
   );
 };
@@ -449,6 +378,13 @@ const Footer = ({
   );
 };
 
+/**
+ * Converts {@link EditableTaskInputParams} or {@link EditableTaskOutputParams}
+ * to {@link TaskInputParams} or {@link TaskOutputParams}
+ * @param params {@link EditableTaskInputParams} or {@link EditableTaskOutputParams}
+ * @param presets Presets
+ * @returns a {@link TaskInputParams} or {@link TaskOutputParams}
+ */
 const toTaskParams = (
   { selection, path, custom }: EditableTaskInputParams | EditableTaskOutputParams,
   presets: Preset[]
@@ -472,6 +408,13 @@ const toTaskParams = (
   } as TaskInputParams | TaskOutputParams;
 };
 
+/**
+ * Converts {@link TaskInputParams} or {@link TaskOutputParams}
+ * to {@link EditableTaskInputParams} or {@link EditableTaskOutputParams}
+ * @param params {@link TaskInputParams} or {@link TaskOutputParams}
+ * @param presets Presets
+ * @returns a {@link EditableTaskInputParams} or {@link EditableTaskOutputParams}
+ */
 const fromTaskParams = (
   { path, source, params }: TaskInputParams | TaskOutputParams,
   presets: Preset[]
