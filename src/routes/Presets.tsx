@@ -494,7 +494,7 @@ export default function PresetsPage() {
   };
 
   return (
-    <Space size="medium" direction="vertical" className="w-full">
+    <div className="flex flex-col gap-4">
       {/* Add Preset */}
       <Tooltip triggerProps={{ mouseEnterDelay: 1000 }} content="Add New Preset">
         <Button
@@ -540,6 +540,6 @@ export default function PresetsPage() {
           },
         }}
       ></Table>
-    </Space>
+    </div>
   );
 }

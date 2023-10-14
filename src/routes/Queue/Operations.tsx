@@ -13,10 +13,8 @@ import { pauseTask, resumeTask, startTask, stopTask } from "../../tauri/task";
 const StartButton = ({ task }: { task: Task }) => {
   const updateTask = useTaskStore((state) => state.updateTask);
 
-  /**
-   * Starts a task
-   */
-  const start = () => {
+  const start = (e: Event) => {
+    e.stopPropagation();
     if (task.commanding) return;
 
     updateTask(task.id, { commanding: true });
@@ -38,7 +36,9 @@ const StartButton = ({ task }: { task: Task }) => {
 
 const PauseButton = ({ task }: { task: Task }) => {
   const updateTask = useTaskStore((state) => state.updateTask);
-  const pause = () => {
+
+  const pause = (e: Event) => {
+    e.stopPropagation();
     if (task.commanding) return;
 
     updateTask(task.id, { commanding: true });
@@ -61,7 +61,9 @@ const PauseButton = ({ task }: { task: Task }) => {
 
 const ResumeButton = ({ task }: { task: Task }) => {
   const updateTask = useTaskStore((state) => state.updateTask);
-  const resume = () => {
+
+  const resume = (e: Event) => {
+    e.stopPropagation();
     if (task.commanding) return;
 
     updateTask(task.id, { commanding: true });
@@ -83,7 +85,8 @@ const ResumeButton = ({ task }: { task: Task }) => {
 
 const StopButton = ({ task }: { task: Task }) => {
   const updateTask = useTaskStore((state) => state.updateTask);
-  const stop = () => {
+  const stop = (e: Event) => {
+    e.stopPropagation();
     if (task.commanding) return;
 
     updateTask(task.id, { commanding: true });
@@ -132,7 +135,15 @@ const RemoveButton = ({ task }: { task: Task }) => {
 };
 
 const SettingsButton = () => {
-  return <Button shape="circle" size="mini" type="secondary" icon={<IconSettings />}></Button>;
+  return (
+    <Button
+      shape="circle"
+      size="mini"
+      type="secondary"
+      icon={<IconSettings />}
+      onClick={(e) => e.stopPropagation()}
+    ></Button>
+  );
 };
 
 export default function Operations({ task }: { task: Task }) {

@@ -1,10 +1,24 @@
-import { Button, Space, Table, TableColumnProps, Tooltip } from "@arco-design/web-react";
-import { IconDown, IconNav, IconRight } from "@arco-design/web-react/icon";
+import {
+  Button,
+  Progress as ProgressBar,
+  Space,
+  Table,
+  TableColumnProps,
+  Tooltip,
+} from "@arco-design/web-react";
+import {
+  IconCheckCircle,
+  IconDown,
+  IconMore,
+  IconNav,
+  IconPauseCircle,
+  IconRight,
+  IconStop,
+} from "@arco-design/web-react/icon";
 import { useState } from "react";
-import { Task, TaskInputParams, TaskOutputParams, useTaskStore } from "../../store/task";
+import { Task, TaskInputParams, TaskOutputParams, TaskState, useTaskStore } from "../../store/task";
 import ComplexTaskEditor from "./ComplexTaskEditor";
 import Operations from "./Operations";
-import Progress from "./Progress";
 import Settings from "./Settings";
 
 /**
@@ -16,6 +30,34 @@ const FilesList = ({ params }: { params: (TaskInputParams | TaskOutputParams)[] 
   } else {
     const paths = params.map((input, index) => <li key={index}>{input.path ?? "NULL"}</li>);
     return <ul className="list-disc list-inside">{paths}</ul>;
+  }
+};
+
+const Progress = ({ task }: { task: Task }) => {
+  if (task.message) {
+    switch (task.message.type) {
+      case TaskState.Running: {
+        const total = task.message.total_duration;
+        const output = (task.message.output_time_ms ?? 0) / 1000000;
+        const percent = (output / total) * 100;
+        return (
+          <ProgressBar
+            animation
+            percent={percent}
+            strokeWidth={20}
+            formatText={(percent) => `${percent.toFixed(2)}%`}
+          />
+        );
+      }
+      case TaskState.Pausing:
+        return <IconPauseCircle fontSize="24px" style={{ color: "orange" }} />;
+      case TaskState.Stopped:
+        return <IconStop fontSize="24px" style={{ color: "red" }} />;
+      case TaskState.Finished:
+        return <IconCheckCircle fontSize="24px" style={{ color: "green" }} />;
+    }
+  } else {
+    return <IconMore fontSize="24px" style={{ color: "#86909C" }} />;
   }
 };
 
@@ -54,7 +96,7 @@ export default function QueuePage() {
   ];
 
   return (
-    <Space size="medium" direction="vertical">
+    <div className="flex flex-col gap-4">
       {/* Buttons */}
       <Space>
         {/* Add Complex Task Button */}
@@ -100,6 +142,6 @@ export default function QueuePage() {
 
       {/* Model Displaying Task Details */}
       {/* <Details onClosed={() => setDetailsTaskId(undefined)} taskId={detailsTaskId}></Details> */}
-    </Space>
+    </div>
   );
 }
