@@ -49,12 +49,13 @@ export type ConfigurationUnavailableError = {
 };
 
 /**
- * Convert tauri error to short message.
- * A short message ignores keywords and print error reason only.
+ * Converts tauri error to short message.
+ * 
  * @param error Tauri error.
+ * @param printKeywords Prints keywords.
  * @returns SHort message
  */
-export const toShortMessage = (error: TauriError) => {
+export const toMessage = (error: TauriError, printKeywords = true) => {
   switch (error.type) {
     case "Internal":
       return "Interval Error";
@@ -67,9 +68,9 @@ export const toShortMessage = (error: TauriError) => {
     case "FFprobeUnavailable":
       return "ffprobe program unavailable";
     case "DirectoryNotFound":
-      return `directory ${error.path} not found`;
+      return printKeywords ? `directory ${error.path} not found` : "directory not found";
     case "TaskNotFound":
-      return `task ${error.id} not found`;
+      return printKeywords ? `task ${error.id} not found` : "task not found";
     case "ConfigurationNotLoaded":
       return "configuration not loaded";
     case "ConfigurationUnavailable":

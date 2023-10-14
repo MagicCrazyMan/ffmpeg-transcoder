@@ -392,7 +392,7 @@ const fromTaskParams = (
 };
 
 export default function ComplexTaskEditor({ visible, onVisibleChange, task }: TaskEditorProps) {
-  const { openDialogFilters, saveDialogFilters } = useAppStore((state) => state);
+  const { configuration, openDialogFilters, saveDialogFilters } = useAppStore((state) => state);
   const presets = usePresetStore((state) => state.presets);
 
   const [inputs, setInputs] = useState<EditableTaskInputParams[]>(
@@ -432,6 +432,7 @@ export default function ComplexTaskEditor({ visible, onVisibleChange, task }: Ta
   const addOutputFile = async () => {
     const file = await save({
       title: "Add Output File",
+      defaultPath: configuration.saveDirectory,
       filters: saveDialogFilters,
     });
 

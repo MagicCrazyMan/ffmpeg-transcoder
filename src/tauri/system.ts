@@ -52,7 +52,6 @@ export const loadConfiguration = async (config: Configuration) => {
 /**
  * Verifies ffmpeg via Tauri.
  * @param ffmpeg FFmpeg program
- * @returns System particulars if success
  */
 export const verifyFFmpeg = async (ffmpeg: string) => {
   return await invoke<void>("verify_ffmpeg", { ffmpeg });
@@ -61,8 +60,15 @@ export const verifyFFmpeg = async (ffmpeg: string) => {
 /**
  * Verifies FFprobe via Tauri.
  * @param ffprobe FFprobe program
- * @returns System particulars if success
  */
 export const verifyFFprobe = async (ffprobe: string) => {
   return await invoke<void>("verify_ffprobe", { ffprobe });
+};
+
+/**
+ * Verifies whether a path exists and points to a directory via Tauri.
+ * @param path Path
+ */
+export const verifyDirectory = async (path: string) => {
+  return await invoke<void>("verify_directory", { path });
 };

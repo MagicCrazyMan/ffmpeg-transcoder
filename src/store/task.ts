@@ -79,6 +79,7 @@ export type TaskOutputParams = {
 
 export enum TaskState {
   Queueing = "Queueing",
+  Starting = "Starting",
   Running = "Running",
   Pausing = "Pausing",
   Stopped = "Stopped",

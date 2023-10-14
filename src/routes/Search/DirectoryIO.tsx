@@ -2,7 +2,7 @@ import { Button, Form, Input } from "@arco-design/web-react";
 import { IconFolder } from "@arco-design/web-react/icon";
 import { open } from "@tauri-apps/api/dialog";
 import { useEffect, useMemo, useState } from "react";
-import { TauriError, toShortMessage } from "../../tauri/error";
+import { TauriError, toMessage } from "../../tauri/error";
 import { TargetFile, getFilesFromDirectory } from "../../tauri/fs";
 
 type InputOutputProps = {
@@ -67,7 +67,7 @@ export default function InputOutputDirectory({
         setInputValidate({ status: "success", msg: "" });
       })
       .catch((error: TauriError) => {
-        setInputValidate({ status: "error", msg: toShortMessage(error) });
+        setInputValidate({ status: "error", msg: toMessage(error) });
       });
   }, [inputDirectory, onInputFilesChanged]);
 

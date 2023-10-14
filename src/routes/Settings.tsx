@@ -1,4 +1,4 @@
-import { Form, FormInstance, Grid, Input, Select } from "@arco-design/web-react";
+import { Button, Form, FormInstance, Grid, Input, Select } from "@arco-design/web-react";
 import { useEffect, useRef, useState } from "react";
 import { unstable_useBlocker } from "react-router-dom";
 import { Configuration, LogLevel, Theme, useAppStore } from "../store/app";
@@ -7,9 +7,11 @@ import {
   FFmpegUnavailableError,
   FFprobeNotFoundError,
   FFprobeUnavailableError,
-  toShortMessage,
+  toMessage,
 } from "../tauri/error";
-import { loadConfiguration, verifyFFmpeg, verifyFFprobe } from "../tauri/system";
+import { loadConfiguration, verifyDirectory, verifyFFmpeg, verifyFFprobe } from "../tauri/system";
+import { IconFolder } from "@arco-design/web-react/icon";
+import { open } from "@tauri-apps/api/dialog";
 
 /**
  * A page managing system settings.
@@ -27,17 +29,32 @@ export default function Settings() {
     }
   }, [blocker, isBlocking]);
 
-  const onChange = (localConfiguration: Partial<Configuration>) => {
-    if (localConfiguration.saveDirectory) {
-      const trimmed = localConfiguration.saveDirectory.trim();
-      if (!trimmed) {
-        formInstance.current?.clearFields("saveDirectory");
-      }
-    }
+  const selectSaveDirectory = async () => {
+    const path = await open({
+      title: "Select Default Save Directory",
+      directory: true,
+      multiple: false,
+    });
 
+    if (path) {
+      formInstance.current?.setFieldValue("saveDirectory", path as string);
+      setLocalConfiguration({
+        saveDirectory: path as string,
+      });
+    }
+  };
+
+  const onChange = (localConfiguration: Partial<Configuration>) => {
     formInstance.current
       ?.validate()
       .then(async (config) => {
+        if (localConfiguration.saveDirectory) {
+          localConfiguration.saveDirectory = localConfiguration.saveDirectory.trim();
+        }
+
+        config.ffmpeg = config.ffmpeg.trim();
+        config.ffprobe = config.ffprobe.trim();
+
         setSystemParticulars(await loadConfiguration(config));
         setLocalConfiguration(localConfiguration);
         setBlocking(false);
@@ -96,7 +113,7 @@ export default function Settings() {
                   callback();
                 })
                 .catch((err: FFmpegNotFoundError | FFmpegUnavailableError) => {
-                  callback(toShortMessage(err));
+                  callback(toMessage(err));
                 });
             },
           },
@@ -117,9 +134,7 @@ export default function Settings() {
                   callback();
                 })
                 .catch((err: FFprobeNotFoundError | FFprobeUnavailableError) => {
-                  console.log(err);
-
-                  callback(toShortMessage(err));
+                  callback(toMessage(err));
                 });
             },
           },
@@ -129,8 +144,30 @@ export default function Settings() {
       </Form.Item>
 
       {/* FFprobe Program */}
-      <Form.Item field="saveDirectory" label="Default Save Directory">
-        <Input allowClear></Input>
+      <Form.Item
+        field="saveDirectory"
+        label="Default Save Directory"
+        rules={[
+          {
+            validator(value, callback) {
+              if (!value) callback();
+
+              return verifyDirectory(value)
+                .then(() => {
+                  callback();
+                })
+                .catch((err: FFprobeNotFoundError | FFprobeUnavailableError) => {
+                  callback(toMessage(err, false));
+                });
+            },
+          },
+        ]}
+      >
+        <Input
+          allowClear
+          beforeStyle={{ padding: "0" }}
+          addBefore={<Button type="text" icon={<IconFolder />} onClick={selectSaveDirectory} />}
+        ></Input>
       </Form.Item>
     </Form>
   );

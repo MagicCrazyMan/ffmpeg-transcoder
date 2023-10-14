@@ -14,13 +14,15 @@ export default function ParticularsPage() {
   const descriptionsData = useMemo(() => {
     const libraries = Object.entries(systemParticulars.ffmpeg.banner.libraries).map(
       ([lib, [a, b, c, d, e, f]]) => (
-        <Tag className="m-1">
+        <Tag className="m-1" key={lib}>
           {lib} {`${a}.${b}.${c} / ${d}.${e}.${f}`}
         </Tag>
       )
     );
     const configurations = systemParticulars.ffmpeg.banner.build_configurations.map((config) => (
-      <Tag className="m-1">{config}</Tag>
+      <Tag className="m-1" key={config}>
+        {config}
+      </Tag>
     ));
 
     return [

@@ -682,6 +682,7 @@ fn start_watchdog(
         let (stdout_handle, stderr_handle) =
             start_capture(Arc::clone(&process), item.clone(), watchdog_cancellations).await;
 
+        // waits for watchdog finished
         let (stdout_handle_result, stderr_handle_result) =
             tokio::join!(stdout_handle, stderr_handle);
 

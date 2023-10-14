@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::MAIN_SEPARATOR_STR, sync::OnceLock};
+use std::{collections::HashMap, path::{MAIN_SEPARATOR_STR, PathBuf}, sync::OnceLock};
 
 use regex::Regex;
 
@@ -31,6 +31,15 @@ pub async fn verify_ffprobe(ffprobe: String) -> Result<(), Error> {
         Ok(())
     } else {
         Err(Error::ffprobe_unavailable(ffprobe))
+    }
+}
+
+#[tauri::command]
+pub async fn verify_directory(path: String) -> Result<(), Error> {
+    if PathBuf::from(&path).is_dir() {
+        Ok(())
+    } else {
+        Err(Error::directory_not_found(path))
     }
 }
 

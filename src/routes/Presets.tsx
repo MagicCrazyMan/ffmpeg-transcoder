@@ -32,7 +32,6 @@ type RowProps = {
   className: string;
   children: ReactNode[];
   record: Preset;
-  rowIndex: number;
 };
 
 type CellProps<Key extends keyof Preset> = {
@@ -485,7 +484,7 @@ export default function PresetsPage() {
    * Draggable & Editable row
    */
   const DraggableEditableRow = ({ index, ...rest }: RowProps & { index: number }) => {
-    const props = { ...rest, rowIndex: index };
+    const props = { ...rest };
     if (rest.record.isTemp) {
       return <EditableRow {...props}></EditableRow>;
     } else {
