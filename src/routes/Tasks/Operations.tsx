@@ -8,13 +8,17 @@ import {
   IconStop,
 } from "@arco-design/web-react/icon";
 import { Task, useTaskStore } from "../../store/task";
+import { useCallback } from "react";
 
 const StartButton = ({ task }: { task: Task }) => {
   const startTask = useTaskStore((state) => state.startTask);
-  const start = (e: Event) => {
-    e.stopPropagation();
-    startTask(task.id);
-  };
+  const start = useCallback(
+    (e: Event) => {
+      e.stopPropagation();
+      startTask(task.id);
+    },
+    [task, startTask]
+  );
 
   return (
     <Button
@@ -29,10 +33,13 @@ const StartButton = ({ task }: { task: Task }) => {
 
 const PauseButton = ({ task }: { task: Task }) => {
   const pauseTask = useTaskStore((state) => state.pauseTask);
-  const pause = (e: Event) => {
-    e.stopPropagation();
-    pauseTask(task.id);
-  };
+  const pause = useCallback(
+    (e: Event) => {
+      e.stopPropagation();
+      pauseTask(task.id);
+    },
+    [task, pauseTask]
+  );
 
   return (
     <Button
@@ -48,10 +55,13 @@ const PauseButton = ({ task }: { task: Task }) => {
 
 const StopButton = ({ task }: { task: Task }) => {
   const stopTask = useTaskStore((state) => state.stopTask);
-  const stop = (e: Event) => {
-    e.stopPropagation();
-    stopTask(task.id);
-  };
+  const stop = useCallback(
+    (e: Event) => {
+      e.stopPropagation();
+      stopTask(task.id);
+    },
+    [task, stopTask]
+  );
 
   return (
     <Button
@@ -67,19 +77,35 @@ const StopButton = ({ task }: { task: Task }) => {
 
 const ResetButton = ({ task }: { task: Task }) => {
   const resetTask = useTaskStore((state) => state.resetTask);
+  const reset = useCallback(
+    (e: Event) => {
+      e.stopPropagation();
+      resetTask(task.id);
+    },
+    [task, resetTask]
+  );
+
   return (
     <Button
       shape="circle"
       size="mini"
       type="primary"
       icon={<IconLoop />}
-      onClick={() => resetTask(task.id)}
+      onClick={reset}
     ></Button>
   );
 };
 
 const RemoveButton = ({ task }: { task: Task }) => {
   const removeTask = useTaskStore((state) => state.removeTask);
+  const remove = useCallback(
+    (e: Event) => {
+      e.stopPropagation();
+      removeTask(task.id);
+    },
+    [task, removeTask]
+  );
+
   return (
     <Button
       shape="circle"
@@ -87,7 +113,7 @@ const RemoveButton = ({ task }: { task: Task }) => {
       type="primary"
       status="danger"
       icon={<IconDelete />}
-      onClick={() => removeTask(task.id)}
+      onClick={remove}
     ></Button>
   );
 };

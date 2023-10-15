@@ -1,83 +1,12 @@
 import { Button, Space, Table, TableColumnProps, Tooltip } from "@arco-design/web-react";
-import {
-  IconDown,
-  IconFolder,
-  IconNav,
-  IconPlayArrow,
-  IconRight,
-} from "@arco-design/web-react/icon";
-import { type } from "@tauri-apps/api/os";
-import { Command, open } from "@tauri-apps/api/shell";
+import { IconDown, IconNav, IconRight } from "@arco-design/web-react/icon";
 import { useState } from "react";
-import { Task, TaskInputParams, TaskOutputParams, useTaskStore } from "../../store/task";
+import { Task, useTaskStore } from "../../store/task";
 import ComplexTaskEditor from "./ComplexTaskEditor";
+import FilesList from "./FileList";
 import Operations from "./Operations";
 import Progress from "./Progress";
 import Status from "./Status";
-
-/**
- * Inputs & Outputs files list component
- */
-const FilesList = ({ params }: { params: (TaskInputParams | TaskOutputParams)[] }) => {
-  const showInExplorer = async (path?: string) => {
-    if (!path) return;
-    if ((await type()) !== "Windows_NT") return;
-
-    const split = path.split("\\");
-    split.pop();
-    const dir = split.join("\\");
-    const command = new Command("explorer", [dir]);
-    await command.spawn();
-  };
-
-  const openFile = async (path?: string) => {
-    if (!path) return;
-
-    await open(path);
-  };
-
-  if (params.length === 1) {
-    if (params[0].path) {
-      return (
-        <Space size="mini">
-          {/* Show In Explorer Button */}
-          <Button
-            size="mini"
-            type="text"
-            shape="circle"
-            icon={<IconFolder />}
-            onClick={(e) => {
-              e.stopPropagation();
-              showInExplorer(params[0].path);
-            }}
-          ></Button>
-          {/* Open File Button */}
-          <Button
-            size="mini"
-            type="text"
-            shape="circle"
-            icon={<IconPlayArrow />}
-            onClick={(e) => {
-              e.stopPropagation();
-              openFile(params[0].path);
-            }}
-          ></Button>
-          {/* File Name */}
-          <div className="flex-1">{params[0].path ?? "NULL"}</div>
-        </Space>
-      );
-    } else {
-      return (
-        <div>
-          <span>{params[0].path ?? "NULL"}</span>
-        </div>
-      );
-    }
-  } else {
-    const paths = params.map((input, index) => <li key={index}>{input.path ?? "NULL"}</li>);
-    return <ul className="list-disc list-inside">{paths}</ul>;
-  }
-};
 
 /**
  * Page managing tasks queue.
@@ -95,15 +24,15 @@ export default function QueuePage() {
       bodyCellStyle: {
         lineHeight: "1",
       },
-      render: (_, record) => <Status task={record} />,
+      render: (_, task) => <Status task={task} />,
     },
     {
       title: "Inputs",
-      render: (_, record) => <FilesList params={record.params.inputs} />,
+      render: (_, task) => <FilesList type="input" task={task} />,
     },
     {
       title: "Outputs",
-      render: (_, record) => <FilesList params={record.params.outputs} />,
+      render: (_, task) => <FilesList type="output" task={task} />,
     },
     {
       title: "Progress",
@@ -112,14 +41,14 @@ export default function QueuePage() {
       bodyCellStyle: {
         lineHeight: "1",
       },
-      render: (_, record) => <Progress task={record} />,
+      render: (_, task) => <Progress task={task} />,
     },
     {
       title: "Operations",
       fixed: "right",
       align: "center",
       width: "128px",
-      render: (_, record) => <Operations task={record} />,
+      render: (_, task) => <Operations task={task} />,
     },
   ];
 

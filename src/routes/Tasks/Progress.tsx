@@ -21,7 +21,7 @@ export default function Progress({ task }: { task: Task }) {
       if (task.state.message.speed) {
         const speed = task.state.message.speed;
         const eta = (total - output) / speed;
-        hint = `${speed.toFixed(2)}x ${toDuration(eta, false)}`;
+        hint = `ETA ${toDuration(eta, false)} ${speed.toFixed(2)}x`;
       }
       return (
         <div>

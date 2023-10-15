@@ -1,4 +1,5 @@
 import { DialogFilter } from "@tauri-apps/api/dialog";
+import { OsType, type as getOsType } from "@tauri-apps/api/os";
 import { cloneDeep } from "lodash";
 import { create } from "zustand";
 import { type SystemParticulars } from "../tauri/system";
@@ -328,6 +329,10 @@ export type AppState = {
   setLocalConfiguration: (configuration: Partial<Configuration>) => void;
 
   /**
+   * Current Operation System type.
+   */
+  osType?: OsType;
+  /**
    * Current using theme.
    */
   currentTheme: Theme.Dark | Theme.Light;
@@ -389,6 +394,9 @@ export const useAppStore = create<AppState>((set, _get, api) => {
     }
   });
 
+  const osType: OsType | undefined = undefined;
+  getOsType().then((osType) => set({ osType }));
+
   const currentTheme = setArcoTheme(configuration.theme);
   const openDialogFilters: DialogFilter[] = formalizeOpenDialogFilters(
     configuration.openFileFilters
@@ -404,6 +412,7 @@ export const useAppStore = create<AppState>((set, _get, api) => {
     configuration,
     localConfiguration,
     setLocalConfiguration,
+    osType,
     currentTheme,
     openDialogFilters,
     saveDialogFilters,
