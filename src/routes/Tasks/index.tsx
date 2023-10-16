@@ -1,8 +1,9 @@
 import { Button, Space, Table, TableColumnProps, Tooltip } from "@arco-design/web-react";
-import { IconSubscribeAdd } from "@arco-design/web-react/icon";
+import { IconPlus, IconSubscribeAdd } from "@arco-design/web-react/icon";
 import { useState } from "react";
+import ComplexTaskModifier from "../../components/task/ComplexTaskModifier";
+import SimpleTasksAdding from "../../components/task/SimpleTasksAdding";
 import { Task, useTaskStore } from "../../store/task";
-import ComplexTaskModifier from "../../components/ComplexTaskModifier";
 import FilesList from "./FileList";
 import Operations from "./Operations";
 import Progress from "./Progress";
@@ -14,11 +15,13 @@ import Status from "./Status";
 export default function QueuePage() {
   const tasks = useTaskStore((state) => state.tasks);
 
-  const [taskModifierVisible, setTaskModifierVisible] = useState(false);
+  const [complexTaskModifierVisible, setComplexTaskModifierVisible] = useState(false);
+  const [simpleTasksAddingVisible, setSimpleTasksAddingVisible] = useState(false);
+
   const [modifyingTask, setModifyingTask] = useState<Task | undefined>(undefined);
   const onModify = (task: Task) => {
     setModifyingTask(task);
-    setTaskModifierVisible(true);
+    setComplexTaskModifierVisible(true);
   };
 
   const tableCols: TableColumnProps<Task>[] = [
@@ -61,13 +64,23 @@ export default function QueuePage() {
     <div className="flex flex-col gap-4">
       {/* Buttons */}
       <Space>
-        {/* Add Complex Task Button */}
+        {/* Add Multiple Simple Tasks Button */}
+        <Tooltip content="Add Multiple Simple Tasks">
+          <Button
+            shape="circle"
+            type="primary"
+            icon={<IconPlus />}
+            onClick={() => setSimpleTasksAddingVisible(true)}
+          ></Button>
+        </Tooltip>
+
+        {/* Add or Modify Complex Task Button */}
         <Tooltip content="Add Complex Task">
           <Button
             shape="circle"
             type="primary"
             icon={<IconSubscribeAdd />}
-            onClick={() => setTaskModifierVisible(true)}
+            onClick={() => setComplexTaskModifierVisible(true)}
           ></Button>
         </Tooltip>
       </Space>
@@ -82,12 +95,20 @@ export default function QueuePage() {
         data={tasks}
       ></Table>
 
-      {/* Complex Task Editor Dialog */}
+      {/* Simple Tasks Adding Dialog */}
+      <SimpleTasksAdding
+        visible={simpleTasksAddingVisible}
+        onVisibleChange={(visible) => {
+          setSimpleTasksAddingVisible(visible);
+        }}
+      ></SimpleTasksAdding>
+
+      {/* Complex Task Modifier Dialog */}
       <ComplexTaskModifier
         task={modifyingTask}
-        visible={taskModifierVisible}
+        visible={complexTaskModifierVisible}
         onVisibleChange={(visible) => {
-          setTaskModifierVisible(visible);
+          setComplexTaskModifierVisible(visible);
           setModifyingTask(undefined);
         }}
       ></ComplexTaskModifier>

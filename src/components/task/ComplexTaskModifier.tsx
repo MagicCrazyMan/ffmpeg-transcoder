@@ -1,9 +1,7 @@
 import {
   Button,
-  Input,
   Modal,
   Popconfirm,
-  Select,
   Space,
   Table,
   TableColumnProps,
@@ -11,85 +9,25 @@ import {
 } from "@arco-design/web-react";
 import { IconCopy, IconDelete, IconFilter } from "@arco-design/web-react/icon";
 import { open, save } from "@tauri-apps/api/dialog";
-import { cloneDeep } from "lodash";
-import {
-  Dispatch,
-  ReactNode,
-  SetStateAction,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
 import { v4 } from "uuid";
-import { useAppStore } from "../store/app";
-import { Preset, PresetType, usePresetStore } from "../store/preset";
+import { useAppStore } from "../../store/app";
+import { Preset, PresetType, usePresetStore } from "../../store/preset";
 import {
   ParamsSource,
   Task,
   TaskInputParams,
   TaskOutputParams,
   useTaskStore,
-} from "../store/task";
+} from "../../store/task";
+import ParamsModifier from "./ParamsModifier";
+import { EditableTaskInputParams, EditableTaskOutputParams } from "./types";
+import { toTaskParams } from "./utils";
 
-export type TaskEditorProps = {
+export type ComplexTaskModifierProps = {
   visible: boolean;
   onVisibleChange: (visible: boolean) => void;
   task?: Task;
-};
-
-type EditableTaskInputParams = {
-  id: string;
-  path: string;
-  selection: ParamsSource.Auto | ParamsSource.Custom | string;
-  custom?: string;
-};
-
-type EditableTaskOutputParams = {
-  id: string;
-  path?: string;
-  selection: ParamsSource.Auto | ParamsSource.Custom | string;
-  custom?: string;
-};
-
-const ParamsEditor = ({
-  presetOptions,
-  record,
-  onChange,
-}: {
-  presetOptions: ReactNode[];
-  record: EditableTaskInputParams | EditableTaskOutputParams;
-  onChange: (
-    id: string,
-    values: Partial<EditableTaskInputParams | EditableTaskOutputParams>
-  ) => void;
-}) => {
-  return (
-    <div className="flex flex-col gap-0.5">
-      {/* Params Source Selector */}
-      <Select
-        autoWidth
-        className="flex-1"
-        size="mini"
-        value={record.selection}
-        onChange={(value) => onChange(record.id, { selection: value })}
-      >
-        <Select.Option value={ParamsSource.Auto}>Auto</Select.Option>
-        <Select.Option value={ParamsSource.Custom}>Custom</Select.Option>
-        {presetOptions}
-      </Select>
-
-      {/* Custom Params Input */}
-      {record.selection === ParamsSource.Custom ? (
-        <Input.TextArea
-          autoFocus
-          allowClear
-          value={record.custom}
-          onChange={(value) => onChange(record.id, { custom: value })}
-        ></Input.TextArea>
-      ) : null}
-    </div>
-  );
 };
 
 const Operations = ({
@@ -148,13 +86,13 @@ const Operations = ({
 const UniverseTable = ({
   filesTitle,
   paramsTitle,
-  presetOptions,
+  presetType,
   records,
   setRecords,
 }: {
   filesTitle: string;
   paramsTitle: string;
-  presetOptions: ReactNode[];
+  presetType: PresetType.Decode | PresetType.Encode;
   records: (EditableTaskInputParams | EditableTaskOutputParams)[];
   setRecords: Dispatch<SetStateAction<(EditableTaskInputParams | EditableTaskOutputParams)[]>>;
 }) => {
@@ -223,21 +161,18 @@ const UniverseTable = ({
     () => [
       {
         title: filesTitle,
-        dataIndex: "path",
         ellipsis: true,
         render: (_col, record) => record.path ?? "NULL",
       },
       {
         title: paramsTitle,
-        dataIndex: "selection",
         ellipsis: true,
         render: (_col, record) => (
-          <ParamsEditor presetOptions={presetOptions} record={record} onChange={onChange} />
+          <ParamsModifier presetType={presetType} record={record} onChange={onChange} />
         ),
       },
       {
         title: "Operations",
-        dataIndex: "remove",
         width: "7rem",
         render: (_col, record) => (
           <Operations
@@ -249,7 +184,7 @@ const UniverseTable = ({
         ),
       },
     ],
-    [presetOptions, filesTitle, paramsTitle, onRemove, onChange, onApplyAll, onConvertCustom]
+    [presetType, filesTitle, paramsTitle, onRemove, onChange, onApplyAll, onConvertCustom]
   );
 
   return (
@@ -271,29 +206,13 @@ const InputTable = ({
   inputs: EditableTaskInputParams[];
   setInputs: Dispatch<SetStateAction<EditableTaskInputParams[]>>;
 }) => {
-  const presets = usePresetStore((state) => state.presets);
-  const presetOptions = useMemo(
-    () =>
-      presets
-        .filter(
-          (preset) => preset.type === PresetType.Universal || preset.type === PresetType.Decode
-        )
-        .map((preset) => (
-          <Select.Option key={preset.id} value={preset.id}>
-            {preset.name}
-          </Select.Option>
-        )),
-    [presets]
-  );
-
   return (
     <UniverseTable
       filesTitle="Input Files"
       paramsTitle="Decode Params"
-      presetOptions={presetOptions}
+      presetType={PresetType.Decode}
       records={inputs}
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setRecords={setInputs as any}
+      setRecords={setInputs}
     ></UniverseTable>
   );
 };
@@ -305,26 +224,11 @@ const OutputTable = ({
   outputs: EditableTaskOutputParams[];
   setOutputs: Dispatch<SetStateAction<EditableTaskOutputParams[]>>;
 }) => {
-  const presets = usePresetStore((state) => state.presets);
-  const presetOptions = useMemo(
-    () =>
-      presets
-        .filter(
-          (preset) => preset.type === PresetType.Universal || preset.type === PresetType.Encode
-        )
-        .map((preset) => (
-          <Select.Option key={preset.id} value={preset.id}>
-            {preset.name}
-          </Select.Option>
-        )),
-    [presets]
-  );
-
   return (
     <UniverseTable
       filesTitle="Output Files"
       paramsTitle="Encode Params"
-      presetOptions={presetOptions}
+      presetType={PresetType.Encode}
       records={outputs}
       setRecords={setOutputs}
     ></UniverseTable>
@@ -344,7 +248,7 @@ const Footer = ({
   outputs: EditableTaskOutputParams[];
   onVisibleChange: (visible: boolean) => void;
 }) => {
-  const { addTask, updateTask } = useTaskStore((state) => state);
+  const { addTasks, updateTask } = useTaskStore((state) => state);
   const presets = usePresetStore((state) => state.presets);
 
   const onCancel = () => onVisibleChange(false);
@@ -360,7 +264,7 @@ const Footer = ({
         params,
       });
     } else {
-      addTask(params);
+      addTasks(params);
     }
     onVisibleChange(false);
   };
@@ -384,36 +288,6 @@ const Footer = ({
       </Button>
     </>
   );
-};
-
-/**
- * Converts {@link EditableTaskInputParams} or {@link EditableTaskOutputParams}
- * to {@link TaskInputParams} or {@link TaskOutputParams}
- * @param params {@link EditableTaskInputParams} or {@link EditableTaskOutputParams}
- * @param presets Presets
- * @returns a {@link TaskInputParams} or {@link TaskOutputParams}
- */
-const toTaskParams = (
-  { selection, path, custom }: EditableTaskInputParams | EditableTaskOutputParams,
-  presets: Preset[]
-) => {
-  let source: ParamsSource, params: string[] | Preset | undefined;
-  if (selection === ParamsSource.Auto) {
-    source = ParamsSource.Auto;
-    params = undefined;
-  } else if (selection === ParamsSource.Custom) {
-    source = ParamsSource.Custom;
-    params = custom?.split(" ").filter((param) => !!param.trim());
-  } else {
-    source = ParamsSource.FromPreset;
-    params = cloneDeep(presets.find((preset) => preset.id === selection)!);
-  }
-
-  return {
-    path,
-    source,
-    params,
-  } as TaskInputParams | TaskOutputParams;
 };
 
 /**
@@ -461,7 +335,11 @@ const fromTaskParams = (
   }
 };
 
-export default function ComplexTaskModifier({ visible, onVisibleChange, task }: TaskEditorProps) {
+export default function ComplexTaskModifier({
+  visible,
+  onVisibleChange,
+  task,
+}: ComplexTaskModifierProps) {
   const { configuration, openDialogFilters, saveDialogFilters } = useAppStore((state) => state);
   const presets = usePresetStore((state) => state.presets);
 
@@ -549,7 +427,7 @@ export default function ComplexTaskModifier({ visible, onVisibleChange, task }: 
       const output: EditableTaskInputParams = {
         id: v4(),
         path: file,
-        selection: ParamsSource.Auto,
+        selection: ParamsSource.Custom,
       };
       wrappedSetOutputs((state) => [...state, { ...output }]);
     }
@@ -561,7 +439,7 @@ export default function ComplexTaskModifier({ visible, onVisibleChange, task }: 
   const addNullOutput = () => {
     const output: EditableTaskOutputParams = {
       id: v4(),
-      selection: ParamsSource.Auto,
+      selection: ParamsSource.Custom,
     };
 
     wrappedSetOutputs((state) => [...state, { ...output }]);

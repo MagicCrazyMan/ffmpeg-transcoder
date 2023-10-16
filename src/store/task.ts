@@ -55,7 +55,7 @@ export type TaskStoreState = {
    * Adds a new task from specified task params.
    * @param params Task params
    */
-  addTask: (params: TaskParams) => void;
+  addTasks: (...params: TaskParams[]) => void;
   /**
    * Resets a task.
    * Only a task in `Finished`, `Stopped` or `Errored` state could be reset
@@ -334,16 +334,18 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
     }));
   };
 
-  const addTask = (params: TaskParams) => {
+  const addTask = (...params: TaskParams[]) => {
     set((state) => ({
       tasks: [
         ...state.tasks,
-        {
-          id: v4(),
-          state: { type: "Idle" },
-          workTimeDurations: [],
-          params,
-        },
+        ...params.map((params) => {
+          return {
+            id: v4(),
+            state: { type: "Idle" } as TaskStateIdle,
+            workTimeDurations: [],
+            params,
+          };
+        }),
       ],
     }));
   };
@@ -372,7 +374,7 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
     pauseTask,
     stopTask,
     removeTask,
-    addTask,
+    addTasks: addTask,
     resetTask,
   };
 });
