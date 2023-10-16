@@ -43,7 +43,7 @@ export type PresetStoreState = {
    * @param i1 Index of preset 1
    * @param i2 Index of preset 2
    */
-  swapPreset: (i1: number, i2: number) => void;
+  movePreset: (i1: number, i2: number) => void;
   /**
    * Copies a existing preset, and gives it a new name.
    * @param id Preset id
@@ -146,11 +146,11 @@ export const usePresetStore = create<PresetStoreState>((set, get, api) => {
    */
   api.subscribe((state, prevState) => {
     if (state.presets !== prevState.presets) {
-      storePresets({
-        presets: state.presets,
-        defaultDecode: state.defaultDecode,
-        defaultEncode: state.defaultEncode,
-      });
+      // storePresets({
+      //   presets: state.presets,
+      //   defaultDecode: state.defaultDecode,
+      //   defaultEncode: state.defaultEncode,
+      // });
     }
   });
 
@@ -181,17 +181,26 @@ export const usePresetStore = create<PresetStoreState>((set, get, api) => {
     });
   };
 
-  const swapPreset = (i1: number, i2: number) => {
+  const movePreset = (from: number, to: number) => {
+    if (from === to) return;
+
     set((state) => {
-      const presets = state.presets.map((p, i) => {
-        if (i === i1) {
-          return state.presets[i2];
-        } else if (i === i2) {
-          return state.presets[i1];
-        } else {
-          return p;
-        }
-      });
+      let presets: Preset[];
+      if (from > to) {
+        presets = [
+          ...state.presets.slice(0, to),
+          state.presets[from],
+          ...state.presets.slice(to, from),
+          ...state.presets.slice(from + 1),
+        ];
+      } else {
+        presets = [
+          ...state.presets.slice(0, from),
+          ...state.presets.slice(from + 1, to + 1),
+          state.presets[from],
+          ...state.presets.slice(to + 1),
+        ];
+      }
       return { presets };
     });
   };
@@ -255,7 +264,7 @@ export const usePresetStore = create<PresetStoreState>((set, get, api) => {
     setDefaultDecode,
     setDefaultEncode,
     duplicatePreset,
-    swapPreset,
+    movePreset,
     updatePreset,
     removePreset,
     tempPreset,

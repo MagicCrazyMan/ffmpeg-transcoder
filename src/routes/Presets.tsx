@@ -19,8 +19,8 @@ import {
   IconCopy,
   IconDelete,
   IconDragDotVertical,
-  IconHeart,
   IconPlus,
+  IconStar,
 } from "@arco-design/web-react/icon";
 import {
   ReactNode,
@@ -350,7 +350,7 @@ const Operations = ({ preset }: { preset: Preset }) => {
               shape="circle"
               type="primary"
               status="success"
-              icon={<IconHeart />}
+              icon={<IconStar />}
               onClick={() => setDefaultDecode(preset.id)}
             ></Button>
           </Tooltip>
@@ -366,7 +366,7 @@ const Operations = ({ preset }: { preset: Preset }) => {
               shape="circle"
               type="primary"
               status="warning"
-              icon={<IconHeart />}
+              icon={<IconStar />}
               onClick={() => setDefaultEncode(preset.id)}
             ></Button>
           </Tooltip>
@@ -398,7 +398,7 @@ export default function PresetsPage() {
     presets,
     defaultDecode,
     defaultEncode,
-    swapPreset,
+    movePreset,
     updatePreset,
     tempPreset,
     enableTempPreset,
@@ -502,7 +502,7 @@ export default function PresetsPage() {
    */
   const onSortEnd = ({ oldIndex, newIndex }: { oldIndex: number; newIndex: number }) => {
     if (oldIndex !== newIndex) {
-      swapPreset(newIndex, oldIndex);
+      movePreset(oldIndex, newIndex);
     }
   };
   /**
