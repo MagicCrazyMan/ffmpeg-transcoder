@@ -2,29 +2,29 @@ import { cloneDeep } from "lodash";
 import { Preset } from "../../store/preset";
 import { ParamsSource, TaskInputParams, TaskOutputParams } from "../../store/task";
 
-export type EditableTaskInputParams = {
-  id: string;
-  path: string;
-  selection: ParamsSource.Auto | ParamsSource.Custom | string;
-  custom?: string;
-};
-
-export type EditableTaskOutputParams = {
+export type EditableTaskParams = {
   id: string;
   path?: string;
+  /**
+   * Params source selection.
+   * If it is a string value, it points to a preset id.
+   */
   selection: ParamsSource.Auto | ParamsSource.Custom | string;
+  /**
+   * Custom params input field. If `selection` is not {@link ParamsSource.Custom}, `undefined`.
+   */
   custom?: string;
 };
 
 /**
- * Converts {@link EditableTaskInputParams} or {@link EditableTaskOutputParams}
- * to {@link TaskInputParams} or {@link TaskOutputParams}
- * @param params {@link EditableTaskInputParams} or {@link EditableTaskOutputParams}
+ * Converts {@link EditableTaskParams} to {@link TaskInputParams} or {@link TaskOutputParams}
+ * 
+ * @param params {@link EditableTaskParams}
  * @param presets Presets
  * @returns a {@link TaskInputParams} or {@link TaskOutputParams}
  */
 export const toTaskParams = (
-  { selection, path, custom }: EditableTaskInputParams | EditableTaskOutputParams,
+  { selection, path, custom }: EditableTaskParams,
   presets: Preset[]
 ) => {
   let source: ParamsSource, params: string[] | Preset | undefined;

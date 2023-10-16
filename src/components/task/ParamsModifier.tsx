@@ -3,7 +3,7 @@ import { IconCopy, IconFilter } from "@arco-design/web-react/icon";
 import { ReactNode } from "react";
 import { Preset, PresetType, usePresetStore } from "../../store/preset";
 import { ParamsSource } from "../../store/task";
-import { EditableTaskInputParams, EditableTaskOutputParams } from "./";
+import { EditableTaskParams } from "./";
 
 const DecodePresetOptions: ReactNode[] = [];
 const EncodePresetOptions: ReactNode[] = [];
@@ -32,6 +32,15 @@ usePresetStore.subscribe((state, prevState) => {
   updatePresetOptions(state.presets);
 });
 
+export type ParamsModifierProps<P extends EditableTaskParams> = {
+  record: P;
+  onChange: (id: string, values: Partial<P>) => void;
+  presetType: PresetType.Decode | PresetType.Encode;
+  onApplyAll?: (record: P) => void;
+  onConvertCustom?: (record: P) => void;
+  className?: string;
+};
+
 export default function ParamsModifier({
   record,
   onChange,
@@ -39,17 +48,7 @@ export default function ParamsModifier({
   onConvertCustom,
   presetType,
   className,
-}: {
-  record: EditableTaskInputParams | EditableTaskOutputParams;
-  onChange: (
-    id: string,
-    values: Partial<EditableTaskInputParams | EditableTaskOutputParams>
-  ) => void;
-  presetType: PresetType.Decode | PresetType.Encode;
-  onApplyAll?: (record: EditableTaskInputParams | EditableTaskOutputParams) => void;
-  onConvertCustom?: (record: EditableTaskInputParams | EditableTaskOutputParams) => void;
-  className?: string;
-}) {
+}: ParamsModifierProps<EditableTaskParams>) {
   return (
     <div className={`flex flex-col gap-0.5 ${className ?? ""}`}>
       <div className="flex gap-2">

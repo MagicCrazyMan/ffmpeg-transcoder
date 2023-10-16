@@ -22,7 +22,7 @@ import {
   TaskParams,
   useTaskStore,
 } from "../../store/task";
-import { EditableTaskInputParams, EditableTaskOutputParams } from "./";
+import { EditableTaskParams } from "./";
 import ParamsModifier from "./ParamsModifier";
 
 export type SimpleTasksAddingProps = {
@@ -32,8 +32,8 @@ export type SimpleTasksAddingProps = {
 
 type SimpleTaskParams = {
   id: string;
-  input: EditableTaskInputParams;
-  output: EditableTaskOutputParams;
+  input: EditableTaskParams;
+  output: EditableTaskParams;
 };
 
 const Operations = ({
@@ -115,11 +115,7 @@ export default function SimpleTasksAdding({ visible, onVisibleChange }: SimpleTa
    * On change input or output params
    */
   const onChange = useCallback(
-    (
-      id: string,
-      values: Partial<EditableTaskInputParams | EditableTaskOutputParams>,
-      type: "input" | "output"
-    ) => {
+    (id: string, values: Partial<EditableTaskParams>, type: "input" | "output") => {
       setTasks((state) =>
         state.map((task) => {
           if (task[type].id !== id) {
@@ -139,13 +135,13 @@ export default function SimpleTasksAdding({ visible, onVisibleChange }: SimpleTa
     [setTasks]
   );
   const onChangeInputs = useCallback(
-    (id: string, values: Partial<EditableTaskInputParams | EditableTaskOutputParams>) => {
+    (id: string, values: Partial<EditableTaskParams>) => {
       onChange(id, values, "input");
     },
     [onChange]
   );
   const onChangeOutputs = useCallback(
-    (id: string, values: Partial<EditableTaskInputParams | EditableTaskOutputParams>) => {
+    (id: string, values: Partial<EditableTaskParams>) => {
       onChange(id, values, "output");
     },
     [onChange]
@@ -155,10 +151,7 @@ export default function SimpleTasksAdding({ visible, onVisibleChange }: SimpleTa
    * On apply one input or output params to all
    */
   const onApplyAll = useCallback(
-    (
-      { id, selection, custom }: EditableTaskInputParams | EditableTaskOutputParams,
-      type: "input" | "output"
-    ) => {
+    ({ id, selection, custom }: EditableTaskParams, type: "input" | "output") => {
       setTasks((state) =>
         state.map((task) => {
           if (task[type].id === id) {
@@ -172,13 +165,13 @@ export default function SimpleTasksAdding({ visible, onVisibleChange }: SimpleTa
     [setTasks]
   );
   const onApplyAllInputs = useCallback(
-    (params: EditableTaskInputParams | EditableTaskOutputParams) => {
+    (params: EditableTaskParams) => {
       onApplyAll(params, "input");
     },
     [onApplyAll]
   );
   const onApplyAllOutputs = useCallback(
-    (params: EditableTaskInputParams | EditableTaskOutputParams) => {
+    (params: EditableTaskParams) => {
       onApplyAll(params, "output");
     },
     [onApplyAll]
@@ -188,10 +181,7 @@ export default function SimpleTasksAdding({ visible, onVisibleChange }: SimpleTa
    * On apply one input or output params as custom
    */
   const onConvertCustom = useCallback(
-    (
-      { id, selection }: EditableTaskInputParams | EditableTaskOutputParams,
-      type: "input" | "output"
-    ) => {
+    ({ id, selection }: EditableTaskParams, type: "input" | "output") => {
       setTasks((state) =>
         state.map((task) => {
           if (task[type].id !== id) {
@@ -212,13 +202,13 @@ export default function SimpleTasksAdding({ visible, onVisibleChange }: SimpleTa
     [presets, setTasks]
   );
   const onConvertCustomInputs = useCallback(
-    (params: EditableTaskInputParams | EditableTaskOutputParams) => {
+    (params: EditableTaskParams) => {
       onConvertCustom(params, "input");
     },
     [onConvertCustom]
   );
   const onConvertCustomOutputs = useCallback(
-    (params: EditableTaskInputParams | EditableTaskOutputParams) => {
+    (params: EditableTaskParams) => {
       onConvertCustom(params, "output");
     },
     [onConvertCustom]

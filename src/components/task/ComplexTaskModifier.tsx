@@ -21,7 +21,7 @@ import {
   TaskOutputParams,
   useTaskStore,
 } from "../../store/task";
-import { EditableTaskInputParams, EditableTaskOutputParams } from "./";
+import { EditableTaskParams } from "./";
 import ParamsModifier from "./ParamsModifier";
 
 export type ComplexTaskModifierProps = {
@@ -36,10 +36,10 @@ const Operations = ({
   onApplyAll,
   onConvertCustom,
 }: {
-  record: EditableTaskInputParams | EditableTaskOutputParams;
+  record: EditableTaskParams;
   onRemove: (id: string) => void;
-  onApplyAll: (record: EditableTaskInputParams | EditableTaskOutputParams) => void;
-  onConvertCustom: (record: EditableTaskInputParams | EditableTaskOutputParams) => void;
+  onApplyAll: (record: EditableTaskParams) => void;
+  onConvertCustom: (record: EditableTaskParams) => void;
 }) => {
   return (
     <Space>
@@ -93,15 +93,13 @@ const UniverseTable = ({
   filesTitle: string;
   paramsTitle: string;
   presetType: PresetType.Decode | PresetType.Encode;
-  records: (EditableTaskInputParams | EditableTaskOutputParams)[];
-  setRecords: Dispatch<
-    SetStateAction<Extract<EditableTaskInputParams, EditableTaskOutputParams>[]>
-  >;
+  records: EditableTaskParams[];
+  setRecords: Dispatch<SetStateAction<EditableTaskParams[]>>;
 }) => {
   const presets = usePresetStore((state) => state.presets);
 
   const onChange = useCallback(
-    (id: string, values: Partial<EditableTaskInputParams | EditableTaskOutputParams>) => {
+    (id: string, values: Partial<EditableTaskParams>) => {
       setRecords((state) =>
         state.map((record) => {
           if (record.id === id) {
@@ -119,7 +117,7 @@ const UniverseTable = ({
   );
 
   const onApplyAll = useCallback(
-    ({ id, selection, custom }: EditableTaskInputParams | EditableTaskOutputParams) => {
+    ({ id, selection, custom }: EditableTaskParams) => {
       setRecords((state) =>
         state.map((record) => {
           if (record.id === id) {
@@ -134,7 +132,7 @@ const UniverseTable = ({
   );
 
   const onConvertCustom = useCallback(
-    ({ id, selection }: EditableTaskInputParams | EditableTaskOutputParams) => {
+    ({ id, selection }: EditableTaskParams) => {
       setRecords((state) =>
         state.map((record) => {
           if (record.id === id) {
@@ -159,7 +157,7 @@ const UniverseTable = ({
     [setRecords]
   );
 
-  const columns: TableColumnProps<EditableTaskInputParams | EditableTaskOutputParams>[] = useMemo(
+  const columns: TableColumnProps<EditableTaskParams>[] = useMemo(
     () => [
       {
         title: filesTitle,
@@ -205,8 +203,8 @@ const InputTable = ({
   inputs,
   setInputs,
 }: {
-  inputs: EditableTaskInputParams[];
-  setInputs: Dispatch<SetStateAction<EditableTaskInputParams[]>>;
+  inputs: EditableTaskParams[];
+  setInputs: Dispatch<SetStateAction<EditableTaskParams[]>>;
 }) => {
   return (
     <UniverseTable
@@ -223,8 +221,8 @@ const OutputTable = ({
   outputs,
   setOutputs,
 }: {
-  outputs: EditableTaskOutputParams[];
-  setOutputs: Dispatch<SetStateAction<EditableTaskOutputParams[]>>;
+  outputs: EditableTaskParams[];
+  setOutputs: Dispatch<SetStateAction<EditableTaskParams[]>>;
 }) => {
   return (
     <UniverseTable
@@ -246,8 +244,8 @@ const Footer = ({
 }: {
   task?: Task;
   modified: boolean;
-  inputs: EditableTaskInputParams[];
-  outputs: EditableTaskOutputParams[];
+  inputs: EditableTaskParams[];
+  outputs: EditableTaskParams[];
   onVisibleChange: (visible: boolean) => void;
 }) => {
   const { addTasks, updateTask } = useTaskStore((state) => state);
@@ -294,15 +292,15 @@ const Footer = ({
 
 /**
  * Converts {@link TaskInputParams} or {@link TaskOutputParams}
- * to {@link EditableTaskInputParams} or {@link EditableTaskOutputParams}
+ * to {@link EditableTaskParams} or {@link EditableTaskParams}
  * @param params {@link TaskInputParams} or {@link TaskOutputParams}
  * @param presets Presets
- * @returns a {@link EditableTaskInputParams} or {@link EditableTaskOutputParams}
+ * @returns a {@link EditableTaskParams} or {@link EditableTaskParams}
  */
 const fromTaskParams = (
   { path, source, params }: TaskInputParams | TaskOutputParams,
   presets: Preset[]
-): EditableTaskInputParams | EditableTaskOutputParams => {
+): EditableTaskParams => {
   switch (source) {
     case ParamsSource.Auto:
       return {
@@ -345,19 +343,19 @@ export default function ComplexTaskModifier({
   const { configuration, openDialogFilters, saveDialogFilters } = useAppStore((state) => state);
   const { presets, defaultDecode, defaultEncode } = usePresetStore((state) => state);
 
-  const [inputs, setInputs] = useState<EditableTaskInputParams[]>([]);
-  const [outputs, setOutputs] = useState<EditableTaskOutputParams[]>([]);
+  const [inputs, setInputs] = useState<EditableTaskParams[]>([]);
+  const [outputs, setOutputs] = useState<EditableTaskParams[]>([]);
   const [modified, setModified] = useState(false);
 
   const wrappedSetInputs = useCallback(
-    (s: SetStateAction<EditableTaskInputParams[]>) => {
+    (s: SetStateAction<EditableTaskParams[]>) => {
       setInputs(s);
       setModified(true);
     },
     [setInputs, setModified]
   );
   const wrappedSetOutputs = useCallback(
-    (s: SetStateAction<EditableTaskOutputParams[]>) => {
+    (s: SetStateAction<EditableTaskParams[]>) => {
       setOutputs(s);
       setModified(true);
     },
@@ -370,11 +368,11 @@ export default function ComplexTaskModifier({
   useEffect(() => {
     if (task) {
       setInputs(
-        task.params.inputs.map((input) => fromTaskParams(input, presets) as EditableTaskInputParams)
+        task.params.inputs.map((input) => fromTaskParams(input, presets) as EditableTaskParams)
       );
       setOutputs(
         task.params.outputs.map(
-          (output) => fromTaskParams(output, presets) as EditableTaskOutputParams
+          (output) => fromTaskParams(output, presets) as EditableTaskParams
         )
       );
       setModified(false);
@@ -406,7 +404,7 @@ export default function ComplexTaskModifier({
     })) as string[] | null;
 
     if (files) {
-      const inputs: EditableTaskInputParams[] = files.map((file) => ({
+      const inputs: EditableTaskParams[] = files.map((file) => ({
         id: v4(),
         path: file,
         selection: defaultDecode ?? ParamsSource.Auto,
@@ -426,7 +424,7 @@ export default function ComplexTaskModifier({
     });
 
     if (file) {
-      const output: EditableTaskInputParams = {
+      const output: EditableTaskParams = {
         id: v4(),
         path: file,
         selection: defaultEncode ?? ParamsSource.Auto,
@@ -439,7 +437,7 @@ export default function ComplexTaskModifier({
    * Add NULL output
    */
   const addNullOutput = () => {
-    const output: EditableTaskOutputParams = {
+    const output: EditableTaskParams = {
       id: v4(),
       selection: defaultEncode ?? ParamsSource.Auto,
     };
