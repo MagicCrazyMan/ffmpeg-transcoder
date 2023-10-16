@@ -2,6 +2,7 @@ import {
   Button,
   Form,
   FormInstance,
+  Icon,
   Input,
   Popconfirm,
   RulesProps,
@@ -13,7 +14,14 @@ import {
   Tooltip,
 } from "@arco-design/web-react";
 import { ColumnProps } from "@arco-design/web-react/es/Table";
-import { IconCopy, IconDelete, IconDragDotVertical, IconPlus } from "@arco-design/web-react/icon";
+import {
+  IconCheckCircleFill,
+  IconCopy,
+  IconDelete,
+  IconDragDotVertical,
+  IconHeart,
+  IconPlus,
+} from "@arco-design/web-react/icon";
 import {
   ReactNode,
   createContext,
@@ -297,19 +305,103 @@ const SortableWrapper = SortableContainer((props: { children: ReactNode[] }) => 
  */
 const SortableEditableItem = SortableElement((props: RowProps) => <EditableRow {...props} />);
 
+const Operations = ({ preset }: { preset: Preset }) => {
+  const {
+    defaultDecode,
+    defaultEncode,
+    setDefaultDecode,
+    setDefaultEncode,
+    duplicatePreset,
+    removePreset,
+    disableTempPreset,
+  } = usePresetStore((state) => state);
+
+  if (preset.isTemp) {
+    // temporary preset requires no double confirming
+    return (
+      <Tooltip position="left" content="Delete Preset">
+        <Button
+          shape="circle"
+          type="primary"
+          status="danger"
+          icon={<IconDelete />}
+          onClick={disableTempPreset}
+        ></Button>
+      </Tooltip>
+    );
+  } else {
+    return (
+      <Space>
+        {/* Duplicate Button */}
+        <Tooltip position="left" content="Copy Preset">
+          <Button
+            shape="circle"
+            type="primary"
+            icon={<IconCopy />}
+            onClick={() => duplicatePreset(preset.id)}
+          ></Button>
+        </Tooltip>
+
+        {/* Set as Default Decode Button */}
+        {(!defaultDecode || preset.id !== defaultDecode) &&
+        (preset.type === PresetType.Decode || preset.type === PresetType.Universal) ? (
+          <Tooltip position="left" content="Set as Default Decode Preset">
+            <Button
+              shape="circle"
+              type="primary"
+              status="success"
+              icon={<IconHeart />}
+              onClick={() => setDefaultDecode(preset.id)}
+            ></Button>
+          </Tooltip>
+        ) : (
+          <Icon fontSize={24}></Icon>
+        )}
+
+        {/* Set as Default Encode Button */}
+        {(!defaultEncode || preset.id !== defaultEncode) &&
+        (preset.type === PresetType.Encode || preset.type === PresetType.Universal) ? (
+          <Tooltip position="left" content="Set as Default Encode Preset">
+            <Button
+              shape="circle"
+              type="primary"
+              status="warning"
+              icon={<IconHeart />}
+              onClick={() => setDefaultEncode(preset.id)}
+            ></Button>
+          </Tooltip>
+        ) : (
+          <Icon fontSize={24}></Icon>
+        )}
+
+        {/* Delete Button */}
+        <Popconfirm
+          focusLock
+          title="Confirm"
+          content="Click again to delete this preset"
+          onOk={() => removePreset(preset.id)}
+        >
+          <Tooltip position="left" content="Delete Preset">
+            <Button shape="circle" type="primary" status="danger" icon={<IconDelete />}></Button>
+          </Tooltip>
+        </Popconfirm>
+      </Space>
+    );
+  }
+};
+
 /**
  * A page managing user-defined decode and encode params presets.
  */
 export default function PresetsPage() {
   const {
     presets,
-    duplicatePreset,
+    defaultDecode,
+    defaultEncode,
     swapPreset,
     updatePreset,
-    removePreset,
     tempPreset,
     enableTempPreset,
-    disableTempPreset,
     updateTempPreset,
     persistTempPreset,
   } = usePresetStore((state) => state);
@@ -328,7 +420,7 @@ export default function PresetsPage() {
   /**
    * Save preset when cell value change
    */
-  const onCell = () => {
+  const onCell = useCallback(() => {
     return {
       onHandleSave: (preset: Preset) => {
         if (preset.isTemp) {
@@ -339,89 +431,67 @@ export default function PresetsPage() {
         }
       },
     };
-  };
+  }, [persistTempPreset, updatePreset, updateTempPreset]);
 
-  const tableCols: TableColumnProps<Preset>[] = [
-    {
-      title: "Name",
-      dataIndex: "name",
-      width: "20%",
-      editable: true,
-      onCell,
-    },
-    {
-      title: "Type",
-      dataIndex: "type",
-      width: "200px",
-      editable: true,
-      onCell,
-    },
-    {
-      title: "Params",
-      dataIndex: "params",
-      editable: true,
-      onCell,
-    },
-    {
-      title: "Remark",
-      dataIndex: "remark",
-      width: "20%",
-      editable: true,
-      onCell,
-    },
-    {
-      title: "Operations",
-      width: "120px",
-      align: "center",
-      render: (_, preset) => {
-        if (preset.isTemp) {
-          // temporary preset requires no double confirming
-          return (
-            <Tooltip position="left" content="Delete Preset">
-              <Button
-                shape="circle"
-                type="primary"
-                status="danger"
-                icon={<IconDelete />}
-                onClick={disableTempPreset}
-              ></Button>
-            </Tooltip>
-          );
-        } else {
-          return (
-            <Space>
-              {/* Copy Button */}
-              <Tooltip position="left" content="Copy Preset">
-                <Button
-                  shape="circle"
-                  type="primary"
-                  icon={<IconCopy />}
-                  onClick={() => duplicatePreset(preset.id)}
-                ></Button>
-              </Tooltip>
-
-              {/* Delete Button */}
-              <Popconfirm
-                focusLock
-                title="Confirm"
-                content="Click again to delete this preset"
-                onOk={() => removePreset(preset.id)}
-              >
-                <Tooltip position="left" content="Delete Preset">
-                  <Button
-                    shape="circle"
-                    type="primary"
-                    status="danger"
-                    icon={<IconDelete />}
-                  ></Button>
-                </Tooltip>
-              </Popconfirm>
-            </Space>
-          );
-        }
+  const tableCols: TableColumnProps<Preset>[] = useMemo(
+    () => [
+      {
+        title: "DD",
+        width: "24px",
+        align: "center",
+        render(_col, item) {
+          return defaultDecode && item.id === defaultDecode ? (
+            <IconCheckCircleFill fontSize={24} style={{ color: "rgb(var(--success-6))" }} />
+          ) : null;
+        },
       },
-    },
-  ];
+      {
+        title: "DE",
+        width: "24px",
+        align: "center",
+        render(_col, item) {
+          return defaultEncode && item.id === defaultEncode ? (
+            <IconCheckCircleFill fontSize={24} style={{ color: "rgb(var(--warning-6))" }} />
+          ) : null;
+        },
+      },
+      {
+        title: "Name",
+        dataIndex: "name",
+        width: "20%",
+        editable: true,
+        onCell,
+      },
+      {
+        title: "Type",
+        dataIndex: "type",
+        width: "200px",
+        editable: true,
+        onCell,
+      },
+      {
+        title: "Params",
+        dataIndex: "params",
+        editable: true,
+        onCell,
+      },
+      {
+        title: "Remark",
+        dataIndex: "remark",
+        width: "20%",
+        editable: true,
+        onCell,
+      },
+      {
+        title: "Operations",
+        width: "120px",
+        align: "center",
+        render: (_, preset) => <Operations preset={preset} />,
+      },
+    ],
+    [defaultDecode, defaultEncode, onCell]
+  );
+
   const tableData = useMemo(
     () => (tempPreset ? [...presets, tempPreset] : presets),
     [presets, tempPreset]

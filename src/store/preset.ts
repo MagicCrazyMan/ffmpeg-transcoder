@@ -7,6 +7,24 @@ export type PresetStoreState = {
    */
   presets: Preset[];
   /**
+   * Default preset id for decoding
+   */
+  defaultDecode?: string;
+  /**
+   * Default preset id for encoding
+   */
+  defaultEncode?: string;
+  /**
+   * Sets default preset id for decoding
+   * @param id Preset id
+   */
+  setDefaultDecode: (id?: string) => void;
+  /**
+   * Sets default preset id for encoding
+   * @param id Preset id
+   */
+  setDefaultEncode: (id?: string) => void;
+  /**
    * Temporary preset for add new preset
    */
   tempPreset?: Preset;
@@ -77,25 +95,30 @@ export type Preset = {
   isTemp?: true;
 };
 
+type PresetStorage = {
+  defaultDecode?: string;
+  defaultEncode?: string;
+  presets: Preset[];
+};
 const PRESETS_LOCALSTORAGE_KEY = "presets";
 
 /**
  * Stores presets to local storage
- * @param presets Presets
+ * @param storage Storage data
  */
-const storePresets = (presets: Preset[]) => {
-  localStorage.setItem(PRESETS_LOCALSTORAGE_KEY, JSON.stringify(presets));
+const storePresets = (storage: PresetStorage) => {
+  localStorage.setItem(PRESETS_LOCALSTORAGE_KEY, JSON.stringify(storage));
 };
 
 /**
  * Loads presets from local storage
  */
-const loadPresets = (): Preset[] => {
+const loadPresets = (): PresetStorage => {
   const raw = localStorage.getItem(PRESETS_LOCALSTORAGE_KEY);
   if (raw) {
-    const presets = JSON.parse(raw) as Preset[];
+    const storage = JSON.parse(raw) as PresetStorage;
     let changed = false;
-    presets.forEach((preset) => {
+    storage.presets.forEach((preset) => {
       if (!preset.id) {
         preset.id = v4();
         changed = true;
@@ -103,17 +126,19 @@ const loadPresets = (): Preset[] => {
     });
 
     if (changed) {
-      storePresets(presets);
+      storePresets(storage);
     }
 
-    return presets;
+    return storage;
   } else {
-    return [];
+    return {
+      presets: [],
+    };
   }
 };
 
 export const usePresetStore = create<PresetStoreState>((set, get, api) => {
-  const presets: Preset[] = loadPresets();
+  const { presets, defaultDecode, defaultEncode } = loadPresets();
 
   /**
    * Subscribes state change event,
@@ -121,20 +146,20 @@ export const usePresetStore = create<PresetStoreState>((set, get, api) => {
    */
   api.subscribe((state, prevState) => {
     if (state.presets !== prevState.presets) {
-      storePresets(state.presets);
+      storePresets({
+        presets: state.presets,
+        defaultDecode: state.defaultDecode,
+        defaultEncode: state.defaultEncode,
+      });
     }
   });
 
-  // const addPreset = (type: PresetType, name: string, params: string[], remark?: string) => {
-  //   const newPreset: Preset = {
-  //     id: v4(),
-  //     type,
-  //     name,
-  //     params,
-  //     remark,
-  //   };
-  //   set({ presets: [...get().presets, newPreset] });
-  // };
+  const setDefaultDecode = (id?: string) => {
+    set({ defaultDecode: id });
+  };
+  const setDefaultEncode = (id?: string) => {
+    set({ defaultEncode: id });
+  };
 
   const duplicatePreset = (id: string) => {
     set((state) => {
@@ -225,7 +250,10 @@ export const usePresetStore = create<PresetStoreState>((set, get, api) => {
 
   return {
     presets,
-    // addPreset,
+    defaultDecode,
+    defaultEncode,
+    setDefaultDecode,
+    setDefaultEncode,
     duplicatePreset,
     swapPreset,
     updatePreset,
