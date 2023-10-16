@@ -250,17 +250,21 @@ export const usePresetStore = create<PresetStoreState>((set, get, api) => {
 
   const persistTempPreset = () => {
     const tempPreset = get().tempPreset;
-    if (!tempPreset || !tempPreset.name || tempPreset.params.length === 0) return;
 
-    const presets = get().presets;
-    presets.push({
-      id: tempPreset.id,
-      name: tempPreset.name,
-      type: tempPreset.type,
-      params: tempPreset.params,
-      remark: tempPreset.remark,
-    });
-    set({ presets: [...presets], tempPreset: undefined });
+    if (!tempPreset || !tempPreset.name) return;
+    set((state) => ({
+      presets: [
+        ...state.presets,
+        {
+          id: tempPreset.id,
+          name: tempPreset.name,
+          type: tempPreset.type,
+          params: tempPreset.params,
+          remark: tempPreset.remark,
+        },
+      ],
+      tempPreset: undefined,
+    }));
   };
 
   return {

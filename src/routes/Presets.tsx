@@ -21,7 +21,7 @@ import {
   IconDragDotVertical,
   IconPlus,
   IconThumbDown,
-  IconThumbUp
+  IconThumbUp,
 } from "@arco-design/web-react/icon";
 import {
   ReactNode,
@@ -192,7 +192,6 @@ const editableCells: Record<
           style={{ marginBottom: 0 }}
           labelCol={{ span: 0 }}
           wrapperCol={{ span: 24 }}
-          rules={[{ required: true, message: "params is required" }]}
         >
           <Input.TextArea allowClear autoFocus={!rowData.isTemp} onPressEnter={submit} />
         </Form.Item>
