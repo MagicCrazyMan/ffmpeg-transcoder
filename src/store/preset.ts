@@ -146,11 +146,11 @@ export const usePresetStore = create<PresetStoreState>((set, get, api) => {
    */
   api.subscribe((state, prevState) => {
     if (state.presets !== prevState.presets) {
-      // storePresets({
-      //   presets: state.presets,
-      //   defaultDecode: state.defaultDecode,
-      //   defaultEncode: state.defaultEncode,
-      // });
+      storePresets({
+        presets: state.presets,
+        defaultDecode: state.defaultDecode,
+        defaultEncode: state.defaultEncode,
+      });
     }
   });
 
@@ -214,6 +214,8 @@ export const usePresetStore = create<PresetStoreState>((set, get, api) => {
   const removePreset = (id: string) => {
     set((state) => ({
       presets: state.presets.filter((p) => p.id !== id),
+      defaultDecode: state.defaultDecode === id ? undefined : state.defaultDecode,
+      defaultEncode: state.defaultEncode === id ? undefined : state.defaultEncode,
     }));
   };
 

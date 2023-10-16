@@ -20,7 +20,8 @@ import {
   IconDelete,
   IconDragDotVertical,
   IconPlus,
-  IconStar,
+  IconThumbDown,
+  IconThumbUp
 } from "@arco-design/web-react/icon";
 import {
   ReactNode,
@@ -332,6 +333,50 @@ const Operations = ({ preset }: { preset: Preset }) => {
   } else {
     return (
       <Space>
+        {/* Set as Default Decode Button */}
+        {preset.type === PresetType.Decode || preset.type === PresetType.Universal ? (
+          <Tooltip
+            position="left"
+            content={
+              preset.id !== defaultDecode
+                ? "Set as Default Decode Preset"
+                : "Remove from Default Decode Preset"
+            }
+          >
+            <Button
+              shape="circle"
+              type="secondary"
+              status={preset.id !== defaultDecode ? "success" : "danger"}
+              icon={preset.id !== defaultDecode ? <IconThumbUp /> : <IconThumbDown />}
+              onClick={() => setDefaultDecode(preset.id !== defaultDecode ? preset.id : undefined)}
+            ></Button>
+          </Tooltip>
+        ) : (
+          <Icon fontSize={24}></Icon>
+        )}
+
+        {/* Set as Default Decode Button */}
+        {preset.type === PresetType.Encode || preset.type === PresetType.Universal ? (
+          <Tooltip
+            position="left"
+            content={
+              preset.id !== defaultEncode
+                ? "Set as Default Encode Preset"
+                : "Remove from Default Encode Preset"
+            }
+          >
+            <Button
+              shape="circle"
+              type="secondary"
+              status={preset.id !== defaultEncode ? "warning" : "danger"}
+              icon={preset.id !== defaultEncode ? <IconThumbUp /> : <IconThumbDown />}
+              onClick={() => setDefaultEncode(preset.id !== defaultEncode ? preset.id : undefined)}
+            ></Button>
+          </Tooltip>
+        ) : (
+          <Icon fontSize={24}></Icon>
+        )}
+
         {/* Duplicate Button */}
         <Tooltip position="left" content="Copy Preset">
           <Button
@@ -341,38 +386,6 @@ const Operations = ({ preset }: { preset: Preset }) => {
             onClick={() => duplicatePreset(preset.id)}
           ></Button>
         </Tooltip>
-
-        {/* Set as Default Decode Button */}
-        {(!defaultDecode || preset.id !== defaultDecode) &&
-        (preset.type === PresetType.Decode || preset.type === PresetType.Universal) ? (
-          <Tooltip position="left" content="Set as Default Decode Preset">
-            <Button
-              shape="circle"
-              type="primary"
-              status="success"
-              icon={<IconStar />}
-              onClick={() => setDefaultDecode(preset.id)}
-            ></Button>
-          </Tooltip>
-        ) : (
-          <Icon fontSize={24}></Icon>
-        )}
-
-        {/* Set as Default Encode Button */}
-        {(!defaultEncode || preset.id !== defaultEncode) &&
-        (preset.type === PresetType.Encode || preset.type === PresetType.Universal) ? (
-          <Tooltip position="left" content="Set as Default Encode Preset">
-            <Button
-              shape="circle"
-              type="primary"
-              status="warning"
-              icon={<IconStar />}
-              onClick={() => setDefaultEncode(preset.id)}
-            ></Button>
-          </Tooltip>
-        ) : (
-          <Icon fontSize={24}></Icon>
-        )}
 
         {/* Delete Button */}
         <Popconfirm
@@ -442,7 +455,9 @@ export default function PresetsPage() {
         render(_col, item) {
           return defaultDecode && item.id === defaultDecode ? (
             <IconCheckCircleFill fontSize={24} style={{ color: "rgb(var(--success-6))" }} />
-          ) : null;
+          ) : (
+            <Icon fontSize={24} />
+          );
         },
       },
       {
@@ -452,7 +467,9 @@ export default function PresetsPage() {
         render(_col, item) {
           return defaultEncode && item.id === defaultEncode ? (
             <IconCheckCircleFill fontSize={24} style={{ color: "rgb(var(--warning-6))" }} />
-          ) : null;
+          ) : (
+            <Icon fontSize={24} />
+          );
         },
       },
       {
