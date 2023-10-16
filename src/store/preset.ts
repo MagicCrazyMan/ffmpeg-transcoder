@@ -104,17 +104,17 @@ type PresetStorage = {
 const PRESETS_LOCALSTORAGE_KEY = "presets";
 
 /**
- * Stores presets to local storage
+ * Stores presets into local storage
  * @param storage Storage data
  */
-const storePresets = (storage: PresetStorage) => {
+const storePresetStorage = (storage: PresetStorage) => {
   localStorage.setItem(PRESETS_LOCALSTORAGE_KEY, JSON.stringify(storage));
 };
 
 /**
  * Loads presets from local storage
  */
-const loadPresets = (): PresetStorage => {
+const loadPresetStorage = (): PresetStorage => {
   const raw = localStorage.getItem(PRESETS_LOCALSTORAGE_KEY);
   if (raw) {
     const storage = JSON.parse(raw) as PresetStorage;
@@ -127,7 +127,7 @@ const loadPresets = (): PresetStorage => {
     });
 
     if (changed) {
-      storePresets(storage);
+      storePresetStorage(storage);
     }
 
     return storage;
@@ -139,7 +139,7 @@ const loadPresets = (): PresetStorage => {
 };
 
 export const usePresetStore = create<PresetStoreState>((set, get, api) => {
-  const { presets, defaultDecode, defaultEncode } = loadPresets();
+  const { presets, defaultDecode, defaultEncode } = loadPresetStorage();
 
   /**
    * Subscribes state change event,
@@ -151,7 +151,7 @@ export const usePresetStore = create<PresetStoreState>((set, get, api) => {
       state.defaultDecode !== prevState.defaultDecode ||
       state.defaultEncode !== prevState.defaultEncode
     ) {
-      storePresets({
+      storePresetStorage({
         presets: state.presets,
         defaultDecode: state.defaultDecode,
         defaultEncode: state.defaultEncode,

@@ -273,19 +273,20 @@ type LocalConfigurationStorage = Partial<Configuration>;
 const LOCAL_CONFIGURATION_LOCALSTORAGE_KEY = "configuration";
 
 /**
- * Loads configuration from local storage
+ * Stores local configuration into local storage
  */
-const loadLocalConfiguration = () => {
+const storeLocalConfigurationStorage = (configuration: LocalConfigurationStorage) => {
+  localStorage.setItem(LOCAL_CONFIGURATION_LOCALSTORAGE_KEY, JSON.stringify(configuration));
+};
+
+/**
+ * Loads local configuration from local storage
+ */
+const loadLocalConfigurationStorage = () => {
   const raw = localStorage.getItem(LOCAL_CONFIGURATION_LOCALSTORAGE_KEY);
   return {
     ...(raw ? JSON.parse(raw) : undefined),
   } as LocalConfigurationStorage;
-};
-/**
- * Stores configuration from local storage
- */
-const storeLocalConfiguration = (configuration: LocalConfigurationStorage) => {
-  localStorage.setItem(LOCAL_CONFIGURATION_LOCALSTORAGE_KEY, JSON.stringify(configuration));
 };
 
 /**
@@ -365,13 +366,13 @@ export type AppState = {
  * App store
  */
 export const useAppStore = create<AppState>((set, _get, api) => {
-  const localConfiguration = loadLocalConfiguration();
+  const localConfiguration = loadLocalConfigurationStorage();
   const configuration = { ...cloneDeep(DEFAULT_CONFIGURATION), ...localConfiguration };
   const setLocalConfiguration = (localConfiguration: LocalConfigurationStorage) => {
     // updates and stores local configuration
     set((state) => {
       const lc = { ...state.localConfiguration, ...localConfiguration };
-      storeLocalConfiguration(lc);
+      storeLocalConfigurationStorage(lc);
       return { localConfiguration: lc };
     });
     // updates configuration

@@ -10,6 +10,7 @@ import {
 } from "@arco-design/web-react";
 import { IconDelete, IconFolder } from "@arco-design/web-react/icon";
 import { open, save } from "@tauri-apps/api/dialog";
+import { join, sep } from "@tauri-apps/api/path";
 import { useCallback, useMemo, useState } from "react";
 import { v4 } from "uuid";
 import { toTaskParams } from ".";
@@ -34,28 +35,6 @@ type SimpleTaskParams = {
   id: string;
   input: EditableTaskParams;
   output: EditableTaskParams;
-};
-
-const Operations = ({
-  task,
-  onRemove,
-}: {
-  task: SimpleTaskParams;
-  onRemove: (id: string) => void;
-}) => {
-  return (
-    <Space>
-      {/* Delete Button */}
-      <Button
-        size="mini"
-        shape="circle"
-        type="primary"
-        status="danger"
-        icon={<IconDelete />}
-        onClick={() => onRemove(task.id)}
-      ></Button>
-    </Space>
-  );
 };
 
 const Footer = ({
@@ -110,6 +89,76 @@ export default function SimpleTasksAdding({ visible, onVisibleChange }: SimpleTa
   const { presets, defaultDecode, defaultEncode } = usePresetStore((state) => state);
 
   const [tasks, setTasks] = useState<SimpleTaskParams[]>([]);
+
+  /**
+   * Add input files vis Tauri
+   */
+  const addInputFiles = async () => {
+    const files = (await open({
+      title: "Add Input Files",
+      filters: openDialogFilters,
+      directory: false,
+      multiple: true,
+    })) as string[] | null;
+
+    if (files) {
+      const promises = files.map(async (file) => {
+        let defaultOutputPath: string | undefined;
+        if (configuration.saveDirectory) {
+          const filename = file.split(sep).pop();
+          if (filename) defaultOutputPath = await join(configuration.saveDirectory, filename);
+        }
+
+        return {
+          id: v4(),
+          input: {
+            id: v4(),
+            path: file,
+            selection: defaultDecode ?? ParamsSource.Auto,
+          },
+          output: {
+            id: v4(),
+            path: defaultOutputPath,
+            selection: defaultEncode ?? ParamsSource.Auto,
+          },
+        } as SimpleTaskParams;
+      });
+      const records = await Promise.all(promises);
+      setTasks((state) => [...state, ...records]);
+    }
+  };
+
+  /**
+   * On select output files vis Tauri
+   */
+  const onSelectOutputFile = useCallback(
+    async (id: string) => {
+      const file = await save({
+        title: "Select Output File",
+        defaultPath: configuration.saveDirectory,
+        filters: saveDialogFilters,
+      });
+
+      if (file) {
+        setTasks((state) =>
+          state.map((task) => {
+            if (task.id === id) {
+              return {
+                ...task,
+                output: {
+                  ...task.output,
+                  path: file,
+                },
+              };
+            } else {
+              return task;
+            }
+          })
+        );
+      }
+    },
+    [configuration.saveDirectory, saveDialogFilters]
+  );
 
   /**
    * On change input or output params
@@ -224,43 +273,10 @@ export default function SimpleTasksAdding({ visible, onVisibleChange }: SimpleTa
     [setTasks]
   );
 
-  /**
-   * On select output files vis Tauri
-   */
-  const onSelectOutputFile = useCallback(
-    async (id: string) => {
-      const file = await save({
-        title: "Select Output File",
-        defaultPath: configuration.saveDirectory,
-        filters: saveDialogFilters,
-      });
-
-      if (file) {
-        setTasks((state) =>
-          state.map((task) => {
-            if (task.id === id) {
-              return {
-                ...task,
-                output: {
-                  ...task.output,
-                  path: file,
-                },
-              };
-            } else {
-              return task;
-            }
-          })
-        );
-      }
-    },
-    [configuration.saveDirectory, saveDialogFilters]
-  );
-
   const columns: TableColumnProps<SimpleTaskParams>[] = useMemo(
     () => [
       {
         title: "Input File",
-        ellipsis: true,
         render: (_col, task) => task.input.path ?? "NULL",
       },
       {
@@ -278,7 +294,6 @@ export default function SimpleTasksAdding({ visible, onVisibleChange }: SimpleTa
       },
       {
         title: "Output File",
-        ellipsis: true,
         render: (_col, task) => (
           <div className="flex gap-2 items-center">
             {/* Select Output File Button */}
@@ -294,7 +309,7 @@ export default function SimpleTasksAdding({ visible, onVisibleChange }: SimpleTa
             </Tooltip>
 
             {/* File Name */}
-            <Typography.Text ellipsis editable className="flex-1" style={{ margin: "0" }}>
+            <Typography.Text editable className="flex-1" style={{ margin: "0" }}>
               {task.output.path ?? "NULL"}
             </Typography.Text>
           </div>
@@ -317,7 +332,16 @@ export default function SimpleTasksAdding({ visible, onVisibleChange }: SimpleTa
         title: "Operations",
         width: "6rem",
         align: "center",
-        render: (_col, task) => <Operations task={task} onRemove={onRemove} />,
+        render: (_col, task) => (
+          <Button
+            size="mini"
+            shape="circle"
+            type="primary"
+            status="danger"
+            icon={<IconDelete />}
+            onClick={() => onRemove(task.id)}
+          ></Button>
+        ),
       },
     ],
     [
@@ -331,34 +355,6 @@ export default function SimpleTasksAdding({ visible, onVisibleChange }: SimpleTa
       onConvertCustomOutputs,
     ]
   );
-
-  /**
-   * Add input files vis Tauri
-   */
-  const addInputFiles = async () => {
-    const files = (await open({
-      title: "Add Input Files",
-      filters: openDialogFilters,
-      directory: false,
-      multiple: true,
-    })) as string[] | null;
-
-    if (files) {
-      const records: SimpleTaskParams[] = files.map((file) => ({
-        id: v4(),
-        input: {
-          id: v4(),
-          path: file,
-          selection: defaultDecode ?? ParamsSource.Auto,
-        },
-        output: {
-          id: v4(),
-          selection: defaultEncode ?? ParamsSource.Auto,
-        },
-      }));
-      setTasks((state) => [...state, ...records]);
-    }
-  };
 
   return (
     <Modal
