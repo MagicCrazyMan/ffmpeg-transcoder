@@ -35,7 +35,7 @@ export default function QueuePage() {
       render: (_, task) => <FilesList type="output" task={task} />,
     },
     {
-      title: "Progress",
+      title: "Details",
       width: "20%",
       ellipsis: true,
       bodyCellStyle: {
@@ -75,19 +75,6 @@ export default function QueuePage() {
         rowKey="id"
         columns={tableCols}
         data={tasks}
-        expandedRowRender={(record) => <></>}
-        expandProps={{
-          icon: ({ expanded, ...restProps }) =>
-            expanded ? (
-              <button {...restProps}>
-                <IconDown />
-              </button>
-            ) : (
-              <button {...restProps}>
-                <IconRight />
-              </button>
-            ),
-        }}
       ></Table>
 
       {/* Complex Task Editor Dialog */}

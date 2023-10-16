@@ -18,6 +18,7 @@ import {
 import { Metadata } from "../tauri/task";
 import { Preset } from "./preset";
 import { useAppStore } from "./app";
+import dayjs, { Dayjs } from "dayjs";
 
 export type TaskStoreState = {
   /**
@@ -68,6 +69,7 @@ export type Task = {
   id: string;
   params: TaskParams;
   state: TaskState;
+  workTimeDurations: [Dayjs, Dayjs | undefined][];
   metadata?: boolean | Metadata[];
 };
 
@@ -178,6 +180,7 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
       state: {
         type: "Idle",
       },
+      workTimeDurations: [],
     },
     {
       id: v4(),
@@ -187,7 +190,7 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
             id: v4(),
             path: "E:\\Music\\Hatsune Miku\\[180110][LIVE]MAGICAL MIRAI 2017\\[Vmoe]Hatsune Miku「Magical Mirai 2017」[BDrip][1920x1080p][HEVC_YUV420p10_60fps_2FLAC_5.1ch&2.0ch_Chapter][Effect Subtitles].mkv",
             source: ParamsSource.Custom,
-            params: [],
+            params: ["-c:v", "hevc_qsv"],
           },
         ],
         outputs: [
@@ -195,13 +198,23 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
             id: v4(),
             path: "F:\\Transcode\\2.mp4",
             source: ParamsSource.Custom,
-            params: ["-c:v", "hevc_nvenc", "-b:v", "2000", "-preset", "fast", "-c:a", "copy"],
+            params: [
+              "-c:v",
+              "hevc_nvenc",
+              "-preset",
+              "fast",
+              "-x265-params",
+              "lossless=1",
+              "-c:a",
+              "copy",
+            ],
           },
         ],
       },
       state: {
         type: "Idle",
       },
+      workTimeDurations: [],
     },
   ];
 
@@ -327,8 +340,9 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
         ...state.tasks,
         {
           id: v4(),
-          params,
           state: { type: "Idle" },
+          workTimeDurations: [],
+          params,
         },
       ],
     }));
@@ -340,8 +354,9 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
         if (task.id === id) {
           return {
             id: v4(),
-            params: task.params,
             state: { type: "Idle" },
+            workTimeDurations: [],
+            params: task.params,
           };
         } else {
           return task;
@@ -417,15 +432,15 @@ const listenTaskMessages = () => {
 
     const message = event.payload;
 
+    const task = tasks.find((task) => task.id === message.id);
+    if (!task) return;
+
     // updates task state
     switch (message.state) {
       case "Pausing": {
-        const task = tasks.find((task) => task.id === message.id);
         let lastRunningMessage: TaskMessageRunning | undefined;
-        if (task) {
-          if (task.state.type === "Commanding" && task.state.prevState.type === "Running") {
-            lastRunningMessage = task.state.prevState.message;
-          }
+        if (task.state.type === "Commanding" && task.state.prevState.type === "Running") {
+          lastRunningMessage = task.state.prevState.message;
         }
 
         updateTask(message.id, {
@@ -441,11 +456,41 @@ const listenTaskMessages = () => {
         updateTask(message.id, { state: { type: message.state, reason: message.reason } });
         break;
       case "Running":
-        updateTask(message.id, { state: { type: message.state, message: message } });
+        updateTask(message.id, { state: { type: message.state, message } });
         break;
       case "Stopped":
       case "Finished":
         updateTask(message.id, { state: { type: message.state } });
+        break;
+    }
+
+    // update work time durations
+    switch (message.state) {
+      case "Running": {
+        // adds a new work time duration if previous state is Idle or Running
+        if (
+          task.state.type === "Commanding" &&
+          (task.state.prevState.type === "Idle" || task.state.prevState.type === "Pausing")
+        ) {
+          updateTask(message.id, {
+            workTimeDurations: [...task.workTimeDurations, [dayjs(), undefined]],
+          });
+        }
+        break;
+      }
+      case "Pausing":
+      case "Stopped":
+      case "Finished":
+      case "Errored":
+        updateTask(message.id, {
+          workTimeDurations: task.workTimeDurations.map((duration, index) => {
+            if (index !== task.workTimeDurations.length - 1) {
+              return duration;
+            } else {
+              return [duration[0], dayjs()];
+            }
+          }),
+        });
         break;
     }
 

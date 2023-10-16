@@ -1,6 +1,6 @@
 import { Progress as ProgressBar, Typography } from "@arco-design/web-react";
 import { Task } from "../../store/task";
-import { toDuration } from "../../utils";
+import { sumCostTime, toDuration } from "../../utils";
 
 export default function Progress({ task }: { task: Task }) {
   switch (task.state.type) {
@@ -17,12 +17,17 @@ export default function Progress({ task }: { task: Task }) {
       const output = (task.state.message.output_time_ms ?? 0) / 1000000;
       const percent = (output / total) * 100;
 
-      let hint = "";
+      // prints eta and speed
+      let etaHint = "";
       if (task.state.message.speed) {
         const speed = task.state.message.speed;
         const eta = (total - output) / speed;
-        hint = `ETA ${toDuration(eta, false)} ${speed.toFixed(2)}x`;
+        etaHint = `ETA ${toDuration(eta, false)} ${speed.toFixed(2)}x`;
       }
+
+      // prints total cost time
+      const costHint = toDuration(sumCostTime(task.workTimeDurations), false);
+
       return (
         <div>
           <ProgressBar
@@ -31,34 +36,51 @@ export default function Progress({ task }: { task: Task }) {
             strokeWidth={20}
             formatText={(percent) => `${percent.toFixed(2)}%`}
           />
-          <div style={{ color: "var(--color-text-2)" }}>{hint}</div>
+          <div style={{ color: "var(--color-text-2)" }}>
+            {costHint} {etaHint}
+          </div>
         </div>
       );
     }
-    case "Pausing":
+    case "Pausing": {
       if (task.state.lastRunningMessage) {
         const msg = task.state.lastRunningMessage;
         const total = msg.total_duration;
         const output = (msg.output_time_ms ?? 0) / 1000000;
         const percent = (output / total) * 100;
+        const costHint = toDuration(sumCostTime(task.workTimeDurations), false);
 
         return (
-          <ProgressBar
-            status="warning"
-            percent={percent}
-            strokeWidth={20}
-            formatText={(percent) => `${percent.toFixed(2)}%`}
-          />
+          <div>
+            <ProgressBar
+              status="warning"
+              percent={percent}
+              strokeWidth={20}
+              formatText={(percent) => `${percent.toFixed(2)}%`}
+            />
+            <div style={{ color: "var(--color-text-2)" }}>{costHint}</div>
+          </div>
         );
       } else {
         return (
           <Typography.Text style={{ color: "rgb(var(--warning-6))" }}>Pausing</Typography.Text>
         );
       }
-    case "Stopped":
-      return <Typography.Text style={{ color: "rgb(var(--danger-6))" }}>Stopped</Typography.Text>;
-    case "Finished":
-      return <Typography.Text style={{ color: "rgb(var(--success-6))" }}>Finished</Typography.Text>;
+    }
+    case "Stopped": {
+      const costHint = toDuration(sumCostTime(task.workTimeDurations), false);
+      return (
+        <Typography.Text style={{ color: "rgb(var(--danger-6))" }}>Cost {costHint}</Typography.Text>
+      );
+    }
+    case "Finished": {
+      const costHint = toDuration(sumCostTime(task.workTimeDurations), false);
+      return (
+        <Typography.Text style={{ color: "rgb(var(--success-6))" }}>
+          Cost {costHint}
+        </Typography.Text>
+      );
+    }
     case "Errored":
       return (
         <Typography.Text style={{ color: "rgb(var(--danger-6))" }}>

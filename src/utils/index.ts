@@ -1,3 +1,5 @@
+import dayjs, { Dayjs } from "dayjs";
+
 /**
  * Converts a numerical value in seconds to duration.
  * @param value Numerical value in seconds.
@@ -6,7 +8,7 @@
 export const toDuration = (value: number | string, milliseconds = true) => {
   const num = typeof value === "number" ? value : parseFloat(value);
   const hours = Math.floor(num / 3600);
-  const mins = Math.floor(num / 60 - hours * 60);
+  const mins = Math.floor((num / 60) % 60);
 
   if (milliseconds) {
     const secs = (num % 60).toFixed(3);
@@ -53,4 +55,19 @@ export const toBitrate = (value: number | string) => {
   } else {
     return `${(num / 1000 / 1000 / 1000).toFixed(2)} Gb/s`;
   }
+};
+
+/**
+ * Sums up total cost time (in seconds) from durations range.
+ * @param durations Durations range
+ * @returns Total cost time in seconds
+ */
+export const sumCostTime = (durations: [Dayjs, Dayjs | undefined][]) => {
+  return durations.reduce((cost, [start, end]) => {
+    if (end) {
+      return cost + end.diff(start, "seconds");
+    } else {
+      return cost + dayjs().diff(start, "seconds");
+    }
+  }, 0);
 };

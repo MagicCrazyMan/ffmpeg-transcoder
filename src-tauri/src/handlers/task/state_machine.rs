@@ -725,12 +725,12 @@ fn start_watchdog(
                             // pause, do nothing
                         }
                     }
-                    (Ok(_), Err(err)) => {
+                    (Err(err), Ok(_)) => {
                         let reason = err.to_string();
                         tokio::spawn(async move { task.error(reason).await });
                     }
-                    (Err(err), Ok(_)) | (Err(err), Err(_)) => {
-                        // sends stdout error only when both handles throw errors
+                    (Ok(_), Err(err)) | (Err(_), Err(err)) => {
+                        // sends stderr error also if both handles throw errors
                         let reason = err.to_string();
                         tokio::spawn(async move { task.error(reason).await });
                     }

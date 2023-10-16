@@ -8,8 +8,6 @@ import { Task } from "../../store/task";
 
 const showInExplorer = async (path: string, osType: OsType) => {
   if (osType === "Windows_NT") {
-    console.log(`/select,"${path}"`);
-
     const command = new Command("explorer", ["/select,", path]);
     await command.spawn();
   }
