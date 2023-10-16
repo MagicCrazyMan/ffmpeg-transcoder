@@ -332,21 +332,18 @@ const OutputTable = ({
 };
 
 const Footer = ({
+  modified,
   inputs,
   outputs,
   onVisibleChange,
 }: {
+  modified: boolean;
   inputs: EditableTaskInputParams[];
   outputs: EditableTaskOutputParams[];
   onVisibleChange: (visible: boolean) => void;
 }) => {
   const addTask = useTaskStore((state) => state.addTask);
   const presets = usePresetStore((state) => state.presets);
-
-  const shouldConfirmCancel = useMemo(
-    () => inputs.length !== 0 || outputs.length !== 0,
-    [inputs, outputs]
-  );
 
   const submittable = useMemo(() => inputs.length !== 0 && outputs.length !== 0, [inputs, outputs]);
 
@@ -363,13 +360,8 @@ const Footer = ({
   return (
     <>
       {/* Cancel & Double Confirm */}
-      {shouldConfirmCancel ? (
-        <Popconfirm
-          focusLock
-          title="unsaved task, sure to cancel?"
-          disabled={!shouldConfirmCancel}
-          onOk={onCancel}
-        >
+      {modified ? (
+        <Popconfirm focusLock title="unsaved task, sure to cancel?" onOk={onCancel}>
           <Button status="danger">Cancel</Button>
         </Popconfirm>
       ) : (
@@ -461,15 +453,31 @@ const fromTaskParams = (
   }
 };
 
-export default function ComplexTaskEditor({ visible, onVisibleChange, task }: TaskEditorProps) {
+export default function ComplexTaskModifier({ visible, onVisibleChange, task }: TaskEditorProps) {
   const { configuration, openDialogFilters, saveDialogFilters } = useAppStore((state) => state);
   const presets = usePresetStore((state) => state.presets);
 
   const [inputs, setInputs] = useState<EditableTaskInputParams[]>([]);
   const [outputs, setOutputs] = useState<EditableTaskOutputParams[]>([]);
+  const [modified, setModified] = useState(false);
+
+  const wrappedSetInputs = useCallback(
+    (s: SetStateAction<EditableTaskInputParams[]>) => {
+      setInputs(s);
+      setModified(true);
+    },
+    [setInputs, setModified]
+  );
+  const wrappedSetOutputs = useCallback(
+    (s: SetStateAction<EditableTaskOutputParams[]>) => {
+      setOutputs(s);
+      setModified(true);
+    },
+    [setOutputs, setModified]
+  );
 
   /**
-   * Updates inputs and outputs when task change
+   * Updates inputs, outputs and modified state when task change
    */
   useEffect(() => {
     if (task) {
@@ -481,16 +489,28 @@ export default function ComplexTaskEditor({ visible, onVisibleChange, task }: Ta
           (output) => fromTaskParams(output, presets) as EditableTaskOutputParams
         )
       );
+      setModified(false);
     } else {
       setInputs([]);
       setOutputs([]);
+      setModified(false);
     }
 
     return () => {
       setInputs([]);
       setOutputs([]);
+      setModified(false);
     };
   }, [task, presets]);
+
+  /**
+   * Reset to unmodified if inputs and outputs both fallback to empty when adding new task
+   */
+  useEffect(() => {
+    if (!task && inputs.length + outputs.length === 0) {
+      setModified(false);
+    }
+  }, [task, inputs, outputs, setModified]);
 
   /**
    * Add input files vis Tauri
@@ -509,7 +529,7 @@ export default function ComplexTaskEditor({ visible, onVisibleChange, task }: Ta
         path: file,
         selection: ParamsSource.Auto,
       }));
-      setInputs((state) => [...state, ...inputs]);
+      wrappedSetInputs((state) => [...state, ...inputs]);
     }
   };
 
@@ -529,7 +549,7 @@ export default function ComplexTaskEditor({ visible, onVisibleChange, task }: Ta
         path: file,
         selection: ParamsSource.Auto,
       };
-      setOutputs((state) => [...state, { ...output }]);
+      wrappedSetOutputs((state) => [...state, { ...output }]);
     }
   };
 
@@ -542,7 +562,7 @@ export default function ComplexTaskEditor({ visible, onVisibleChange, task }: Ta
       selection: ParamsSource.Auto,
     };
 
-    setOutputs((state) => [...state, { ...output }]);
+    wrappedSetOutputs((state) => [...state, { ...output }]);
   };
 
   return (
@@ -556,7 +576,14 @@ export default function ComplexTaskEditor({ visible, onVisibleChange, task }: Ta
         overflowY: "auto",
       }}
       visible={visible}
-      footer={<Footer inputs={inputs} outputs={outputs} onVisibleChange={onVisibleChange} />}
+      footer={
+        <Footer
+          modified={modified}
+          inputs={inputs}
+          outputs={outputs}
+          onVisibleChange={onVisibleChange}
+        />
+      }
       afterClose={() => {
         setInputs([]);
         setOutputs([]);
@@ -582,10 +609,10 @@ export default function ComplexTaskEditor({ visible, onVisibleChange, task }: Ta
         </Space>
 
         {/* Input Files Table */}
-        <InputTable inputs={inputs} setInputs={setInputs}></InputTable>
+        <InputTable inputs={inputs} setInputs={wrappedSetInputs}></InputTable>
 
         {/* Output Files Table */}
-        <OutputTable outputs={outputs} setOutputs={setOutputs}></OutputTable>
+        <OutputTable outputs={outputs} setOutputs={wrappedSetOutputs}></OutputTable>
       </Space>
     </Modal>
   );

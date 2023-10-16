@@ -1,5 +1,5 @@
 import { Button, Space, Table, TableColumnProps, Tooltip } from "@arco-design/web-react";
-import { IconNav } from "@arco-design/web-react/icon";
+import { IconSubscribeAdd } from "@arco-design/web-react/icon";
 import { useState } from "react";
 import { Task, useTaskStore } from "../../store/task";
 import ComplexTaskModifier from "./ComplexTaskModifier";
@@ -66,7 +66,7 @@ export default function QueuePage() {
           <Button
             shape="circle"
             type="primary"
-            icon={<IconNav />}
+            icon={<IconSubscribeAdd />}
             onClick={() => setTaskModifierVisible(true)}
           ></Button>
         </Tooltip>
