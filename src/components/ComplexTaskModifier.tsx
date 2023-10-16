@@ -22,15 +22,15 @@ import {
   useState,
 } from "react";
 import { v4 } from "uuid";
-import { useAppStore } from "../../store/app";
-import { Preset, PresetType, usePresetStore } from "../../store/preset";
+import { useAppStore } from "../store/app";
+import { Preset, PresetType, usePresetStore } from "../store/preset";
 import {
   ParamsSource,
   Task,
   TaskInputParams,
   TaskOutputParams,
   useTaskStore,
-} from "../../store/task";
+} from "../store/task";
 
 export type TaskEditorProps = {
   visible: boolean;

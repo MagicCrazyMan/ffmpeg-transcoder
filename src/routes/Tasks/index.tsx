@@ -2,7 +2,7 @@ import { Button, Space, Table, TableColumnProps, Tooltip } from "@arco-design/we
 import { IconSubscribeAdd } from "@arco-design/web-react/icon";
 import { useState } from "react";
 import { Task, useTaskStore } from "../../store/task";
-import ComplexTaskModifier from "./ComplexTaskModifier";
+import ComplexTaskModifier from "../../components/ComplexTaskModifier";
 import FilesList from "./FileList";
 import Operations from "./Operations";
 import Progress from "./Progress";
