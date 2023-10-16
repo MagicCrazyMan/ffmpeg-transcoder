@@ -12,7 +12,15 @@ import {
 import { IconCopy, IconDelete, IconFilter } from "@arco-design/web-react/icon";
 import { open, save } from "@tauri-apps/api/dialog";
 import { cloneDeep } from "lodash";
-import { Dispatch, ReactNode, SetStateAction, useCallback, useMemo, useState } from "react";
+import {
+  Dispatch,
+  ReactNode,
+  SetStateAction,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { v4 } from "uuid";
 import { useAppStore } from "../../store/app";
 import { Preset, PresetType, usePresetStore } from "../../store/preset";
@@ -457,15 +465,32 @@ export default function ComplexTaskEditor({ visible, onVisibleChange, task }: Ta
   const { configuration, openDialogFilters, saveDialogFilters } = useAppStore((state) => state);
   const presets = usePresetStore((state) => state.presets);
 
-  const [inputs, setInputs] = useState<EditableTaskInputParams[]>(
-    task?.params.inputs.map((input) => fromTaskParams(input, presets) as EditableTaskInputParams) ??
-      []
-  );
-  const [outputs, setOutputs] = useState<EditableTaskOutputParams[]>(
-    task?.params.outputs.map(
-      (output) => fromTaskParams(output, presets) as EditableTaskOutputParams
-    ) ?? []
-  );
+  const [inputs, setInputs] = useState<EditableTaskInputParams[]>([]);
+  const [outputs, setOutputs] = useState<EditableTaskOutputParams[]>([]);
+
+  /**
+   * Updates inputs and outputs when task change
+   */
+  useEffect(() => {
+    if (task) {
+      setInputs(
+        task.params.inputs.map((input) => fromTaskParams(input, presets) as EditableTaskInputParams)
+      );
+      setOutputs(
+        task.params.outputs.map(
+          (output) => fromTaskParams(output, presets) as EditableTaskOutputParams
+        )
+      );
+    } else {
+      setInputs([]);
+      setOutputs([]);
+    }
+
+    return () => {
+      setInputs([]);
+      setOutputs([]);
+    };
+  }, [task, presets]);
 
   /**
    * Add input files vis Tauri

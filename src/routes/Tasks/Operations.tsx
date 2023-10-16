@@ -86,13 +86,7 @@ const ResetButton = ({ task }: { task: Task }) => {
   );
 
   return (
-    <Button
-      shape="circle"
-      size="mini"
-      type="primary"
-      icon={<IconLoop />}
-      onClick={reset}
-    ></Button>
+    <Button shape="circle" size="mini" type="primary" icon={<IconLoop />} onClick={reset}></Button>
   );
 };
 
@@ -118,26 +112,35 @@ const RemoveButton = ({ task }: { task: Task }) => {
   );
 };
 
-const SettingsButton = () => {
+const ModifyButton = ({ task, onModify }: { task: Task; onModify: (task: Task) => void }) => {
   return (
     <Button
       shape="circle"
       size="mini"
       type="secondary"
       icon={<IconSettings />}
-      onClick={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation();
+        onModify(task);
+      }}
     ></Button>
   );
 };
 
-export default function Operations({ task }: { task: Task }) {
+export default function Operations({
+  task,
+  onModify,
+}: {
+  task: Task;
+  onModify: (task: Task) => void;
+}) {
   switch (task.state.type) {
     case "Idle": {
       return (
         <Space>
           <StartButton task={task} />
           <RemoveButton task={task} />
-          <SettingsButton />
+          <ModifyButton task={task} onModify={onModify} />
         </Space>
       );
     }

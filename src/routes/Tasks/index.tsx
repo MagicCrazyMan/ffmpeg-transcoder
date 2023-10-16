@@ -1,8 +1,8 @@
 import { Button, Space, Table, TableColumnProps, Tooltip } from "@arco-design/web-react";
-import { IconDown, IconNav, IconRight } from "@arco-design/web-react/icon";
+import { IconNav } from "@arco-design/web-react/icon";
 import { useState } from "react";
 import { Task, useTaskStore } from "../../store/task";
-import ComplexTaskEditor from "./ComplexTaskEditor";
+import ComplexTaskModifier from "./ComplexTaskModifier";
 import FilesList from "./FileList";
 import Operations from "./Operations";
 import Progress from "./Progress";
@@ -14,7 +14,12 @@ import Status from "./Status";
 export default function QueuePage() {
   const tasks = useTaskStore((state) => state.tasks);
 
-  const [taskEditorVisible, setTaskEditorVisible] = useState(false);
+  const [taskModifierVisible, setTaskModifierVisible] = useState(false);
+  const [modifyingTask, setModifyingTask] = useState<Task | undefined>(undefined);
+  const onModify = (task: Task) => {
+    setModifyingTask(task);
+    setTaskModifierVisible(true);
+  };
 
   const tableCols: TableColumnProps<Task>[] = [
     {
@@ -48,7 +53,7 @@ export default function QueuePage() {
       fixed: "right",
       align: "center",
       width: "128px",
-      render: (_, task) => <Operations task={task} />,
+      render: (_, task) => <Operations task={task} onModify={onModify} />,
     },
   ];
 
@@ -62,7 +67,7 @@ export default function QueuePage() {
             shape="circle"
             type="primary"
             icon={<IconNav />}
-            onClick={() => setTaskEditorVisible(true)}
+            onClick={() => setTaskModifierVisible(true)}
           ></Button>
         </Tooltip>
       </Space>
@@ -78,10 +83,14 @@ export default function QueuePage() {
       ></Table>
 
       {/* Complex Task Editor Dialog */}
-      <ComplexTaskEditor
-        visible={taskEditorVisible}
-        onVisibleChange={(visible) => setTaskEditorVisible(visible)}
-      ></ComplexTaskEditor>
+      <ComplexTaskModifier
+        task={modifyingTask}
+        visible={taskModifierVisible}
+        onVisibleChange={(visible) => {
+          setTaskModifierVisible(visible);
+          setModifyingTask(undefined);
+        }}
+      ></ComplexTaskModifier>
     </div>
   );
 }
