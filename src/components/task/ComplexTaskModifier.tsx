@@ -11,6 +11,7 @@ import { IconCopy, IconDelete, IconFilter } from "@arco-design/web-react/icon";
 import { open, save } from "@tauri-apps/api/dialog";
 import { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
 import { v4 } from "uuid";
+import { toTaskParams } from ".";
 import { useAppStore } from "../../store/app";
 import { Preset, PresetType, usePresetStore } from "../../store/preset";
 import {
@@ -20,9 +21,8 @@ import {
   TaskOutputParams,
   useTaskStore,
 } from "../../store/task";
+import { EditableTaskInputParams, EditableTaskOutputParams } from "./";
 import ParamsModifier from "./ParamsModifier";
-import { EditableTaskInputParams, EditableTaskOutputParams } from "./types";
-import { toTaskParams } from "./utils";
 
 export type ComplexTaskModifierProps = {
   visible: boolean;
@@ -94,7 +94,9 @@ const UniverseTable = ({
   paramsTitle: string;
   presetType: PresetType.Decode | PresetType.Encode;
   records: (EditableTaskInputParams | EditableTaskOutputParams)[];
-  setRecords: Dispatch<SetStateAction<(EditableTaskInputParams | EditableTaskOutputParams)[]>>;
+  setRecords: Dispatch<
+    SetStateAction<Extract<EditableTaskInputParams, EditableTaskOutputParams>[]>
+  >;
 }) => {
   const presets = usePresetStore((state) => state.presets);
 
@@ -427,7 +429,7 @@ export default function ComplexTaskModifier({
       const output: EditableTaskInputParams = {
         id: v4(),
         path: file,
-        selection: defaultEncode ?? ParamsSource.Custom,
+        selection: defaultEncode ?? ParamsSource.Auto,
       };
       wrappedSetOutputs((state) => [...state, { ...output }]);
     }
@@ -439,7 +441,7 @@ export default function ComplexTaskModifier({
   const addNullOutput = () => {
     const output: EditableTaskOutputParams = {
       id: v4(),
-      selection: defaultEncode ?? ParamsSource.Custom,
+      selection: defaultEncode ?? ParamsSource.Auto,
     };
 
     wrappedSetOutputs((state) => [...state, { ...output }]);

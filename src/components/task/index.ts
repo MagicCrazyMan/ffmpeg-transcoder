@@ -1,7 +1,20 @@
 import { cloneDeep } from "lodash";
 import { Preset } from "../../store/preset";
 import { ParamsSource, TaskInputParams, TaskOutputParams } from "../../store/task";
-import { EditableTaskInputParams, EditableTaskOutputParams } from "./types";
+
+export type EditableTaskInputParams = {
+  id: string;
+  path: string;
+  selection: ParamsSource.Auto | ParamsSource.Custom | string;
+  custom?: string;
+};
+
+export type EditableTaskOutputParams = {
+  id: string;
+  path?: string;
+  selection: ParamsSource.Auto | ParamsSource.Custom | string;
+  custom?: string;
+};
 
 /**
  * Converts {@link EditableTaskInputParams} or {@link EditableTaskOutputParams}

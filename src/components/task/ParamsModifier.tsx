@@ -3,7 +3,7 @@ import { IconCopy, IconFilter } from "@arco-design/web-react/icon";
 import { ReactNode } from "react";
 import { Preset, PresetType, usePresetStore } from "../../store/preset";
 import { ParamsSource } from "../../store/task";
-import { EditableTaskInputParams, EditableTaskOutputParams } from "./types";
+import { EditableTaskInputParams, EditableTaskOutputParams } from "./";
 
 const DecodePresetOptions: ReactNode[] = [];
 const EncodePresetOptions: ReactNode[] = [];

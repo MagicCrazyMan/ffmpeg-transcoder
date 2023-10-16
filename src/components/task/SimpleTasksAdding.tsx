@@ -12,6 +12,7 @@ import { IconDelete, IconFolder } from "@arco-design/web-react/icon";
 import { open, save } from "@tauri-apps/api/dialog";
 import { useCallback, useMemo, useState } from "react";
 import { v4 } from "uuid";
+import { toTaskParams } from ".";
 import { useAppStore } from "../../store/app";
 import { PresetType, usePresetStore } from "../../store/preset";
 import {
@@ -21,9 +22,8 @@ import {
   TaskParams,
   useTaskStore,
 } from "../../store/task";
+import { EditableTaskInputParams, EditableTaskOutputParams } from "./";
 import ParamsModifier from "./ParamsModifier";
-import { EditableTaskInputParams, EditableTaskOutputParams } from "./types";
-import { toTaskParams } from "./utils";
 
 export type SimpleTasksAddingProps = {
   visible: boolean;
@@ -363,7 +363,7 @@ export default function SimpleTasksAdding({ visible, onVisibleChange }: SimpleTa
         },
         output: {
           id: v4(),
-          selection: defaultEncode ?? ParamsSource.Custom,
+          selection: defaultEncode ?? ParamsSource.Auto,
         },
       }));
       setTasks((state) => [...state, ...records]);
