@@ -1,28 +1,19 @@
-import { Button, Divider, Space, Table, TableColumnProps, Tooltip } from "@arco-design/web-react";
-import {
-  IconDelete,
-  IconPause,
-  IconPlayArrow,
-  IconPlus,
-  IconStop,
-  IconSubscribeAdd,
-} from "@arco-design/web-react/icon";
+import { Table, TableColumnProps } from "@arco-design/web-react";
 import { useState } from "react";
 import ComplexTaskModifier from "../../components/task/ComplexTaskModifier";
 import SimpleTasksAdding from "../../components/task/SimpleTasksAdding";
 import { Task, useTaskStore } from "../../store/task";
 import FilesList from "./FileList";
-import Operations from "./Operations";
+import GlobalOperations from "./GlobalOperations";
 import Progress from "./Progress";
+import RowOperations from "./RowOperations";
 import Status from "./Status";
 
 /**
  * Page managing tasks queue.
  */
 export default function QueuePage() {
-  const { tasks, startAllTasks, pauseAllTasks, stopAllTasks, removeAllTasks } = useTaskStore(
-    (state) => state
-  );
+  const tasks = useTaskStore((state) => state.tasks);
 
   const [complexTaskModifierVisible, setComplexTaskModifierVisible] = useState(false);
   const [simpleTasksAddingVisible, setSimpleTasksAddingVisible] = useState(false);
@@ -64,80 +55,16 @@ export default function QueuePage() {
       title: "Operations",
       fixed: "right",
       width: "128px",
-      render: (_, task) => <Operations task={task} onModify={onModify} />,
+      render: (_, task) => <RowOperations task={task} onModify={onModify} />,
     },
   ];
 
   return (
     <div className="flex flex-col gap-4">
-      <Space>
-        {/* Add Multiple Simple Tasks Button */}
-        <Tooltip content="Add Multiple Simple Tasks">
-          <Button
-            shape="circle"
-            type="primary"
-            status="success"
-            icon={<IconPlus />}
-            onClick={() => setSimpleTasksAddingVisible(true)}
-          ></Button>
-        </Tooltip>
-
-        {/* Add or Modify Complex Task Button */}
-        <Tooltip content="Add Complex Task">
-          <Button
-            shape="circle"
-            type="primary"
-            status="success"
-            icon={<IconSubscribeAdd />}
-            onClick={() => setComplexTaskModifierVisible(true)}
-          ></Button>
-        </Tooltip>
-
-        <Divider type="vertical"></Divider>
-
-        {/* Start All Tasks Button */}
-        <Tooltip content="Start All Tasks">
-          <Button
-            shape="circle"
-            type="primary"
-            icon={<IconPlayArrow />}
-            onClick={startAllTasks}
-          ></Button>
-        </Tooltip>
-
-        {/* Pause All Tasks Button */}
-        <Tooltip content="Pause All Tasks">
-          <Button
-            shape="circle"
-            type="primary"
-            status="warning"
-            icon={<IconPause />}
-            onClick={pauseAllTasks}
-          ></Button>
-        </Tooltip>
-
-        {/* Stop All Tasks Button */}
-        <Tooltip content="Stop All Tasks">
-          <Button
-            shape="circle"
-            type="primary"
-            status="danger"
-            icon={<IconStop />}
-            onClick={stopAllTasks}
-          ></Button>
-        </Tooltip>
-
-        {/* Remove All Tasks Button */}
-        <Tooltip content="Remove All Tasks">
-          <Button
-            shape="circle"
-            type="primary"
-            status="danger"
-            icon={<IconDelete />}
-            onClick={removeAllTasks}
-          ></Button>
-        </Tooltip>
-      </Space>
+      <GlobalOperations
+        setComplexTaskModifierVisible={setComplexTaskModifierVisible}
+        setSimpleTasksAddingVisible={setSimpleTasksAddingVisible}
+      />
 
       {/* Tasks Table */}
       <Table

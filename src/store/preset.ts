@@ -145,7 +145,11 @@ export const usePresetStore = create<PresetStoreState>((set, get, api) => {
    * stores presets into local storage if presets changed.
    */
   api.subscribe((state, prevState) => {
-    if (state.presets !== prevState.presets) {
+    if (
+      state.presets !== prevState.presets ||
+      state.defaultDecode !== prevState.defaultDecode ||
+      state.defaultEncode !== prevState.defaultEncode
+    ) {
       storePresets({
         presets: state.presets,
         defaultDecode: state.defaultDecode,
