@@ -332,28 +332,36 @@ const OutputTable = ({
 };
 
 const Footer = ({
+  task,
   modified,
   inputs,
   outputs,
   onVisibleChange,
 }: {
+  task?: Task;
   modified: boolean;
   inputs: EditableTaskInputParams[];
   outputs: EditableTaskOutputParams[];
   onVisibleChange: (visible: boolean) => void;
 }) => {
-  const addTask = useTaskStore((state) => state.addTask);
+  const { addTask, updateTask } = useTaskStore((state) => state);
   const presets = usePresetStore((state) => state.presets);
 
-  const submittable = useMemo(() => inputs.length !== 0 && outputs.length !== 0, [inputs, outputs]);
-
   const onCancel = () => onVisibleChange(false);
-
   const onSubmit = () => {
-    addTask({
+    const params = {
       inputs: inputs.map((input) => toTaskParams(input, presets) as TaskInputParams),
       outputs: outputs.map((output) => toTaskParams(output, presets) as TaskOutputParams),
-    });
+    };
+    if (task) {
+      updateTask(task.id, {
+        metadata: [],
+        workTimeDurations: [],
+        params,
+      });
+    } else {
+      addTask(params);
+    }
     onVisibleChange(false);
   };
 
@@ -370,9 +378,9 @@ const Footer = ({
         </Button>
       )}
 
-      {/* Add Task Button */}
-      <Button type="primary" disabled={!submittable} onClick={onSubmit}>
-        Add Task
+      {/* Add or Save Task Button */}
+      <Button type="primary" disabled={!modified} onClick={onSubmit}>
+        {task ? "Save" : "Add"}
       </Button>
     </>
   );
@@ -495,12 +503,6 @@ export default function ComplexTaskModifier({ visible, onVisibleChange, task }: 
       setOutputs([]);
       setModified(false);
     }
-
-    return () => {
-      setInputs([]);
-      setOutputs([]);
-      setModified(false);
-    };
   }, [task, presets]);
 
   /**
@@ -578,6 +580,7 @@ export default function ComplexTaskModifier({ visible, onVisibleChange, task }: 
       visible={visible}
       footer={
         <Footer
+          task={task}
           modified={modified}
           inputs={inputs}
           outputs={outputs}
@@ -587,6 +590,7 @@ export default function ComplexTaskModifier({ visible, onVisibleChange, task }: 
       afterClose={() => {
         setInputs([]);
         setOutputs([]);
+        setModified(false);
       }}
     >
       <Space direction="vertical">
