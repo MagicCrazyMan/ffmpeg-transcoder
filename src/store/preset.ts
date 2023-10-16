@@ -100,6 +100,7 @@ type PresetStorage = {
   defaultEncode?: string;
   presets: Preset[];
 };
+
 const PRESETS_LOCALSTORAGE_KEY = "presets";
 
 /**
