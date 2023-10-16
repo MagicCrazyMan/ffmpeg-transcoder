@@ -32,8 +32,9 @@ export default function Progress({ task }: { task: Task }) {
         <div>
           <ProgressBar
             animation
-            percent={percent}
+            className="my-1"
             strokeWidth={20}
+            percent={percent}
             formatText={(percent) => `${percent.toFixed(2)}%`}
           />
           <div style={{ color: "var(--color-text-2)" }}>
@@ -54,8 +55,9 @@ export default function Progress({ task }: { task: Task }) {
           <div>
             <ProgressBar
               status="warning"
-              percent={percent}
+              className="my-1"
               strokeWidth={20}
+              percent={percent}
               formatText={(percent) => `${percent.toFixed(2)}%`}
             />
             <div style={{ color: "var(--color-text-2)" }}>{costHint}</div>

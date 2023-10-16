@@ -1,5 +1,12 @@
-import { Button, Space, Table, TableColumnProps, Tooltip } from "@arco-design/web-react";
-import { IconPlus, IconSubscribeAdd } from "@arco-design/web-react/icon";
+import { Button, Divider, Space, Table, TableColumnProps, Tooltip } from "@arco-design/web-react";
+import {
+  IconDelete,
+  IconPause,
+  IconPlayArrow,
+  IconPlus,
+  IconStop,
+  IconSubscribeAdd,
+} from "@arco-design/web-react/icon";
 import { useState } from "react";
 import ComplexTaskModifier from "../../components/task/ComplexTaskModifier";
 import SimpleTasksAdding from "../../components/task/SimpleTasksAdding";
@@ -13,7 +20,9 @@ import Status from "./Status";
  * Page managing tasks queue.
  */
 export default function QueuePage() {
-  const tasks = useTaskStore((state) => state.tasks);
+  const { tasks, startAllTasks, pauseAllTasks, stopAllTasks, removeAllTasks } = useTaskStore(
+    (state) => state
+  );
 
   const [complexTaskModifierVisible, setComplexTaskModifierVisible] = useState(false);
   const [simpleTasksAddingVisible, setSimpleTasksAddingVisible] = useState(false);
@@ -61,13 +70,13 @@ export default function QueuePage() {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Buttons */}
       <Space>
         {/* Add Multiple Simple Tasks Button */}
         <Tooltip content="Add Multiple Simple Tasks">
           <Button
             shape="circle"
             type="primary"
+            status="success"
             icon={<IconPlus />}
             onClick={() => setSimpleTasksAddingVisible(true)}
           ></Button>
@@ -78,8 +87,54 @@ export default function QueuePage() {
           <Button
             shape="circle"
             type="primary"
+            status="success"
             icon={<IconSubscribeAdd />}
             onClick={() => setComplexTaskModifierVisible(true)}
+          ></Button>
+        </Tooltip>
+
+        <Divider type="vertical"></Divider>
+
+        {/* Start All Tasks Button */}
+        <Tooltip content="Start All Tasks">
+          <Button
+            shape="circle"
+            type="primary"
+            icon={<IconPlayArrow />}
+            onClick={startAllTasks}
+          ></Button>
+        </Tooltip>
+
+        {/* Pause All Tasks Button */}
+        <Tooltip content="Pause All Tasks">
+          <Button
+            shape="circle"
+            type="primary"
+            status="warning"
+            icon={<IconPause />}
+            onClick={pauseAllTasks}
+          ></Button>
+        </Tooltip>
+
+        {/* Stop All Tasks Button */}
+        <Tooltip content="Stop All Tasks">
+          <Button
+            shape="circle"
+            type="primary"
+            status="danger"
+            icon={<IconStop />}
+            onClick={stopAllTasks}
+          ></Button>
+        </Tooltip>
+
+        {/* Remove All Tasks Button */}
+        <Tooltip content="Remove All Tasks">
+          <Button
+            shape="circle"
+            type="primary"
+            status="danger"
+            icon={<IconDelete />}
+            onClick={removeAllTasks}
           ></Button>
         </Tooltip>
       </Space>

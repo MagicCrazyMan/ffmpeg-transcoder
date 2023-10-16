@@ -1,12 +1,7 @@
 import { listen } from "@tauri-apps/api/event";
+import dayjs, { Dayjs } from "dayjs";
 import { v4 } from "uuid";
 import { create } from "zustand";
-import {
-  startTask as startTaskTauri,
-  stopTask as stopTaskTauri,
-  resumeTask as resumeTaskTauri,
-  pauseTask as pauseTaskTauri,
-} from "../tauri/task";
 import {
   FFmpegNotFoundError,
   FFmpegUnavailableError,
@@ -15,10 +10,15 @@ import {
   TaskNotFoundError,
   toMessage,
 } from "../tauri/error";
-import { Metadata } from "../tauri/task";
-import { Preset } from "./preset";
+import {
+  Metadata,
+  pauseTask as pauseTaskTauri,
+  resumeTask as resumeTaskTauri,
+  startTask as startTaskTauri,
+  stopTask as stopTaskTauri,
+} from "../tauri/task";
 import { useAppStore } from "./app";
-import dayjs, { Dayjs } from "dayjs";
+import { Preset } from "./preset";
 
 export type TaskStoreState = {
   /**
@@ -63,6 +63,22 @@ export type TaskStoreState = {
    * @returns
    */
   resetTask: (id: string) => void;
+  /**
+   * Starts all tasks.
+   */
+  startAllTasks: () => void;
+  /**
+   * Pauses all tasks.
+   */
+  pauseAllTasks: () => void;
+  /**
+   * Stops all tasks.
+   */
+  stopAllTasks: () => void;
+  /**
+   * Stops all tasks.
+   */
+  removeAllTasks: () => void;
 };
 
 export type Task = {
@@ -244,7 +260,7 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
     )
       return;
 
-    // if exceeds max running count, set to queueing state
+    // set queueing state if exceeds max running count
     if (
       tasks.filter((task) => task.state.type === "Running" || task.state.type === "Commanding")
         .length +
@@ -329,12 +345,22 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
   };
 
   const removeTask = (id: string) => {
+    const task = get().tasks.find((task) => task.id === id)!;
+
+    if (
+      task.state.type !== "Idle" &&
+      task.state.type !== "Stopped" &&
+      task.state.type !== "Finished" &&
+      task.state.type !== "Errored"
+    )
+      return;
+
     set((state) => ({
       tasks: state.tasks.filter((task) => task.id !== id),
     }));
   };
 
-  const addTask = (...params: TaskParams[]) => {
+  const addTasks = (...params: TaskParams[]) => {
     set((state) => ({
       tasks: [
         ...state.tasks,
@@ -367,6 +393,22 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
     }));
   };
 
+  const startAllTasks = () => {
+    get().tasks.forEach((task) => startTask(task.id));
+  };
+
+  const pauseAllTasks = () => {
+    get().tasks.forEach((task) => pauseTask(task.id));
+  };
+
+  const stopAllTasks = () => {
+    get().tasks.forEach((task) => stopTask(task.id));
+  };
+
+  const removeAllTasks = () => {
+    get().tasks.forEach((task) => removeTask(task.id));
+  };
+
   return {
     tasks,
     updateTask,
@@ -374,8 +416,12 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
     pauseTask,
     stopTask,
     removeTask,
-    addTasks: addTask,
+    addTasks,
     resetTask,
+    startAllTasks,
+    pauseAllTasks,
+    stopAllTasks,
+    removeAllTasks,
   };
 });
 
