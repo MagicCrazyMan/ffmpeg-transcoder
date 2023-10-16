@@ -341,7 +341,7 @@ export default function ComplexTaskModifier({
   task,
 }: ComplexTaskModifierProps) {
   const { configuration, openDialogFilters, saveDialogFilters } = useAppStore((state) => state);
-  const presets = usePresetStore((state) => state.presets);
+  const { presets, defaultDecode, defaultEncode } = usePresetStore((state) => state);
 
   const [inputs, setInputs] = useState<EditableTaskInputParams[]>([]);
   const [outputs, setOutputs] = useState<EditableTaskOutputParams[]>([]);
@@ -407,7 +407,7 @@ export default function ComplexTaskModifier({
       const inputs: EditableTaskInputParams[] = files.map((file) => ({
         id: v4(),
         path: file,
-        selection: ParamsSource.Auto,
+        selection: defaultDecode ?? ParamsSource.Auto,
       }));
       wrappedSetInputs((state) => [...state, ...inputs]);
     }
@@ -427,7 +427,7 @@ export default function ComplexTaskModifier({
       const output: EditableTaskInputParams = {
         id: v4(),
         path: file,
-        selection: ParamsSource.Custom,
+        selection: defaultEncode ?? ParamsSource.Custom,
       };
       wrappedSetOutputs((state) => [...state, { ...output }]);
     }
@@ -439,7 +439,7 @@ export default function ComplexTaskModifier({
   const addNullOutput = () => {
     const output: EditableTaskOutputParams = {
       id: v4(),
-      selection: ParamsSource.Custom,
+      selection: defaultEncode ?? ParamsSource.Custom,
     };
 
     wrappedSetOutputs((state) => [...state, { ...output }]);

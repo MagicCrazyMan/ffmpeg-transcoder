@@ -107,7 +107,7 @@ const Footer = ({
 
 export default function SimpleTasksAdding({ visible, onVisibleChange }: SimpleTasksAddingProps) {
   const { configuration, openDialogFilters, saveDialogFilters } = useAppStore((state) => state);
-  const presets = usePresetStore((state) => state.presets);
+  const { presets, defaultDecode, defaultEncode } = usePresetStore((state) => state);
 
   const [tasks, setTasks] = useState<SimpleTaskParams[]>([]);
 
@@ -325,7 +325,7 @@ export default function SimpleTasksAdding({ visible, onVisibleChange }: SimpleTa
       },
       {
         title: "Operations",
-        width: "7rem",
+        width: "6rem",
         align: "center",
         render: (_col, task) => <Operations task={task} onRemove={onRemove} />,
       },
@@ -359,11 +359,11 @@ export default function SimpleTasksAdding({ visible, onVisibleChange }: SimpleTa
         input: {
           id: v4(),
           path: file,
-          selection: ParamsSource.Auto,
+          selection: defaultDecode ?? ParamsSource.Auto,
         },
         output: {
           id: v4(),
-          selection: ParamsSource.Custom,
+          selection: defaultEncode ?? ParamsSource.Custom,
         },
       }));
       setTasks((state) => [...state, ...records]);
