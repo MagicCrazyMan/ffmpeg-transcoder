@@ -2,6 +2,7 @@ import { Button, Form, FormInstance, Input } from "@arco-design/web-react";
 import { IconFolder } from "@arco-design/web-react/icon";
 import { open } from "@tauri-apps/api/dialog";
 import { useMemo, useRef } from "react";
+import { useAppStore } from "../../store/app";
 import { useSearchStore } from "../../store/search";
 import { DirectoryNotFoundError, toMessage } from "../../tauri/error";
 import { getFilesFromDirectory } from "../../tauri/fs";
@@ -13,15 +14,16 @@ import { verifyDirectory } from "../../tauri/system";
 export default function Directories() {
   const { setFiles, setFileLoading, inputDir, outputDir, setInputDirectory, setOutputDirectory } =
     useSearchStore();
+  const saveDirectory = useAppStore((state) => state.configuration.saveDirectory);
 
   const formRef = useRef<FormInstance<{ inputDir: string; outputDir: string }>>(null);
   const initialValues = useMemo(
     () =>
       ({
         inputDir: inputDir ?? "",
-        outputDir: outputDir ?? "",
+        outputDir: outputDir ?? saveDirectory ?? "",
       }) as { inputDir: string; outputDir: string },
-    [inputDir, outputDir]
+    [inputDir, outputDir, saveDirectory]
   );
 
   const selectDirectory = async (type: "input" | "output") => {
