@@ -1,3 +1,4 @@
+import { assignIn, cloneDeep } from "lodash";
 import { v4 } from "uuid";
 import { create } from "zustand";
 
@@ -101,6 +102,10 @@ type PresetStorage = {
   presets: Preset[];
 };
 
+const DEFAULT_PRESET_STORAGE: PresetStorage = {
+  presets: [],
+};
+
 const PRESETS_LOCALSTORAGE_KEY = "presets";
 
 /**
@@ -112,29 +117,32 @@ const storePresetStorage = (storage: PresetStorage) => {
 };
 
 /**
- * Loads presets from local storage
+ * Loads presets from local storage.
  */
 const loadPresetStorage = (): PresetStorage => {
   const raw = localStorage.getItem(PRESETS_LOCALSTORAGE_KEY);
   if (raw) {
-    const storage = JSON.parse(raw) as PresetStorage;
-    let changed = false;
-    storage.presets.forEach((preset) => {
-      if (!preset.id) {
-        preset.id = v4();
-        changed = true;
-      }
-    });
+    const presetsStorage: PresetStorage = assignIn(
+      cloneDeep(DEFAULT_PRESET_STORAGE),
+      JSON.parse(raw)
+    );
+    // verifies defaultDecode and defaultEncode id
+    if (presetsStorage.defaultDecode)
+      presetsStorage.defaultDecode = presetsStorage.presets.find(
+        (preset) => preset.id === presetsStorage.defaultDecode
+      )
+        ? presetsStorage.defaultDecode
+        : undefined;
+    if (presetsStorage.defaultEncode)
+      presetsStorage.defaultEncode = presetsStorage.presets.find(
+        (preset) => preset.id === presetsStorage.defaultEncode
+      )
+        ? presetsStorage.defaultEncode
+        : undefined;
 
-    if (changed) {
-      storePresetStorage(storage);
-    }
-
-    return storage;
+    return presetsStorage;
   } else {
-    return {
-      presets: [],
-    };
+    return cloneDeep(DEFAULT_PRESET_STORAGE);
   }
 };
 

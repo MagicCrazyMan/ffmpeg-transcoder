@@ -314,7 +314,7 @@ const Operations = ({ preset }: { preset: Preset }) => {
     duplicatePreset,
     removePreset,
     disableTempPreset,
-  } = usePresetStore((state) => state);
+  } = usePresetStore();
 
   if (preset.isTemp) {
     // temporary preset requires no double confirming
@@ -416,7 +416,7 @@ export default function PresetsPage() {
     enableTempPreset,
     updateTempPreset,
     persistTempPreset,
-  } = usePresetStore((state) => state);
+  } = usePresetStore();
 
   /**
    * Block leaving page if temporary preset is editing
@@ -567,7 +567,7 @@ export default function PresetsPage() {
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="p-4 flex flex-col gap-4">
       {/* Add Preset */}
       <Tooltip content="Add New Preset">
         <Button

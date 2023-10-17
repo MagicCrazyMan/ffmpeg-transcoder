@@ -39,7 +39,7 @@ const SidebarMenu = () => {
  * Theme switcher
  */
 const ThemeSwitcher = () => {
-  const { currentTheme, configuration, setLocalConfiguration } = useAppStore((state) => state);
+  const { currentTheme, configuration, setLocalConfiguration } = useAppStore();
 
   const icon = useMemo(() => {
     switch (configuration.theme) {
@@ -50,25 +50,24 @@ const ThemeSwitcher = () => {
       case Theme.FollowSystem:
         return <IconThunderbolt />;
     }
-  }, [configuration]);
+  }, [configuration.theme]);
 
-  const droplistItems = useMemo(
-    () =>
-      [
-        [Theme.Light, "Light Theme"],
-        [Theme.Dark, "Dark Theme"],
-        [Theme.FollowSystem, "Follow System"],
-      ].map(([t, s]) => (
-        <Menu.Item key={t}>
-          {configuration.theme === t ? icon : <Icon />} {s}
+  const droplist = useMemo(
+    () => (
+      <Menu onClickMenuItem={(theme) => setLocalConfiguration({ theme: theme as Theme })}>
+        <Menu.Item key={Theme.Light}>
+          {configuration.theme === Theme.Light ? <IconSunFill /> : <Icon />} Light
         </Menu.Item>
-      )),
-    [configuration, icon]
-  );
-  const droplist = (
-    <Menu onClickMenuItem={(theme) => setLocalConfiguration({ theme: theme as Theme })}>
-      {droplistItems}
-    </Menu>
+        <Menu.Item key={Theme.Dark}>
+          {configuration.theme === Theme.Dark ? <IconMoonFill /> : <Icon />} Dark
+        </Menu.Item>
+        <Menu.Item key={Theme.FollowSystem}>
+          {configuration.theme === Theme.FollowSystem ? <IconThunderbolt /> : <Icon />} Follow
+          System
+        </Menu.Item>
+      </Menu>
+    ),
+    [configuration.theme, setLocalConfiguration]
   );
 
   return (
@@ -130,7 +129,7 @@ const MainPage = () => {
 
         {/* Main Content */}
         <Layout>
-          <Layout.Content className="p-4">
+          <Layout.Content>
             <Outlet></Outlet>
           </Layout.Content>
         </Layout>
@@ -157,7 +156,7 @@ const LoadingPage = () => {
  */
 export default function App() {
   const navigate = useNavigate();
-  const { configuration, setSystemParticulars } = useAppStore((state) => state);
+  const { configuration, setSystemParticulars } = useAppStore();
 
   const [isLoading, setLoading] = useState(true);
   // gets system particulars, and redirects to settings page if error occurs

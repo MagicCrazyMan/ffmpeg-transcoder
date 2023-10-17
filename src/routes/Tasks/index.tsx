@@ -60,7 +60,7 @@ export default function QueuePage() {
   ];
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="p-4 flex flex-col gap-4">
       <GlobalOperations
         setComplexTaskModifierVisible={setComplexTaskModifierVisible}
         setSimpleTasksAddingVisible={setSimpleTasksAddingVisible}

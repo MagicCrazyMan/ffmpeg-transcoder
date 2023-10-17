@@ -10,13 +10,13 @@ use super::process::invoke_ffprobe;
 /// A structure receiving ffmpeg command line arguments.
 #[derive(Debug, serde::Deserialize)]
 pub struct TaskParams {
-    inputs: Vec<TaskInputParams>,
-    outputs: Vec<TaskOutputParams>,
+    pub inputs: Vec<TaskInputParams>,
+    pub outputs: Vec<TaskOutputParams>,
 }
 
 impl TaskParams {
     /// Converts to ffmpeg command line arguments.
-    fn to_args(&self) -> Vec<String> {
+    pub fn to_args(&self) -> Vec<String> {
         let prepend_args = with_default_args!("-progress", "-", "-nostats")
             .iter()
             .map(|str| *str);
@@ -52,18 +52,18 @@ impl TaskParams {
 
 #[derive(Debug, serde::Deserialize)]
 pub struct TaskInputParams {
-    path: String,
+    pub path: String,
     #[serde(default = "Vec::new")]
-    params: Vec<String>,
+    pub params: Vec<String>,
 }
 
 #[derive(Debug, serde::Deserialize)]
 pub struct TaskOutputParams {
     /// Output path could be None in some situation,
     /// such as exports to null.
-    path: Option<String>,
+    pub path: Option<String>,
     #[serde(default = "Vec::new")]
-    params: Vec<String>,
+    pub params: Vec<String>,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -128,11 +128,10 @@ pub async fn start_task(
         }
     }
 
-    let args = params.to_args();
     task_store
         .start(
             id,
-            args,
+            params,
             app_handle,
             total_duration,
             config.ffmpeg().to_string(),

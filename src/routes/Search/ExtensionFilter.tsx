@@ -1,53 +1,42 @@
 import { Divider, InputTag, Radio } from "@arco-design/web-react";
-import { ExtensionFilterState } from "./constants";
-
-type ExtensionFilterProps = {
-  extensions: string[];
-  onExtensionsChanged: (extensions: string[]) => void;
-  filterState: ExtensionFilterState;
-  onFilterStateChanged: (type: ExtensionFilterState) => void;
-  className?: string;
-};
+import { ExtensionFilterState, useSearchStore } from "../../store/search";
 
 /**
  * Extension filter
  * @param param0 Extension filter props
  */
-export default function ExtensionFilter({
-  extensions,
-  onExtensionsChanged,
-  filterState,
-  onFilterStateChanged,
-  className,
-}: ExtensionFilterProps) {
-  const setLowercaseExtensions = (extensions: string[]) => {
-    const lowercases = extensions.map((extension) => extension.toLocaleLowerCase());
-    const filtered = new Set(lowercases);
-    onExtensionsChanged(Array.from(filtered));
-  };
+export default function ExtensionFilter() {
+  const { extensionFilters, setExtensionFilterState, setExtensionList } = useSearchStore(
+    (state) => state
+  );
 
   return (
-    <div className={className}>
+    <div>
       <Divider style={{ margin: "0 0 0.5rem 0" }} orientation="left">
-        Extension Filters
+        Extension Filter
       </Divider>
+
+      {/* Toggle Extension Filter State */}
       <Radio.Group
-        type="button"
         className="mb-4"
-        value={filterState}
-        onChange={onFilterStateChanged}
+        size="mini"
+        type="button"
+        value={extensionFilters.state}
+        onChange={setExtensionFilterState}
       >
         <Radio value={ExtensionFilterState.Whitelist}>Whitelist</Radio>
         <Radio value={ExtensionFilterState.Disabled}>Disabled</Radio>
         <Radio value={ExtensionFilterState.Blacklist}>Blacklist</Radio>
       </Radio.Group>
+
+      {/* Extension Tag Input */}
       <InputTag
         allowClear
         saveOnBlur
+        size="mini"
         placeholder="Extensions"
-        value={extensions}
-        onChange={setLowercaseExtensions}
-        readOnly={filterState === ExtensionFilterState.Disabled}
+        value={extensionFilters.extensions}
+        onChange={setExtensionList}
       ></InputTag>
     </div>
   );

@@ -1,44 +1,12 @@
 .container {
-  height: 100%;
-
-  display: grid;
-
-  grid-template-columns: 20rem min-content auto;
-  grid-template-rows: min-content min-content auto min-content;
-  grid-template-areas:
-    "io io io"
-    "extension divider table"
-    "regular divider table"
-    "submit divider table";
-}
-
-.io {
-  grid-area: io;
-}
-
-.divider {
-  grid-area: divider;
-
-  height: auto;
-}
-
-.extension {
-  grid-area: extension;
-}
-
-.regular {
-  grid-area: regular;
-
-  .regular-filter-item-checkbox {
-    margin: 0;
-    padding: 0;
+  // fix unexpected styles overwriting by tailwindcss
+  button {
+    &.arco-switch[type="button"] {
+      background-color: var(--color-fill-4);
+      
+      &.arco-switch-checked {
+        background-color: rgb(var(--primary-6));
+      }
+    }
   }
-}
-
-.submit {
-  grid-area: submit;
-}
-
-.table {
-  grid-area: table;
 }

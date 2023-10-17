@@ -1,9 +1,10 @@
-use std::{process::Stdio, sync::Arc};
+use std::{path::PathBuf, process::Stdio, sync::Arc};
 
 use async_trait::async_trait;
 use log::{info, trace, warn};
 use tauri::Manager;
 use tokio::{
+    fs,
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     process::{Child, ChildStderr, ChildStdout, Command},
     sync::Mutex,
@@ -60,6 +61,22 @@ impl TaskStateMachineNode for Idle {
     }
 
     async fn start(self: Box<Self>, task: Task) -> Box<dyn TaskStateMachineNode> {
+        // create directories if not exist
+        for output in task.data.params.outputs.iter() {
+            match &output.path {
+                Some(path) => {
+                    let path = PathBuf::from(path);
+                    if !path.is_dir() {
+                        if let Err(err) = fs::create_dir_all(path).await {
+                            return Box::new(Errored::from_err(err));
+                        }
+                    }
+                }
+                None => continue,
+            }
+        }
+
+        // startup ffmpeg subprocess
         let mut command = Command::new(&task.data.program);
 
         #[cfg(windows)]

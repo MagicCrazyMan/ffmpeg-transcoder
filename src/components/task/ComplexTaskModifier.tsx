@@ -248,7 +248,7 @@ const Footer = ({
   outputs: EditableTaskParams[];
   onVisibleChange: (visible: boolean) => void;
 }) => {
-  const { addTasks, updateTask } = useTaskStore((state) => state);
+  const { addTasks, updateTask } = useTaskStore();
   const presets = usePresetStore((state) => state.presets);
 
   const onCancel = () => onVisibleChange(false);
@@ -340,8 +340,8 @@ export default function ComplexTaskModifier({
   onVisibleChange,
   task,
 }: ComplexTaskModifierProps) {
-  const { configuration, openDialogFilters, saveDialogFilters } = useAppStore((state) => state);
-  const { presets, defaultDecode, defaultEncode } = usePresetStore((state) => state);
+  const { configuration, openDialogFilters, saveDialogFilters } = useAppStore();
+  const { presets, defaultDecode, defaultEncode } = usePresetStore();
 
   const [inputs, setInputs] = useState<EditableTaskParams[]>([]);
   const [outputs, setOutputs] = useState<EditableTaskParams[]>([]);
@@ -371,9 +371,7 @@ export default function ComplexTaskModifier({
         task.params.inputs.map((input) => fromTaskParams(input, presets) as EditableTaskParams)
       );
       setOutputs(
-        task.params.outputs.map(
-          (output) => fromTaskParams(output, presets) as EditableTaskParams
-        )
+        task.params.outputs.map((output) => fromTaskParams(output, presets) as EditableTaskParams)
       );
       setModified(false);
     } else {
@@ -471,31 +469,31 @@ export default function ComplexTaskModifier({
         setModified(false);
       }}
     >
-      <Space direction="vertical">
-        {/* Buttons */}
-        <Space>
-          {/* Add Input Files Button */}
-          <Button size="small" type="primary" onClick={addInputFiles}>
-            Add Input Files
-          </Button>
+      {/* Buttons */}
+      <Space className="mb-4">
+        {/* Add Input Files Button */}
+        <Button size="small" type="primary" onClick={addInputFiles}>
+          Add Input Files
+        </Button>
 
-          {/* Add Output File Button */}
-          <Button size="small" type="primary" onClick={addOutputFile}>
-            Add Output File
-          </Button>
+        {/* Add Output File Button */}
+        <Button size="small" type="primary" onClick={addOutputFile}>
+          Add Output File
+        </Button>
 
-          {/* Add NULL Output Button */}
-          <Button size="small" type="primary" status="warning" onClick={addNullOutput}>
-            Add NULL Output
-          </Button>
-        </Space>
-
-        {/* Input Files Table */}
-        <InputTable inputs={inputs} setInputs={wrappedSetInputs}></InputTable>
-
-        {/* Output Files Table */}
-        <OutputTable outputs={outputs} setOutputs={wrappedSetOutputs}></OutputTable>
+        {/* Add NULL Output Button */}
+        <Button size="small" type="primary" status="warning" onClick={addNullOutput}>
+          Add NULL Output
+        </Button>
       </Space>
+
+      {/* Input Files Table */}
+      <div className="mb-4">
+        <InputTable inputs={inputs} setInputs={wrappedSetInputs}></InputTable>
+      </div>
+
+      {/* Output Files Table */}
+      <OutputTable outputs={outputs} setOutputs={wrappedSetOutputs}></OutputTable>
     </Modal>
   );
 }

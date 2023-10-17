@@ -1,4 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { invoke } from "@tauri-apps/api";
+import type { DirectoryNotFoundError } from "./error";
 
 export type TargetFile = {
   filename: string;
@@ -10,6 +12,11 @@ export type TargetFile = {
 
 /**
  * Finds all files in a directory recursively via Tauri.
+ *
+ * # Errors
+ *
+ * - {@link DirectoryNotFoundError} if directory not found
+ *
  * @returns Flatten files list
  */
 export const getFilesFromDirectory = async (dir: string) =>

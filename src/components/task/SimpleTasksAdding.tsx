@@ -44,7 +44,7 @@ const Footer = ({
   records: SimpleTaskParams[];
   onVisibleChange: (visible: boolean) => void;
 }) => {
-  const { addTasks } = useTaskStore((state) => state);
+  const { addTasks } = useTaskStore();
   const presets = usePresetStore((state) => state.presets);
 
   const modified = useMemo(() => records.length !== 0, [records]);
@@ -85,8 +85,8 @@ const Footer = ({
 };
 
 export default function SimpleTasksAdding({ visible, onVisibleChange }: SimpleTasksAddingProps) {
-  const { configuration, openDialogFilters, saveDialogFilters } = useAppStore((state) => state);
-  const { presets, defaultDecode, defaultEncode } = usePresetStore((state) => state);
+  const { configuration, openDialogFilters, saveDialogFilters } = useAppStore();
+  const { presets, defaultDecode, defaultEncode } = usePresetStore();
 
   const [tasks, setTasks] = useState<SimpleTaskParams[]>([]);
 
@@ -372,25 +372,23 @@ export default function SimpleTasksAdding({ visible, onVisibleChange }: SimpleTa
         setTasks([]);
       }}
     >
-      <Space direction="vertical">
-        {/* Buttons */}
-        <Space>
-          {/* Add Input Files Button */}
-          <Button size="small" type="primary" onClick={addInputFiles}>
-            Add Input Files
-          </Button>
-        </Space>
-
-        {/* Input Files Table */}
-        <Table
-          stripe
-          size="mini"
-          rowKey="id"
-          pagination={false}
-          columns={columns}
-          data={tasks}
-        ></Table>
+      {/* Buttons */}
+      <Space className="mb-4">
+        {/* Add Input Files Button */}
+        <Button size="small" type="primary" onClick={addInputFiles}>
+          Add Input Files
+        </Button>
       </Space>
+
+      {/* Input Files Table */}
+      <Table
+        stripe
+        size="mini"
+        rowKey="id"
+        pagination={false}
+        columns={columns}
+        data={tasks}
+      ></Table>
     </Modal>
   );
 }

@@ -7,6 +7,8 @@ use log::{info, warn};
 use tauri::Manager;
 use tokio::sync::Mutex;
 
+use crate::handlers::commands::task::TaskParams;
+
 use super::{
     message::{TaskMessage, TASK_MESSAGE_EVENT},
     state_machine::{Idle, TaskStateCode, TaskStateMachineNode},
@@ -16,6 +18,7 @@ use super::{
 pub(super) struct TaskData {
     pub(super) id: String,
     pub(super) program: String,
+    pub(super) params: TaskParams,
     pub(super) args: Vec<String>,
     pub(super) total_duration: f64,
     pub(super) app_handle: tauri::AppHandle,
@@ -25,13 +28,15 @@ impl TaskData {
     pub(super) fn new(
         id: String,
         program: String,
-        args: Vec<String>,
+        params: TaskParams,
         total_duration: f64,
         app_handle: tauri::AppHandle,
     ) -> Self {
+        let args = params.to_args();
         Self {
             id,
             program,
+            params,
             args,
             total_duration,
             app_handle,
@@ -53,12 +58,18 @@ impl Task {
         id: String,
         app_handle: tauri::AppHandle,
         program: String,
-        args: Vec<String>,
+        params: TaskParams,
         total_duration: f64,
         store: Weak<Mutex<HashMap<String, Task>>>,
     ) -> Self {
         Self {
-            data: Arc::new(TaskData::new(id, program, args, total_duration, app_handle)),
+            data: Arc::new(TaskData::new(
+                id,
+                program,
+                params,
+                total_duration,
+                app_handle,
+            )),
             state: Arc::new(Mutex::new(Some(Box::new(Idle)))),
             store,
         }

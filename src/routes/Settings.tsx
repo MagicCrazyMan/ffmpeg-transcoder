@@ -26,7 +26,7 @@ import { loadConfiguration, verifyDirectory, verifyFFmpeg, verifyFFprobe } from 
  */
 export default function Settings() {
   const { systemParticulars, setSystemParticulars, configuration, setLocalConfiguration } =
-    useAppStore((state) => state);
+    useAppStore();
   const formInstance = useRef<FormInstance<Configuration>>(null);
 
   const [isBlocking, setBlocking] = useState(!systemParticulars);
@@ -37,6 +37,9 @@ export default function Settings() {
     }
   }, [blocker, isBlocking]);
 
+  /**
+   * Selects FFmoeg program
+   */
   const selectFFmpeg = async () => {
     const path = await open({
       title: "Select FFmpeg Program",
@@ -53,6 +56,9 @@ export default function Settings() {
     }
   };
 
+  /**
+   * Selects FFprobe program
+   */
   const selectFFprobe = async () => {
     const path = await open({
       title: "Select FFprobe Program",
@@ -69,7 +75,10 @@ export default function Settings() {
     }
   };
 
-  const selectSaveDirectory = async () => {
+  /**
+   * Selects save default directory
+   */
+  const selectDefaultSaveDirectory = async () => {
     const path = await open({
       title: "Select Default Save Directory",
       directory: true,
@@ -84,6 +93,9 @@ export default function Settings() {
     }
   };
 
+  /**
+   * Stores local configuration after form changes and successfully validates.
+   */
   const onChange = (localConfiguration: Partial<Configuration>) => {
     formInstance.current
       ?.validate()
@@ -106,128 +118,132 @@ export default function Settings() {
   };
 
   return (
-    <Form
-      size="mini"
-      labelCol={{ style: { flexBasis: "10rem" } }}
-      wrapperCol={{ style: { width: "auto", flexBasis: "auto", flex: "1" } }}
-      initialValues={configuration}
-      ref={formInstance}
-      onChange={onChange}
-    >
-      <Grid.Row gutter={8}>
-        <Grid.Col span={12}>
-          {/* Log Level */}
-          <Form.Item field="loglevel" label="Log Level">
-            <Select>
-              <Select.Option value={LogLevel.Off}>Off</Select.Option>
-              <Select.Option value={LogLevel.Error}>Error</Select.Option>
-              <Select.Option value={LogLevel.Warn}>Warn</Select.Option>
-              <Select.Option value={LogLevel.Info}>Info</Select.Option>
-              <Select.Option value={LogLevel.Debug}>Debug</Select.Option>
-              <Select.Option value={LogLevel.Trace}>Trace</Select.Option>
-            </Select>
-          </Form.Item>
-        </Grid.Col>
-
-        {/* Theme Switcher */}
-        <Grid.Col span={12}>
-          <Form.Item labelCol={{ style: { flexBasis: "4rem" } }} field="theme" label="Theme">
-            <Select>
-              <Select.Option value={Theme.Dark}>Dark</Select.Option>
-              <Select.Option value={Theme.Light}>Light</Select.Option>
-              <Select.Option value={Theme.FollowSystem}>Follow System</Select.Option>
-            </Select>
-          </Form.Item>
-        </Grid.Col>
-      </Grid.Row>
-
-      <Grid.Row gutter={8}>
-        <Grid.Col span={12}>
-          {/* Max Running Tasks */}
-          <Form.Item field="maxRunning" label="Max Running Tasks">
-            <InputNumber min={1}></InputNumber>
-          </Form.Item>
-        </Grid.Col>
-
-        <Grid.Col span={12}></Grid.Col>
-      </Grid.Row>
-
-      {/* FFmpeg Program */}
-      <Form.Item
-        field="ffmpeg"
-        label="FFmpeg Program"
-        rules={[
-          {
-            validator(value, callback) {
-              return verifyFFmpeg(value)
-                .then(() => {
-                  callback();
-                })
-                .catch((err: FFmpegNotFoundError | FFmpegUnavailableError) => {
-                  callback(toMessage(err));
-                });
-            },
-          },
-        ]}
+    <div className="p-4">
+      <Form
+        size="mini"
+        labelCol={{ style: { flexBasis: "10rem" } }}
+        wrapperCol={{ style: { width: "auto", flexBasis: "auto", flex: "1" } }}
+        initialValues={configuration}
+        ref={formInstance}
+        onChange={onChange}
       >
-        <Input
-          placeholder="ffmpeg program"
-          beforeStyle={{ padding: "0" }}
-          addBefore={<Button type="text" icon={<IconFile />} onClick={selectFFmpeg} />}
-        ></Input>
-      </Form.Item>
+        <Grid.Row gutter={8}>
+          <Grid.Col span={12}>
+            {/* Log Level */}
+            <Form.Item field="loglevel" label="Log Level">
+              <Select>
+                <Select.Option value={LogLevel.Off}>Off</Select.Option>
+                <Select.Option value={LogLevel.Error}>Error</Select.Option>
+                <Select.Option value={LogLevel.Warn}>Warn</Select.Option>
+                <Select.Option value={LogLevel.Info}>Info</Select.Option>
+                <Select.Option value={LogLevel.Debug}>Debug</Select.Option>
+                <Select.Option value={LogLevel.Trace}>Trace</Select.Option>
+              </Select>
+            </Form.Item>
+          </Grid.Col>
 
-      {/* FFprobe Program */}
-      <Form.Item
-        field="ffprobe"
-        label="FFprobe Program"
-        rules={[
-          {
-            validator(value, callback) {
-              return verifyFFprobe(value)
-                .then(() => {
-                  callback();
-                })
-                .catch((err: FFprobeNotFoundError | FFprobeUnavailableError) => {
-                  callback(toMessage(err));
-                });
+          {/* Theme Switcher */}
+          <Grid.Col span={12}>
+            <Form.Item labelCol={{ style: { flexBasis: "4rem" } }} field="theme" label="Theme">
+              <Select>
+                <Select.Option value={Theme.Dark}>Dark</Select.Option>
+                <Select.Option value={Theme.Light}>Light</Select.Option>
+                <Select.Option value={Theme.FollowSystem}>Follow System</Select.Option>
+              </Select>
+            </Form.Item>
+          </Grid.Col>
+        </Grid.Row>
+
+        <Grid.Row gutter={8}>
+          <Grid.Col span={12}>
+            {/* Max Running Tasks */}
+            <Form.Item field="maxRunning" label="Max Running Tasks">
+              <InputNumber min={1}></InputNumber>
+            </Form.Item>
+          </Grid.Col>
+
+          <Grid.Col span={12}></Grid.Col>
+        </Grid.Row>
+
+        {/* FFmpeg Program */}
+        <Form.Item
+          field="ffmpeg"
+          label="FFmpeg Program"
+          rules={[
+            {
+              validator(value, callback) {
+                return verifyFFmpeg(value)
+                  .then(() => {
+                    callback();
+                  })
+                  .catch((err: FFmpegNotFoundError | FFmpegUnavailableError) => {
+                    callback(toMessage(err));
+                  });
+              },
             },
-          },
-        ]}
-      >
-        <Input
-          placeholder="ffprobe program"
-          beforeStyle={{ padding: "0" }}
-          addBefore={<Button type="text" icon={<IconFile />} onClick={selectFFprobe} />}
-        ></Input>
-      </Form.Item>
+          ]}
+        >
+          <Input
+            placeholder="ffmpeg program"
+            beforeStyle={{ padding: "0" }}
+            addBefore={<Button type="text" icon={<IconFile />} onClick={selectFFmpeg} />}
+          ></Input>
+        </Form.Item>
 
-      {/* FFprobe Program */}
-      <Form.Item
-        field="saveDirectory"
-        label="Default Save Directory"
-        rules={[
-          {
-            validator(value, callback) {
-              if (!value) callback();
-
-              return verifyDirectory(value)
-                .then(() => {
-                  callback();
-                })
-                .catch((err: FFprobeNotFoundError | FFprobeUnavailableError) => {
-                  callback(toMessage(err));
-                });
+        {/* FFprobe Program */}
+        <Form.Item
+          field="ffprobe"
+          label="FFprobe Program"
+          rules={[
+            {
+              validator(value, callback) {
+                return verifyFFprobe(value)
+                  .then(() => {
+                    callback();
+                  })
+                  .catch((err: FFprobeNotFoundError | FFprobeUnavailableError) => {
+                    callback(toMessage(err));
+                  });
+              },
             },
-          },
-        ]}
-      >
-        <Input
-          allowClear
-          beforeStyle={{ padding: "0" }}
-          addBefore={<Button type="text" icon={<IconFolder />} onClick={selectSaveDirectory} />}
-        ></Input>
-      </Form.Item>
-    </Form>
+          ]}
+        >
+          <Input
+            placeholder="ffprobe program"
+            beforeStyle={{ padding: "0" }}
+            addBefore={<Button type="text" icon={<IconFile />} onClick={selectFFprobe} />}
+          ></Input>
+        </Form.Item>
+
+        {/* FFprobe Program */}
+        <Form.Item
+          field="saveDirectory"
+          label="Default Save Directory"
+          rules={[
+            {
+              validator(value, callback) {
+                if (!value) callback();
+
+                return verifyDirectory(value)
+                  .then(() => {
+                    callback();
+                  })
+                  .catch((err: FFprobeNotFoundError | FFprobeUnavailableError) => {
+                    callback(toMessage(err));
+                  });
+              },
+            },
+          ]}
+        >
+          <Input
+            allowClear
+            beforeStyle={{ padding: "0" }}
+            addBefore={
+              <Button type="text" icon={<IconFolder />} onClick={selectDefaultSaveDirectory} />
+            }
+          ></Input>
+        </Form.Item>
+      </Form>
+    </div>
   );
 }

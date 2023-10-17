@@ -282,11 +282,9 @@ const storeLocalConfigurationStorage = (configuration: LocalConfigurationStorage
 /**
  * Loads local configuration from local storage
  */
-const loadLocalConfigurationStorage = () => {
+const loadLocalConfigurationStorage = (): LocalConfigurationStorage => {
   const raw = localStorage.getItem(LOCAL_CONFIGURATION_LOCALSTORAGE_KEY);
-  return {
-    ...(raw ? JSON.parse(raw) : undefined),
-  } as LocalConfigurationStorage;
+  return raw ? JSON.parse(raw) : {};
 };
 
 /**
@@ -367,7 +365,6 @@ export type AppState = {
  */
 export const useAppStore = create<AppState>((set, _get, api) => {
   const localConfiguration = loadLocalConfigurationStorage();
-  const configuration = { ...cloneDeep(DEFAULT_CONFIGURATION), ...localConfiguration };
   const setLocalConfiguration = (localConfiguration: LocalConfigurationStorage) => {
     // updates and stores local configuration
     set((state) => {
@@ -380,6 +377,8 @@ export const useAppStore = create<AppState>((set, _get, api) => {
       configuration: { ...state.configuration, ...localConfiguration },
     }));
   };
+
+  const configuration = { ...cloneDeep(DEFAULT_CONFIGURATION), ...localConfiguration };
 
   api.subscribe((state, prevState) => {
     // updates acro if theme changed

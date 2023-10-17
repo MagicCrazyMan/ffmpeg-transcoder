@@ -3,6 +3,8 @@ use std::{collections::HashMap, sync::Arc};
 use log::warn;
 use tokio::sync::Mutex;
 
+use crate::handlers::commands::task::TaskParams;
+
 use super::task::Task;
 
 /// Task managing store center.
@@ -43,7 +45,7 @@ impl TaskStore {
     pub async fn start(
         &self,
         id: String,
-        args: Vec<String>,
+        params: TaskParams,
         app_handle: tauri::AppHandle,
         total_duration: f64,
         program: String,
@@ -52,7 +54,7 @@ impl TaskStore {
             id.clone(),
             app_handle,
             program,
-            args,
+            params,
             total_duration,
             Arc::downgrade(&self.store),
         );

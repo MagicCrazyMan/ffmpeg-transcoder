@@ -1,116 +1,41 @@
-import { Button, Divider, Table, TableColumnProps } from "@arco-design/web-react";
-import { join } from "@tauri-apps/api/path";
-import { useEffect, useMemo, useState } from "react";
-import { v4 } from "uuid";
-import { TargetFile } from "../../tauri/fs";
-import DirectoryIO from "./DirectoryIO";
+import { Button } from "@arco-design/web-react";
+import Directories from "./Directories";
 import ExtensionFilter from "./ExtensionFilter";
-import RegularFilter from "./RegularFilter";
-import { ExtensionFilterState, RegularFilterData } from "./constants";
+import TargetTable from "./FileTable";
+import RegularFilters from "./RegularFilters";
 import "./index.less";
 
 /**
  * A page for searching files from a input directory
- * and constructing tasks.
+ * and adding multiple task from them
  */
 export default function SearchPage() {
-  const [inputDirectory, setInputDirectory] = useState("");
-  const [outputDirectory, setOutputDirectory] = useState("");
-  const [inputFiles, setInputFiles] = useState<TargetFile[]>([]);
-
-  const [extensionFilterState, setExtensionFilterState] = useState(ExtensionFilterState.Disabled);
-  const [extensions, setExtensions] = useState<string[]>([]);
-
-  const [regularFiltersEnabled, setRegularFiltersEnabled] = useState(true);
-  const [regularFilters, setRegularFilters] = useState<RegularFilterData[]>([
-    {
-      id: v4(),
-      value: "sdfsdfs",
-      enabled: true,
-      regex: true,
-      blacklist: false,
-      applyFile: true,
-      applyDirectory: true,
-    },
-    {
-      id: v4(),
-      value: "sdfsfd",
-      enabled: true,
-      regex: true,
-      blacklist: false,
-      applyFile: true,
-      applyDirectory: true,
-    },
-  ]);
-
-  const tableCols: TableColumnProps[] = [
-    {
-      title: "Input",
-      dataIndex: "input",
-    },
-    {
-      title: "Output",
-      dataIndex: "output",
-    },
-  ];
-  const tableData = useMemo(() => {
-    return inputFiles.map(({ absolute, relative }) => ({
-      key: absolute,
-      input: join(inputDirectory, relative),
-      output: outputDirectory ? join(outputDirectory, relative) : "",
-    }));
-  }, [inputFiles, inputDirectory, outputDirectory]);
-
-  useEffect(() => {}, [inputFiles]);
-
-  useEffect(() => {}, [regularFilters]);
-
   return (
-    <div className="container">
+    <div className="container p-4 box-border h-screen flex flex-col">
       {/* Input & Output Directories Selector */}
-      <DirectoryIO
-        className="io"
-        inputDirectory={inputDirectory}
-        onInputDirectoryChanged={setInputDirectory}
-        outputDirectory={outputDirectory}
-        onOutputDirectoryChanged={setOutputDirectory}
-        onInputFilesChanged={setInputFiles}
-      />
+      <Directories />
 
-      {/* Divider */}
-      <Divider className="divider mx-4" type="vertical" />
+      <div className="flex-1 overflow-y-hidden flex">
+        <div className="mr-4 basis-96 flex flex-col">
+          {/* Extensions Filter */}
+          <ExtensionFilter />
 
-      {/* Files Filter */}
-      <ExtensionFilter
-        extensions={extensions}
-        onExtensionsChanged={setExtensions}
-        filterState={extensionFilterState}
-        onFilterStateChanged={setExtensionFilterState}
-        className="extension"
-      />
+          {/* Regular Filters */}
+          <div className="flex-1 overflow-y-hidden">
+            <RegularFilters />
+          </div>
 
-      {/* Regular Filter */}
-      <RegularFilter
-        enabled={regularFiltersEnabled}
-        onEnabled={setRegularFiltersEnabled}
-        filters={regularFilters}
-        onChanged={setRegularFilters}
-        className="regular"
-      ></RegularFilter>
+          {/* Submit */}
+          <Button type="primary" className="submit">
+            Add Tasks
+          </Button>
+        </div>
 
-      {/* Files Table */}
-      <Table
-        stripe
-        pagination={false}
-        className="table"
-        columns={tableCols}
-        data={tableData}
-      ></Table>
-
-      {/* Submit */}
-      <Button type="primary" className="submit">
-        Add to Queue
-      </Button>
+        {/* Files Table */}
+        <div className="flex-1 overflow-y-auto">
+          <TargetTable />
+        </div>
+      </div>
     </div>
   );
 }

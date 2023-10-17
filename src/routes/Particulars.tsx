@@ -60,10 +60,12 @@ export default function ParticularsPage() {
   }, [systemParticulars, currentTheme]);
 
   return (
-    <Descriptions
-      column={1}
-      labelStyle={{ verticalAlign: "top" }}
-      data={descriptionsData}
-    ></Descriptions>
+    <div className="p-4">
+      <Descriptions
+        column={1}
+        labelStyle={{ verticalAlign: "top" }}
+        data={descriptionsData}
+      ></Descriptions>
+    </div>
   );
 }
