@@ -1,13 +1,5 @@
-import {
-  Button,
-  Modal,
-  Popconfirm,
-  Space,
-  Table,
-  TableColumnProps,
-  Tooltip,
-} from "@arco-design/web-react";
-import { IconCopy, IconDelete, IconFilter } from "@arco-design/web-react/icon";
+import { Button, Modal, Popconfirm, Space, Table, TableColumnProps } from "@arco-design/web-react";
+import { IconDelete } from "@arco-design/web-react/icon";
 import { open, save } from "@tauri-apps/api/dialog";
 import { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
 import { v4 } from "uuid";
@@ -28,59 +20,6 @@ export type ComplexTaskModifierProps = {
   visible: boolean;
   onVisibleChange: (visible: boolean) => void;
   task?: Task;
-};
-
-const Operations = ({
-  record,
-  onRemove,
-  onApplyAll,
-  onConvertCustom,
-}: {
-  record: EditableTaskParams;
-  onRemove: (id: string) => void;
-  onApplyAll: (record: EditableTaskParams) => void;
-  onConvertCustom: (record: EditableTaskParams) => void;
-}) => {
-  return (
-    <Space>
-      {/* Apply Params to All Records Button */}
-      <Tooltip content="Apply To All">
-        <Button
-          className="flex-shrink-0"
-          shape="circle"
-          size="mini"
-          type="primary"
-          icon={<IconCopy />}
-          onClick={() => onApplyAll(record)}
-        ></Button>
-      </Tooltip>
-
-      {/* Convert To Custom Button */}
-      {record.selection !== ParamsSource.Auto && record.selection !== ParamsSource.Custom ? (
-        <Tooltip content="Convert To Custom">
-          <Button
-            className="flex-shrink-0"
-            shape="circle"
-            size="mini"
-            status="warning"
-            type="primary"
-            icon={<IconFilter />}
-            onClick={() => onConvertCustom(record)}
-          ></Button>
-        </Tooltip>
-      ) : null}
-
-      {/* Delete Button */}
-      <Button
-        size="mini"
-        shape="circle"
-        type="primary"
-        status="danger"
-        icon={<IconDelete />}
-        onClick={() => onRemove(record.id)}
-      ></Button>
-    </Space>
-  );
 };
 
 const UniverseTable = ({
@@ -168,18 +107,27 @@ const UniverseTable = ({
         title: paramsTitle,
         ellipsis: true,
         render: (_col, record) => (
-          <ParamsModifier presetType={presetType} record={record} onChange={onChange} />
+          <ParamsModifier
+            presetType={presetType}
+            record={record}
+            onChange={onChange}
+            onApplyAll={onApplyAll}
+            onConvertCustom={onConvertCustom}
+          />
         ),
       },
       {
         title: "Operations",
-        width: "7rem",
+        width: "6rem",
+        align: "center",
         render: (_col, record) => (
-          <Operations
-            record={record}
-            onRemove={onRemove}
-            onApplyAll={onApplyAll}
-            onConvertCustom={onConvertCustom}
+          <Button
+            size="mini"
+            shape="circle"
+            type="primary"
+            status="danger"
+            icon={<IconDelete />}
+            onClick={() => onRemove(record.id)}
           />
         ),
       },
