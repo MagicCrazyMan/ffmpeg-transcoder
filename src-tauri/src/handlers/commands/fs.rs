@@ -41,10 +41,18 @@ impl TargetFile {
     }
 }
 
-/// A command finds all files(in relative path) from a directory recursively,
-/// a flatten files list will be returned.
+/// A command finds all files(in relative path) from a directory recursively
+/// and returns a flatten files list will be returned.
+///
+/// `mex_depth` tells how depth should recursively search in, default for `5`.
+/// For performance considering, always provides a small value.
 #[tauri::command]
-pub async fn files_from_directory(dir: String) -> Result<Vec<TargetFile>, Error> {
+pub async fn files_from_directory(
+    dir: String,
+    max_depth: Option<usize>,
+) -> Result<Vec<TargetFile>, Error> {
+    let max_depth = max_depth.unwrap_or(5);
+
     let path = PathBuf::from(&dir);
     let canonicalized_path = path.canonicalize().map(|p| p.to_string_lossy().to_string());
     if !path.is_dir() || canonicalized_path.is_err() {
@@ -52,9 +60,9 @@ pub async fn files_from_directory(dir: String) -> Result<Vec<TargetFile>, Error>
     }
 
     let canonicalized_path = format!("{}{}", canonicalized_path.unwrap(), MAIN_SEPARATOR);
-    let mut directories = VecDeque::from([path]);
+    let mut directories = VecDeque::from([(path, 0)]);
     let mut files = Vec::with_capacity(128);
-    while let Some(dir) = directories.pop_front() {
+    while let Some((dir, depth)) = directories.pop_front() {
         let Ok(mut entries) = fs::read_dir(dir).await else {
             continue;
         };
@@ -63,7 +71,10 @@ pub async fn files_from_directory(dir: String) -> Result<Vec<TargetFile>, Error>
             let entry = entry.path();
 
             if entry.is_dir() {
-                directories.push_back(entry);
+                let next_depth = depth + 1;
+                if next_depth <= max_depth {
+                    directories.push_back((entry, next_depth));
+                }
             } else if entry.is_file() {
                 if let Ok(file) = TargetFile::from_path(&entry, canonicalized_path.as_bytes().len())
                 {

@@ -17,7 +17,9 @@ export type TargetFile = {
  *
  * - {@link DirectoryNotFoundError} if directory not found
  *
+ * @param dir Directory to search in
+ * @param maxDepth Max depth should walk in during searching, default for `5`
  * @returns Flatten files list
  */
-export const getFilesFromDirectory = async (dir: string) =>
-  await invoke<TargetFile[]>("files_from_directory", { dir });
+export const getFilesFromDirectory = async (dir: string, maxDepth?: number) =>
+  await invoke<TargetFile[]>("files_from_directory", { dir, maxDepth });

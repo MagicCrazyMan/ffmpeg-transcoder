@@ -1,4 +1,4 @@
-import { Button, Form, FormInstance, Input } from "@arco-design/web-react";
+import { Button, Form, FormInstance, Grid, Input, InputNumber } from "@arco-design/web-react";
 import { IconFolder } from "@arco-design/web-react/icon";
 import { open } from "@tauri-apps/api/dialog";
 import { useMemo, useRef } from "react";
@@ -12,18 +12,29 @@ import { verifyDirectory } from "../../tauri/system";
  * Input and Output directories input
  */
 export default function Directories() {
-  const { setFiles, setFileLoading, inputDir, outputDir, setInputDirectory, setOutputDirectory } =
-    useSearchStore();
+  const {
+    maxDepth,
+    setMaxDepth,
+    setFiles,
+    isFileLoading,
+    setFileLoading,
+    inputDir,
+    outputDir,
+    setInputDirectory,
+    setOutputDirectory,
+  } = useSearchStore();
   const saveDirectory = useAppStore((state) => state.configuration.saveDirectory);
 
-  const formRef = useRef<FormInstance<{ inputDir: string; outputDir: string }>>(null);
+  const formRef =
+    useRef<FormInstance<{ inputDir: string; depth: number; outputDir: string }>>(null);
   const initialValues = useMemo(
     () =>
       ({
         inputDir: inputDir ?? "",
+        depth: maxDepth,
         outputDir: outputDir ?? saveDirectory ?? "",
       }) as { inputDir: string; outputDir: string },
-    [inputDir, outputDir, saveDirectory]
+    [inputDir, maxDepth, outputDir, saveDirectory]
   );
 
   const selectDirectory = async (type: "input" | "output") => {
@@ -44,16 +55,19 @@ export default function Directories() {
     formRef.current?.validate().then((values) => {
       setInputDirectory(values.inputDir);
       setOutputDirectory(values.outputDir);
+      setMaxDepth(values.depth);
 
-      setFileLoading(true);
-      setFiles([]);
-      getFilesFromDirectory(values.inputDir)
-        .then((files) => {
-          setFiles(files);
-        })
-        .finally(() => {
-          setFileLoading(false);
-        });
+      if (values.inputDir) {
+        setFileLoading(true);
+        setFiles([]);
+        getFilesFromDirectory(values.inputDir, values.depth)
+          .then((files) => {
+            setFiles(files);
+          })
+          .finally(() => {
+            setFileLoading(false);
+          });
+      }
     });
   };
 
@@ -65,42 +79,67 @@ export default function Directories() {
       initialValues={initialValues}
       onChange={onChange}
     >
-      {/* Input Directory */}
-      <Form.Item
-        field="inputDir"
-        rules={[
-          {
-            validator(value: string | undefined, callback) {
-              if (!value) {
-                return Promise.resolve(callback());
-              } else {
-                return verifyDirectory(value)
-                  .then(() => {
-                    callback();
-                  })
-                  .catch((err: DirectoryNotFoundError) => {
-                    callback(toMessage(err));
-                  });
+      <Grid.Row gutter={8}>
+        <Grid.Col span={18}>
+          {/* Input Directory */}
+          <Form.Item
+            field="inputDir"
+            rules={[
+              {
+                validator(value: string | undefined, callback) {
+                  if (!value) {
+                    return Promise.resolve(callback());
+                  } else {
+                    return verifyDirectory(value)
+                      .then(() => {
+                        callback();
+                      })
+                      .catch((err: DirectoryNotFoundError) => {
+                        callback(toMessage(err));
+                      });
+                  }
+                },
+              },
+            ]}
+          >
+            <Input
+              allowClear
+              placeholder="Input Directory"
+              beforeStyle={{ padding: "0" }}
+              disabled={isFileLoading}
+              value={inputDir}
+              onChange={setInputDirectory}
+              addBefore={
+                <Button
+                  type="text"
+                  icon={<IconFolder />}
+                  disabled={isFileLoading}
+                  onClick={() => selectDirectory("input")}
+                ></Button>
               }
-            },
-          },
-        ]}
-      >
-        <Input
-          allowClear
-          placeholder="Input Directory"
-          beforeStyle={{ padding: "0" }}
-          value={inputDir}
-          onChange={setInputDirectory}
-          addBefore={
-            <Button
-              type="text"
-              icon={<IconFolder />}
-              onClick={() => selectDirectory("input")}
-            ></Button>
-          }
-        ></Input>
-      </Form.Item>
+            ></Input>
+          </Form.Item>
+        </Grid.Col>
+
+        <Grid.Col span={6}>
+          {/* Depth Input */}
+          <Form.Item
+            field="depth"
+            labelCol={{ span: 8 }}
+            wrapperCol={{ span: 16 }}
+            label="Max Depth"
+          >
+            <InputNumber
+              size="mini"
+              min={0}
+              step={1}
+              disabled={isFileLoading}
+              value={maxDepth}
+              onChange={setMaxDepth}
+            />
+          </Form.Item>
+        </Grid.Col>
+      </Grid.Row>
 
       {/* Output Directory */}
       <Form.Item

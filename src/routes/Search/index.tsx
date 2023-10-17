@@ -11,7 +11,7 @@ import "./index.less";
  */
 export default function SearchPage() {
   return (
-    <div className="container p-4 box-border h-screen flex flex-col">
+    <div className="container p-4 box-border h-screen flex basis-full flex-col">
       {/* Input & Output Directories Selector */}
       <Directories />
 

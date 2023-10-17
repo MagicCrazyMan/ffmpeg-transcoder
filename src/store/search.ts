@@ -9,6 +9,15 @@ export type SearchStoreState = {
    */
   inputDir?: string;
   /**
+   * Max depth should walk in during searching
+   */
+  maxDepth: number;
+  /**
+   * Sets max depth for searching.
+   * @param maxDepth Max depth
+   */
+  setMaxDepth: (maxDepth: number) => void;
+  /**
    * Sets input directory
    *
    * @param inputDir Input directory
@@ -145,9 +154,10 @@ export type RegularFilter = {
   file: boolean;
 };
 
-type SearchStorage = Pick<SearchStoreState, "extensionFilters" | "regularFilters">;
+type SearchStorage = Pick<SearchStoreState, "extensionFilters" | "regularFilters" | "maxDepth">;
 
 const DEFAULT_SEARCH_STORAGE: SearchStorage = {
+  maxDepth: 5,
   extensionFilters: {
     state: ExtensionFilterState.Disabled,
     extensions: [],
@@ -181,6 +191,20 @@ const loadSearchStorage = (): SearchStorage => {
 };
 
 export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
+  const { maxDepth, extensionFilters, regularFilters } = loadSearchStorage();
+
+  const setMaxDepth = (maxDepth: number) => {
+    set({ maxDepth });
+  };
+
+  const setInputDirectory = (inputDir: string) => {
+    set({ inputDir });
+  };
+
+  const setOutputDirectory = (outputDir: string) => {
+    set({ outputDir });
+  };
+
   const files: TargetFile[] = [];
   const setFiles = (files: TargetFile[]) => {
     set({ files });
@@ -189,16 +213,6 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
   const isFileLoading = false;
   const setFileLoading = (isFileLoading: boolean) => {
     set({ isFileLoading });
-  };
-
-  const { extensionFilters, regularFilters } = loadSearchStorage();
-
-  const setInputDirectory = (inputDir: string) => {
-    set({ inputDir });
-  };
-
-  const setOutputDirectory = (outputDir: string) => {
-    set({ outputDir });
   };
 
   const setExtensionFilterState = (state: ExtensionFilterState) => {
@@ -278,10 +292,12 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
    */
   api.subscribe((state, prevState) => {
     if (
+      state.maxDepth !== prevState.maxDepth ||
       state.extensionFilters !== prevState.extensionFilters ||
       state.regularFilters !== prevState.regularFilters
     ) {
       storeSearchStorage({
+        maxDepth: state.maxDepth,
         extensionFilters: state.extensionFilters,
         regularFilters: state.regularFilters,
       });
@@ -289,6 +305,8 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
   });
 
   return {
+    maxDepth,
+    setMaxDepth,
     files,
     setFiles,
     isFileLoading,
