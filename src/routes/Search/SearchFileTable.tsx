@@ -164,6 +164,7 @@ export default function SearchFileTable() {
         stripe
         size="mini"
         rowKey="absolute"
+        scroll={{ y: "calc(100vh - 181px)" }}
         pagination={false}
         loading={isFileLoading}
         columns={tableCols}

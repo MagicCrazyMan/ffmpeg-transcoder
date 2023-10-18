@@ -500,7 +500,7 @@ export default function PresetsPage() {
       },
       {
         title: "Operations",
-        width: "120px",
+        width: "150px",
         align: "center",
         render: (_, preset) => <Operations preset={preset} />,
       },
@@ -588,6 +588,7 @@ export default function PresetsPage() {
         size="mini"
         rowKey="id"
         className="draggable-table"
+        scroll={{ y: "calc(100vh - 112px)" }}
         pagination={false}
         columns={tableCols}
         data={tableData}

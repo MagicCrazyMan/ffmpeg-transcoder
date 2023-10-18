@@ -84,6 +84,7 @@ export default function QueuePage() {
         size="mini"
         rowKey="id"
         pagination={false}
+        scroll={{ y: "calc(100vh - 112px)" }}
         columns={tableCols}
         data={tasks}
       ></Table>

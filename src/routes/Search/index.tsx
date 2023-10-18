@@ -94,7 +94,7 @@ export default function SearchPage() {
         </div>
 
         {/* Files Table */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1">
           <SearchFileTable />
         </div>
       </div>
