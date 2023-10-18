@@ -29,7 +29,7 @@ const SidebarMenu = () => {
   }, [location]);
 
   return (
-    <Menu defaultSelectedKeys={[pageRoutes[0].id]} selectedKeys={selectedKey}>
+    <Menu selectedKeys={selectedKey}>
       {menuItems}
     </Menu>
   );

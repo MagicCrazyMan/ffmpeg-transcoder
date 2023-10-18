@@ -1,4 +1,5 @@
 import {
+  IconHistory,
   IconInfoCircleFill,
   IconSearch,
   IconSettings,
@@ -41,6 +42,16 @@ export const pageRoutes: PageRouteObject[] = [
     icon: <IconTags />,
     async lazy() {
       const { default: Component } = await import("../routes/Presets");
+      return { Component };
+    },
+  },
+  {
+    id: "history",
+    path: "history",
+    title: "History",
+    icon: <IconHistory />,
+    async lazy() {
+      const { default: Component } = await import("../routes/History");
       return { Component };
     },
   },

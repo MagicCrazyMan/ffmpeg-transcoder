@@ -18,6 +18,7 @@ import {
   stopTask as stopTaskTauri,
 } from "../tauri/task";
 import { useAppStore } from "./app";
+import { useHistoryStore } from "./history";
 import { Preset } from "./preset";
 
 export type TaskStoreState = {
@@ -86,6 +87,7 @@ export type Task = {
   params: TaskParams;
   state: TaskState;
   workTimeDurations: [Dayjs, Dayjs | undefined][];
+  creationTime: string;
   metadata?: boolean | Metadata[];
 };
 
@@ -217,10 +219,12 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
     let promise: Promise<void>;
     if (task.state.type === "Idle") {
       promise = startTaskTauri(task.id, task.params);
+      useHistoryStore.getState().addHistoryTasks(task);
     } else if (task.state.type === "Pausing") {
       promise = resumeTaskTauri(task.id);
     } else if (task.state.prevState.type === "Idle") {
       promise = startTaskTauri(task.id, task.params);
+      useHistoryStore.getState().addHistoryTasks(task);
     } else {
       promise = resumeTaskTauri(task.id);
     }
@@ -309,8 +313,9 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
             id: v4(),
             state: { type: "Idle" } as TaskStateIdle,
             workTimeDurations: [],
+            creationTime: new Date().toISOString(),
             params,
-          };
+          } as Task;
         }),
       ],
     }));
@@ -324,6 +329,7 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
             id: v4(),
             state: { type: "Idle" },
             workTimeDurations: [],
+            creationTime: new Date().toISOString(),
             params: task.params,
           };
         } else {

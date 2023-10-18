@@ -247,11 +247,11 @@ const EditableCell = (props: CellProps<keyof Preset>) => {
       if (!cellRef.current || !e.target || cellRef.current.contains(e.target as HTMLElement))
         return;
       // for clicking on select options
-      const acroSelectClassList = ["arco-select-popup", "arco-select-option"];
+      const arcoSelectClassList = ["arco-select-popup", "arco-select-option"];
       if (
         e.target &&
         Array.from<string>((e.target as HTMLElement).classList.values()).some((className) =>
-          acroSelectClassList.includes(className)
+          arcoSelectClassList.includes(className)
         )
       )
         return;

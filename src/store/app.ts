@@ -23,7 +23,7 @@ export enum Theme {
 }
 
 /**
- * Updates acro design theme mode and saves to local storage
+ * Updates arco design theme mode and saves to local storage
  * @param theme Theme
  */
 const setArcoTheme = (theme: Theme) => {
@@ -381,7 +381,7 @@ export const useAppStore = create<AppState>((set, _get, api) => {
   const configuration = { ...cloneDeep(DEFAULT_CONFIGURATION), ...localConfiguration };
 
   api.subscribe((state, prevState) => {
-    // updates acro if theme changed
+    // updates arco if theme changed
     if (state.configuration.theme !== prevState.configuration.theme) {
       set({ currentTheme: setArcoTheme(state.configuration.theme) });
     }
