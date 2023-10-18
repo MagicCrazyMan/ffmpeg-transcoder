@@ -23,8 +23,8 @@ import {
   useTaskStore,
 } from "../../store/task";
 import { toTaskParams } from "../../utils";
-import { TaskParamsModifyingValue } from "../../components/task";
-import CodecModifier, { TaskParamsCodecValue } from "../../components/task/CodecModifier";
+import { TaskParamsModifyingValue } from ".";
+import CodecModifier, { TaskParamsCodecValue } from "./CodecModifier";
 
 export type SimpleTasksAddingProps = {
   visible: boolean;

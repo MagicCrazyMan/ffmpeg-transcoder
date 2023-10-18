@@ -1,8 +1,19 @@
-import { Button, Modal, Popconfirm, Space, Table, TableColumnProps } from "@arco-design/web-react";
-import { IconDelete } from "@arco-design/web-react/icon";
+import {
+  Button,
+  Modal,
+  Popconfirm,
+  Space,
+  Table,
+  TableColumnProps,
+  Tooltip,
+  Typography,
+} from "@arco-design/web-react";
+import { IconDelete, IconFolder } from "@arco-design/web-react/icon";
 import { open, save } from "@tauri-apps/api/dialog";
 import { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
 import { v4 } from "uuid";
+import { TaskParamsModifyingValue } from ".";
+import CodecModifier, { TaskParamsCodecValue } from "./CodecModifier";
 import { useAppStore } from "../../store/app";
 import { PresetType, usePresetStore } from "../../store/preset";
 import {
@@ -13,8 +24,6 @@ import {
   useTaskStore,
 } from "../../store/task";
 import { fromTaskParams, toTaskParams } from "../../utils";
-import { TaskParamsModifyingValue } from "../../components/task";
-import CodecModifier, { TaskParamsCodecValue } from "../../components/task/CodecModifier";
 
 export type ComplexTaskModifierProps = {
   visible: boolean;
@@ -23,19 +32,23 @@ export type ComplexTaskModifierProps = {
 };
 
 const UniverseTable = ({
-  filesTitle,
-  paramsTitle,
-  presetType,
+  type,
   records,
   setRecords,
 }: {
-  filesTitle: string;
-  paramsTitle: string;
-  presetType: PresetType.Decode | PresetType.Encode;
+  type: "input" | "output";
   records: TaskParamsModifyingValue[];
   setRecords: Dispatch<SetStateAction<TaskParamsModifyingValue[]>>;
 }) => {
+  const { configuration, saveDialogFilters } = useAppStore();
   const presets = usePresetStore((state) => state.presets);
+
+  const filesTitle = useMemo(() => (type === "input" ? "Input Files" : "Output Files"), [type]);
+  const paramsTitle = useMemo(() => (type === "input" ? "Decode Params" : "Encode Params"), [type]);
+  const presetType = useMemo(
+    () => (type === "input" ? PresetType.Decode : PresetType.Encode),
+    [type]
+  );
 
   const onChange = useCallback(
     (id: string, values: Partial<TaskParamsCodecValue>) => {
@@ -96,12 +109,63 @@ const UniverseTable = ({
     [setRecords]
   );
 
+  const onSelectOutputFile = useCallback(
+    async (id: string) => {
+      const file = await save({
+        title: "Select Output File",
+        defaultPath: configuration.saveDirectory,
+        filters: saveDialogFilters,
+      });
+
+      if (file) {
+        setRecords((state) =>
+          state.map((record) => {
+            if (record.id === id) {
+              return {
+                ...record,
+                path: file as string,
+              };
+            } else {
+              return record;
+            }
+          })
+        );
+      }
+    },
+    [configuration, saveDialogFilters, setRecords]
+  );
+
   const columns: TableColumnProps<TaskParamsModifyingValue>[] = useMemo(
     () => [
       {
         title: filesTitle,
         ellipsis: true,
-        render: (_col, record) => record.path ?? "NULL",
+        render: (_col, record) => {
+          if (type === "input") {
+            return record.path ?? "NULL";
+          } else {
+            return (
+              <div className="flex gap-2 items-center">
+                {/* Select Output File Button */}
+                <Tooltip content="Select Output File">
+                  <Button
+                    shape="circle"
+                    size="mini"
+                    type="primary"
+                    className="flex-shrink-0"
+                    icon={<IconFolder />}
+                    onClick={() => onSelectOutputFile(record.id)}
+                  />
+                </Tooltip>
+
+                {/* File Name */}
+                <Typography.Text editable className="flex-1" style={{ margin: "0" }}>
+                  {record.path ?? "NULL"}
+                </Typography.Text>
+              </div>
+            );
+          }
+        },
       },
       {
         title: paramsTitle,
@@ -132,7 +196,17 @@ const UniverseTable = ({
         ),
       },
     ],
-    [presetType, filesTitle, paramsTitle, onRemove, onChange, onApplyAll, onConvertCustom]
+    [
+      filesTitle,
+      paramsTitle,
+      type,
+      onSelectOutputFile,
+      presetType,
+      onChange,
+      onApplyAll,
+      onConvertCustom,
+      onRemove,
+    ]
   );
 
   return (
@@ -144,42 +218,6 @@ const UniverseTable = ({
       columns={columns}
       data={records}
     ></Table>
-  );
-};
-
-const InputTable = ({
-  inputs,
-  setInputs,
-}: {
-  inputs: TaskParamsModifyingValue[];
-  setInputs: Dispatch<SetStateAction<TaskParamsModifyingValue[]>>;
-}) => {
-  return (
-    <UniverseTable
-      filesTitle="Input Files"
-      paramsTitle="Decode Params"
-      presetType={PresetType.Decode}
-      records={inputs}
-      setRecords={setInputs}
-    ></UniverseTable>
-  );
-};
-
-const OutputTable = ({
-  outputs,
-  setOutputs,
-}: {
-  outputs: TaskParamsModifyingValue[];
-  setOutputs: Dispatch<SetStateAction<TaskParamsModifyingValue[]>>;
-}) => {
-  return (
-    <UniverseTable
-      filesTitle="Output Files"
-      paramsTitle="Encode Params"
-      presetType={PresetType.Encode}
-      records={outputs}
-      setRecords={setOutputs}
-    ></UniverseTable>
   );
 };
 
@@ -271,10 +309,14 @@ export default function ComplexTaskModifier({
   useEffect(() => {
     if (task) {
       setInputs(
-        task.params.inputs.map((input) => fromTaskParams(input, presets) as TaskParamsModifyingValue)
+        task.params.inputs.map(
+          (input) => fromTaskParams(input, presets) as TaskParamsModifyingValue
+        )
       );
       setOutputs(
-        task.params.outputs.map((output) => fromTaskParams(output, presets) as TaskParamsModifyingValue)
+        task.params.outputs.map(
+          (output) => fromTaskParams(output, presets) as TaskParamsModifyingValue
+        )
       );
       setModified(false);
     } else {
@@ -392,11 +434,11 @@ export default function ComplexTaskModifier({
 
       {/* Input Files Table */}
       <div className="mb-4">
-        <InputTable inputs={inputs} setInputs={wrappedSetInputs}></InputTable>
+        <UniverseTable type="input" records={inputs} setRecords={wrappedSetInputs}></UniverseTable>
       </div>
 
       {/* Output Files Table */}
-      <OutputTable outputs={outputs} setOutputs={wrappedSetOutputs}></OutputTable>
+      <UniverseTable type="output" records={outputs} setRecords={wrappedSetOutputs}></UniverseTable>
     </Modal>
   );
 }

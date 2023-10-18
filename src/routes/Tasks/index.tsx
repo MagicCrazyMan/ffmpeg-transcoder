@@ -1,8 +1,8 @@
 import { Table, TableColumnProps } from "@arco-design/web-react";
 import { useState } from "react";
 import { Task, useTaskStore } from "../../store/task";
-import ComplexTaskModifier from "../Search/ComplexTaskModifier";
-import SimpleTasksModifier from "../Search/SimpleTasksModifier";
+import ComplexTaskModifier from "../../components/task/ComplexTaskModifier";
+import SimpleTasksModifier from "../../components/task/SimpleTasksModifier";
 import FilesList from "./FileList";
 import GlobalOperations from "./GlobalOperations";
 import Progress from "./Progress";
