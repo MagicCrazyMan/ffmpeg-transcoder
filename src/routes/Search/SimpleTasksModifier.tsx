@@ -84,7 +84,7 @@ const Footer = ({
   );
 };
 
-export default function SimpleTasksAdding({ visible, onVisibleChange }: SimpleTasksAddingProps) {
+export default function SimpleTasksModifier({ visible, onVisibleChange }: SimpleTasksAddingProps) {
   const { configuration, openDialogFilters, saveDialogFilters } = useAppStore();
   const { presets, defaultDecode, defaultEncode } = usePresetStore();
 

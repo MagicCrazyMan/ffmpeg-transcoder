@@ -1,8 +1,8 @@
 import { Table, TableColumnProps } from "@arco-design/web-react";
 import { useState } from "react";
-import ComplexTaskModifier from "../Search/ComplexTaskModifier";
-import SimpleTasksAdding from "../Search/SimpleTasksAdding";
 import { Task, useTaskStore } from "../../store/task";
+import ComplexTaskModifier from "../Search/ComplexTaskModifier";
+import SimpleTasksModifier from "../Search/SimpleTasksModifier";
 import FilesList from "./FileList";
 import GlobalOperations from "./GlobalOperations";
 import Progress from "./Progress";
@@ -78,12 +78,12 @@ export default function QueuePage() {
       ></Table>
 
       {/* Simple Tasks Adding Dialog */}
-      <SimpleTasksAdding
+      <SimpleTasksModifier
         visible={simpleTasksAddingVisible}
         onVisibleChange={(visible) => {
           setSimpleTasksAddingVisible(visible);
         }}
-      ></SimpleTasksAdding>
+      ></SimpleTasksModifier>
 
       {/* Complex Task Modifier Dialog */}
       <ComplexTaskModifier
