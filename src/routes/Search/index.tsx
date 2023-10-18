@@ -1,7 +1,7 @@
 import { Button } from "@arco-design/web-react";
 import Directories from "./Directories";
 import ExtensionFilter from "./ExtensionFilter";
-import TargetTable from "./FileTable";
+import SearchFileTable from "./SearchFileTable";
 import RegularFilters from "./RegularFilters";
 import "./index.less";
 
@@ -33,7 +33,7 @@ export default function SearchPage() {
 
         {/* Files Table */}
         <div className="flex-1 overflow-y-auto">
-          <TargetTable />
+          <SearchFileTable />
         </div>
       </div>
     </div>

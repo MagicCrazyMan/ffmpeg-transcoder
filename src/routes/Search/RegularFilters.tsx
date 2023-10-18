@@ -14,6 +14,7 @@ import {
   IconDelete,
   IconFile,
   IconFolder,
+  IconInfoCircle,
   IconMinusCircle,
   IconPlus,
   IconQuote,
@@ -27,14 +28,33 @@ import { RegularFilter, useSearchStore } from "../../store/search";
 const RegularFilterItem = ({ filter }: { filter: RegularFilter }) => {
   const { updateRegularFilter, removeRegularFilter } = useSearchStore();
 
+  const isRegExpIncorrect = useMemo(() => {
+    if (!filter.value || !filter.regex) return false;
+
+    try {
+      new RegExp(filter.value);
+      return false;
+    } catch {
+      return true;
+    }
+  }, [filter]);
+
   return (
     <div className="mb-4">
       <div className="flex">
         {/* Input Field */}
         <Input
-          size="mini"
+          size="small"
           className="mr-2"
-          placeholder={filter.regex ? "String" : "Regular Expression"}
+          placeholder={filter.regex ? "Regular Expression" : "Filter Text"}
+          status={isRegExpIncorrect ? "error" : undefined}
+          suffix={
+            isRegExpIncorrect ? (
+              <Tooltip color="rgba(var(--danger-6))" content="Incorrect Regular Expression">
+                <IconInfoCircle style={{ color: "rgba(var(--danger-6))", cursor: "pointer" }} />
+              </Tooltip>
+            ) : null
+          }
           value={filter.value}
           onChange={(value) => updateRegularFilter(filter.id, { value })}
         ></Input>

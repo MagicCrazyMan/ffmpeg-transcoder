@@ -15,7 +15,7 @@ export default function Directories() {
   const {
     maxDepth,
     setMaxDepth,
-    setFiles,
+    setSearchDirectory,
     isFileLoading,
     setFileLoading,
     inputDir,
@@ -37,38 +37,46 @@ export default function Directories() {
     [inputDir, maxDepth, outputDir, saveDirectory]
   );
 
-  const selectDirectory = async (type: "input" | "output") => {
+  const selectDirectory = async (type: "inputDir" | "outputDir") => {
     const dir = await open({
-      title: type === "input" ? "Select Input Directory" : "Select Output Directory",
+      title: type === "inputDir" ? "Select Input Directory" : "Select Output Directory",
       directory: true,
     });
 
     if (dir) {
-      type === "input"
-        ? formRef.current?.setFieldValue("inputDir", dir as string)
-        : formRef.current?.setFieldValue("outputDir", dir as string);
-      onChange();
+      formRef.current?.setFieldValue(type, dir as string);
+      onChange({ [type]: dir });
     }
   };
 
-  const onChange = () => {
-    formRef.current?.validate().then((values) => {
-      setInputDirectory(values.inputDir);
-      setOutputDirectory(values.outputDir);
-      setMaxDepth(values.depth);
+  const onChange = (partial: Partial<{ inputDir: string; depth: number; outputDir: string }>) => {
+    formRef.current
+      ?.validate()
+      .then((values) => {
+        setInputDirectory(values.inputDir);
+        setOutputDirectory(values.outputDir);
+        setMaxDepth(values.depth);
 
-      if (values.inputDir) {
-        setFileLoading(true);
-        setFiles([]);
-        getFilesFromDirectory(values.inputDir, values.depth)
-          .then((files) => {
-            setFiles(files);
-          })
-          .finally(() => {
-            setFileLoading(false);
-          });
-      }
-    });
+        // only refresh input files when input dir changed
+        if (values.inputDir) {
+          if (partial.inputDir) {
+            setFileLoading(true);
+            setSearchDirectory(undefined);
+            getFilesFromDirectory(values.inputDir, values.depth)
+              .then((searchDirectory) => {
+                setSearchDirectory(searchDirectory);
+              })
+              .finally(() => {
+                setFileLoading(false);
+              });
+          }
+        } else {
+          setSearchDirectory(undefined);
+        }
+      })
+      .catch(() => {
+        setSearchDirectory(undefined);
+      });
   };
 
   return (
@@ -114,7 +122,7 @@ export default function Directories() {
                   type="text"
                   icon={<IconFolder />}
                   disabled={isFileLoading}
-                  onClick={() => selectDirectory("input")}
+                  onClick={() => selectDirectory("inputDir")}
                 ></Button>
               }
             ></Input>
@@ -160,7 +168,7 @@ export default function Directories() {
             <Button
               type="text"
               icon={<IconFolder />}
-              onClick={() => selectDirectory("output")}
+              onClick={() => selectDirectory("outputDir")}
             ></Button>
           }
         ></Input>

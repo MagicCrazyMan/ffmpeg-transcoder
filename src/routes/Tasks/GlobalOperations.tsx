@@ -26,7 +26,6 @@ export default function GlobalOperations({
         <Button
           shape="circle"
           type="primary"
-          status="success"
           icon={<IconPlus />}
           onClick={() => setSimpleTasksAddingVisible(true)}
         ></Button>
@@ -37,7 +36,6 @@ export default function GlobalOperations({
         <Button
           shape="circle"
           type="primary"
-          status="success"
           icon={<IconSubscribeAdd />}
           onClick={() => setComplexTaskModifierVisible(true)}
         ></Button>

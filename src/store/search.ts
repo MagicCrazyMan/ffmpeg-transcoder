@@ -1,7 +1,7 @@
 import { assignIn, cloneDeep } from "lodash";
 import { v4 } from "uuid";
 import { create } from "zustand";
-import { TargetFile } from "../tauri/fs";
+import { SearchDirectory } from "../tauri/fs";
 
 export type SearchStoreState = {
   /**
@@ -34,14 +34,14 @@ export type SearchStoreState = {
    */
   setOutputDirectory: (outputDir: string) => void;
   /**
-   * Target files found from input directory
+   * Search directory
    */
-  files: TargetFile[];
+  searchDirectory?: SearchDirectory;
   /**
-   * Sets target files
-   * @param files Target files
+   * Sets search directory
+   * @param searchDirectory Search directory
    */
-  setFiles: (files: TargetFile[]) => void;
+  setSearchDirectory: (searchDirectory?: SearchDirectory) => void;
   /**
    * Is file loading
    */
@@ -205,9 +205,8 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
     set({ outputDir });
   };
 
-  const files: TargetFile[] = [];
-  const setFiles = (files: TargetFile[]) => {
-    set({ files });
+  const setSearchDirectory = (searchDirectory?: SearchDirectory) => {
+    set({ searchDirectory });
   };
 
   const isFileLoading = false;
@@ -248,10 +247,10 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
           ...state.regularFilters.filters,
           {
             enabled: true,
-            blacklist: false,
+            blacklist: true,
             regex: false,
-            directory: false,
-            file: false,
+            directory: true,
+            file: true,
             ...initialValue,
             id: v4(),
           },
@@ -307,8 +306,7 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
   return {
     maxDepth,
     setMaxDepth,
-    files,
-    setFiles,
+    setSearchDirectory,
     isFileLoading,
     setFileLoading,
     setInputDirectory,

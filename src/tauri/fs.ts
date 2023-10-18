@@ -2,12 +2,23 @@
 import { invoke } from "@tauri-apps/api";
 import type { DirectoryNotFoundError } from "./error";
 
-export type TargetFile = {
-  filename: string;
-  extension?: string; // ensured to be lowercased
+export type SearchEntry = SearchDirectory | SearchFile;
+
+export type SearchDirectory = {
+  type: "Directory";
+  name: string;
   absolute: string;
   relative: string;
-  separator: string;
+  children: SearchEntry[];
+  path: string;
+};
+
+export type SearchFile = {
+  type: "File";
+  name: string;
+  extension?: string;
+  absolute: string;
+  relative: string;
 };
 
 /**
@@ -19,7 +30,7 @@ export type TargetFile = {
  *
  * @param dir Directory to search in
  * @param maxDepth Max depth should walk in during searching, default for `5`
- * @returns Flatten files list
+ * @returns Search result
  */
 export const getFilesFromDirectory = async (dir: string, maxDepth?: number) =>
-  await invoke<TargetFile[]>("files_from_directory", { dir, maxDepth });
+  await invoke<SearchDirectory>("files_from_directory", { dir, maxDepth });

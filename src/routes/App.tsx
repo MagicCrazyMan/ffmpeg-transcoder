@@ -106,35 +106,25 @@ const MainPage = () => {
   const [collapsed, setCollapse] = useState(true);
 
   return (
-    <ConfigProvider
-      locale={enUS}
-      componentConfig={{
-        Menu: {
-          tooltipProps: { triggerProps: { mouseEnterDelay: 500 } },
-        },
-        Tooltip: { triggerProps: { mouseEnterDelay: 500 } },
-      }}
-    >
-      <Layout className="h-full">
-        {/* Sidebar */}
-        <Layout.Sider collapsible collapsed={collapsed} onCollapse={setCollapse}>
-          <div className="h-full flex flex-col justify-between">
-            {/* Menu */}
-            <SidebarMenu />
+    <Layout className="h-full">
+      {/* Sidebar */}
+      <Layout.Sider collapsible collapsed={collapsed} onCollapse={setCollapse}>
+        <div className="h-full flex flex-col justify-between">
+          {/* Menu */}
+          <SidebarMenu />
 
-            {/* Utilities Buttons */}
-            <SidebarUtilities />
-          </div>
-        </Layout.Sider>
+          {/* Utilities Buttons */}
+          <SidebarUtilities />
+        </div>
+      </Layout.Sider>
 
-        {/* Main Content */}
-        <Layout>
-          <Layout.Content>
-            <Outlet></Outlet>
-          </Layout.Content>
-        </Layout>
+      {/* Main Content */}
+      <Layout>
+        <Layout.Content>
+          <Outlet></Outlet>
+        </Layout.Content>
       </Layout>
-    </ConfigProvider>
+    </Layout>
   );
 };
 
@@ -143,11 +133,9 @@ const MainPage = () => {
  */
 const LoadingPage = () => {
   return (
-    <ConfigProvider locale={enUS}>
-      <div className="h-screen w-screen flex justify-center items-center">
-        <Spin size={40} tip="Starting Up..."></Spin>
-      </div>
-    </ConfigProvider>
+    <div className="h-screen w-screen flex justify-center items-center">
+      <Spin size={40} tip="Starting Up..."></Spin>
+    </div>
   );
 };
 
@@ -176,9 +164,17 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (isLoading) {
-    return <LoadingPage />;
-  } else {
-    return <MainPage />;
-  }
+  return (
+    <ConfigProvider
+      locale={enUS}
+      componentConfig={{
+        Menu: {
+          tooltipProps: { triggerProps: { mouseEnterDelay: 500 } },
+        },
+        Tooltip: { mini: true, triggerProps: { mouseEnterDelay: 500 } },
+      }}
+    >
+      {isLoading ? <LoadingPage /> : <MainPage />}
+    </ConfigProvider>
+  );
 }
