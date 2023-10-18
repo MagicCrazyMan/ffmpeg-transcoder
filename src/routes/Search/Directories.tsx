@@ -1,6 +1,7 @@
 import { Button, Form, FormInstance, Grid, Input, InputNumber } from "@arco-design/web-react";
 import { IconFolder } from "@arco-design/web-react/icon";
 import { open } from "@tauri-apps/api/dialog";
+import { sep } from "@tauri-apps/api/path";
 import { useMemo, useRef } from "react";
 import { useAppStore } from "../../store/app";
 import { useSearchStore } from "../../store/search";
@@ -53,8 +54,12 @@ export default function Directories() {
     formRef.current
       ?.validate()
       .then((values) => {
-        setInputDirectory(values.inputDir);
-        setOutputDirectory(values.outputDir);
+        setInputDirectory(
+          values.inputDir.endsWith(sep) ? values.inputDir.slice(0, -1) : values.inputDir
+        );
+        setOutputDirectory(
+          values.outputDir.endsWith(sep) ? values.outputDir.slice(0, -1) : values.outputDir
+        );
         setMaxDepth(values.depth);
 
         // only refresh input files when input dir changed

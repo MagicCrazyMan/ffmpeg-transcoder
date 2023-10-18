@@ -5,6 +5,8 @@ import { Preset, PresetType, usePresetStore } from "../../store/preset";
 import { ParamsSource } from "../../store/task";
 import { EditableTaskParams } from "./";
 
+export type ParamsModifierValue = Omit<EditableTaskParams, "path">;
+
 const DecodePresetOptions: ReactNode[] = [];
 const EncodePresetOptions: ReactNode[] = [];
 
@@ -33,11 +35,11 @@ usePresetStore.subscribe((state, prevState) => {
 });
 
 export type ParamsModifierProps = {
-  record: EditableTaskParams;
-  onChange: (id: string, values: Partial<EditableTaskParams>) => void;
+  record: ParamsModifierValue;
+  onChange: (id: string, values: Partial<ParamsModifierValue>) => void;
   presetType: PresetType.Decode | PresetType.Encode;
-  onApplyAll?: (record: EditableTaskParams) => void;
-  onConvertCustom?: (record: EditableTaskParams) => void;
+  onApplyAll?: (record: ParamsModifierValue) => void;
+  onConvertCustom?: (record: ParamsModifierValue) => void;
   className?: string;
 };
 

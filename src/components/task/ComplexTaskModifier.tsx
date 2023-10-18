@@ -3,9 +3,9 @@ import { IconDelete } from "@arco-design/web-react/icon";
 import { open, save } from "@tauri-apps/api/dialog";
 import { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
 import { v4 } from "uuid";
-import { toTaskParams } from ".";
+import { fromTaskParams, toTaskParams } from ".";
 import { useAppStore } from "../../store/app";
-import { Preset, PresetType, usePresetStore } from "../../store/preset";
+import { PresetType, usePresetStore } from "../../store/preset";
 import {
   ParamsSource,
   Task,
@@ -14,7 +14,7 @@ import {
   useTaskStore,
 } from "../../store/task";
 import { EditableTaskParams } from "./";
-import ParamsModifier from "./ParamsModifier";
+import ParamsModifier, { ParamsModifierValue } from "./ParamsModifier";
 
 export type ComplexTaskModifierProps = {
   visible: boolean;
@@ -38,7 +38,7 @@ const UniverseTable = ({
   const presets = usePresetStore((state) => state.presets);
 
   const onChange = useCallback(
-    (id: string, values: Partial<EditableTaskParams>) => {
+    (id: string, values: Partial<ParamsModifierValue>) => {
       setRecords((state) =>
         state.map((record) => {
           if (record.id === id) {
@@ -56,7 +56,7 @@ const UniverseTable = ({
   );
 
   const onApplyAll = useCallback(
-    ({ id, selection, custom }: EditableTaskParams) => {
+    ({ id, selection, custom }: ParamsModifierValue) => {
       setRecords((state) =>
         state.map((record) => {
           if (record.id === id) {
@@ -71,7 +71,7 @@ const UniverseTable = ({
   );
 
   const onConvertCustom = useCallback(
-    ({ id, selection }: EditableTaskParams) => {
+    ({ id, selection }: ParamsModifierValue) => {
       setRecords((state) =>
         state.map((record) => {
           if (record.id === id) {
@@ -236,51 +236,6 @@ const Footer = ({
       </Button>
     </>
   );
-};
-
-/**
- * Converts {@link TaskInputParams} or {@link TaskOutputParams}
- * to {@link EditableTaskParams} or {@link EditableTaskParams}
- * @param params {@link TaskInputParams} or {@link TaskOutputParams}
- * @param presets Presets
- * @returns a {@link EditableTaskParams} or {@link EditableTaskParams}
- */
-const fromTaskParams = (
-  { path, source, params }: TaskInputParams | TaskOutputParams,
-  presets: Preset[]
-): EditableTaskParams => {
-  switch (source) {
-    case ParamsSource.Auto:
-      return {
-        id: v4(),
-        path,
-        selection: ParamsSource.Auto,
-      };
-    case ParamsSource.Custom:
-      return {
-        id: v4(),
-        path,
-        selection: ParamsSource.Custom,
-        custom: (params as string[]).join(" "),
-      };
-    case ParamsSource.FromPreset: {
-      const preset = presets.find((preset) => preset.id === (params as Preset).id);
-      if (preset) {
-        return {
-          id: v4(),
-          path,
-          selection: preset.id,
-        };
-      } else {
-        return {
-          id: v4(),
-          path,
-          selection: ParamsSource.Custom,
-          custom: (params as Preset).params.join(" "),
-        };
-      }
-    }
-  }
 };
 
 export default function ComplexTaskModifier({

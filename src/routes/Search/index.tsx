@@ -1,16 +1,71 @@
 import { Button } from "@arco-design/web-react";
+import { toTaskParams } from "../../components/task";
+import { usePresetStore } from "../../store/preset";
+import { useSearchStore } from "../../store/search";
+import { TaskInputParams, TaskOutputParams, TaskParams, useTaskStore } from "../../store/task";
 import Directories from "./Directories";
 import ExtensionFilter from "./ExtensionFilter";
-import SearchFileTable from "./SearchFileTable";
 import RegularFilters from "./RegularFilters";
+import SearchFileTable from "./SearchFileTable";
 import "./index.less";
+import { useNavigate } from "react-router-dom";
 
 /**
  * A page for searching files from a input directory
  * and adding multiple task from them
  */
 export default function SearchPage() {
-  const addTasks = () => {};
+  const navigate = useNavigate();
+  const {
+    inputDir,
+    outputDir,
+    nodeMapper,
+    inputParamsMap,
+    outputParamsMap,
+    selectedRowKeys,
+    setSelectedRowKeys,
+  } = useSearchStore();
+  const { addTasks } = useTaskStore();
+  const { presets } = usePresetStore();
+
+  const onAddTasks = () => {
+    const taskParams = selectedRowKeys.reduce((taskParams, key) => {
+      const fileNode = nodeMapper.get(key);
+      if (!fileNode || fileNode.type !== "File") return taskParams;
+
+      const inputParams = inputParamsMap.get(fileNode.inputId);
+      if (!inputParams) return taskParams;
+      const outputParams = outputParamsMap.get(fileNode.outputId);
+      if (!outputParams) return taskParams;
+
+      taskParams.push({
+        inputs: [
+          toTaskParams(
+            {
+              ...inputParams,
+              path: `${inputDir!}${fileNode.relative}`,
+            },
+            presets
+          ) as TaskInputParams,
+        ],
+        outputs: [
+          toTaskParams(
+            {
+              ...outputParams,
+              path: outputDir ? `${outputDir}${fileNode.relative}` : undefined,
+            },
+            presets
+          ) as TaskOutputParams,
+        ],
+      });
+
+      return taskParams;
+    }, [] as TaskParams[]);
+
+    addTasks(...taskParams);
+    setSelectedRowKeys([]);
+    navigate("/tasks");
+  };
 
   return (
     <div className="container p-4 box-border h-screen flex basis-full flex-col">
@@ -28,7 +83,12 @@ export default function SearchPage() {
           </div>
 
           {/* Submit */}
-          <Button type="primary" className="submit" onClick={addTasks}>
+          <Button
+            type="primary"
+            className="submit"
+            disabled={selectedRowKeys.length === 0}
+            onClick={onAddTasks}
+          >
             Add Tasks
           </Button>
         </div>

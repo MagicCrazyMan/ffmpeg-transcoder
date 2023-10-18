@@ -1,7 +1,10 @@
 import { assignIn, cloneDeep } from "lodash";
 import { v4 } from "uuid";
 import { create } from "zustand";
-import { SearchDirectory } from "../tauri/fs";
+import { ParamsModifierValue } from "../components/task/ParamsModifier";
+import { SearchDirectory, SearchFile } from "../tauri/fs";
+import { usePresetStore } from "./preset";
+import { ParamsSource } from "./task";
 
 export type SearchStoreState = {
   /**
@@ -118,6 +121,62 @@ export type SearchStoreState = {
    * @param partial Partial regular filter values
    */
   updateRegularFilter: (id: string, partial: Partial<RegularFilter>) => void;
+  /**
+   * Root node of table list
+   */
+  root: SearchDirectoryNode | undefined;
+  /**
+   * A hash map maps absolute path, inputId and outputId of node to node instance itself,
+   * intend for rapid node searching.
+   */
+  nodeMapper: Map<string, SearchEntryNode>;
+  /**
+   * Expended row keys in table
+   */
+  expendedRowKeys: string[];
+  setExpandedRowKeys: (expendedRowKeys: string[]) => void;
+  /**
+   * Selected row keys in table
+   */
+  selectedRowKeys: string[];
+  selectedRowKeysSet: Set<string>;
+  setSelectedRowKeys: (selectedRowKeys: string[]) => void;
+  /**
+   * A hash map maps inputId of search file node to an editable task params
+   */
+  inputParamsMap: Map<string, ParamsModifierValue>;
+  setInputParamsMap: (
+    inputParams:
+      | Map<string, ParamsModifierValue>
+      | ((state: Map<string, ParamsModifierValue>) => Map<string, ParamsModifierValue>)
+  ) => void;
+  /**
+   * A hash map maps outputId of search file node to an editable task params
+   */
+  outputParamsMap: Map<string, ParamsModifierValue>;
+  setOutputParamsMap: (
+    outputParams:
+      | Map<string, ParamsModifierValue>
+      | ((state: Map<string, ParamsModifierValue>) => Map<string, ParamsModifierValue>)
+  ) => void;
+};
+
+export type SearchEntryNode = SearchDirectoryNode | SearchFileNode;
+
+export type SearchDirectoryNode = {
+  type: "Directory";
+  name: string;
+  absolute: string;
+  relative: string;
+  children: SearchEntryNode[];
+  path: string;
+  parent: SearchDirectoryNode | null;
+};
+
+export type SearchFileNode = SearchFile & {
+  parent: SearchDirectoryNode;
+  inputId: string;
+  outputId: string;
 };
 
 /**
@@ -303,6 +362,132 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
     }));
   };
 
+  const setExpandedRowKeys = (expendedRowKeys: string[]) => {
+    set({ expendedRowKeys });
+  };
+
+  const setSelectedRowKeys = (selectedRowKeys: string[]) => {
+    set({
+      selectedRowKeys,
+      selectedRowKeysSet: new Set(selectedRowKeys),
+    });
+  };
+
+  const setInputParamsMap = (
+    inputParamsMap:
+      | Map<string, ParamsModifierValue>
+      | ((state: Map<string, ParamsModifierValue>) => Map<string, ParamsModifierValue>)
+  ) => {
+    if (typeof inputParamsMap === "function") {
+      set((state) => ({
+        inputParamsMap: inputParamsMap(state.inputParamsMap),
+      }));
+    } else {
+      set({ inputParamsMap });
+    }
+  };
+
+  const setOutputParamsMap = (
+    outputParamsMap:
+      | Map<string, ParamsModifierValue>
+      | ((state: Map<string, ParamsModifierValue>) => Map<string, ParamsModifierValue>)
+  ) => {
+    if (typeof outputParamsMap === "function") {
+      set((state) => ({
+        outputParamsMap: outputParamsMap(state.outputParamsMap),
+      }));
+    } else {
+      set({ outputParamsMap });
+    }
+  };
+
+  /**
+   * Creates new tree for table when search directory, extension filters or regular filters change
+   */
+  api.subscribe((state, prevState) => {
+    if (
+      state.searchDirectory !== prevState.searchDirectory ||
+      state.extensionFilters !== prevState.extensionFilters ||
+      state.regularFilters !== prevState.regularFilters
+    ) {
+      if (state.searchDirectory) {
+        const { root, nodeMapper, expendedRowKeys } = createRoot(
+          state.searchDirectory,
+          state.extensionFilters,
+          state.regularFilters
+        );
+
+        set({
+          root,
+          nodeMapper,
+          expendedRowKeys,
+          selectedRowKeys: [],
+          selectedRowKeysSet: new Set(),
+          inputParamsMap: new Map(),
+          outputParamsMap: new Map(),
+        });
+      } else {
+        set({
+          root: undefined,
+          nodeMapper: new Map(),
+          expendedRowKeys: [],
+          selectedRowKeys: [],
+          selectedRowKeysSet: new Set(),
+          inputParamsMap: new Map(),
+          outputParamsMap: new Map(),
+        });
+      }
+    }
+  });
+
+  /**
+   * Cleans params only when search directory
+   */
+  api.subscribe((state, prevState) => {
+    if (state.searchDirectory !== prevState.searchDirectory) {
+      set({
+        inputParamsMap: new Map(),
+        outputParamsMap: new Map(),
+      });
+    }
+  });
+
+  /**
+   * Updates task params when selected row keys change.
+   * Creates new params if one never selected before,
+   * but not deletes when unselecting.
+   */
+  api.subscribe((state, prevState) => {
+    if (state.selectedRowKeys !== prevState.selectedRowKeys) {
+      if (state.selectedRowKeys.length === 0) return;
+
+      const { defaultDecode, defaultEncode } = usePresetStore.getState();
+      const inputParamsMap = new Map(state.inputParamsMap);
+      const outputParamsMap = new Map(state.outputParamsMap);
+
+      state.selectedRowKeys.forEach((key) => {
+        const node = state.nodeMapper.get(key);
+        if (!node || node.type !== "File") return;
+
+        if (!state.inputParamsMap.has(node.inputId)) {
+          inputParamsMap.set(node.inputId, {
+            id: node.inputId,
+            selection: defaultDecode ?? ParamsSource.Auto,
+          });
+        }
+
+        if (!state.outputParamsMap.has(node.outputId)) {
+          outputParamsMap.set(node.outputId, {
+            id: node.outputId,
+            selection: defaultEncode ?? ParamsSource.Auto,
+          });
+        }
+      });
+
+      set({ inputParamsMap, outputParamsMap });
+    }
+  });
+
   /**
    * Stores search storage when fields change
    */
@@ -340,5 +525,133 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
     addRegularFilter,
     removeRegularFilter,
     updateRegularFilter,
+    root: undefined,
+    nodeMapper: new Map(),
+    expendedRowKeys: [],
+    setExpandedRowKeys,
+    selectedRowKeys: [],
+    selectedRowKeysSet: new Set(),
+    setSelectedRowKeys,
+    inputParamsMap: new Map(),
+    setInputParamsMap,
+    outputParamsMap: new Map(),
+    setOutputParamsMap,
   };
 });
+
+const createRoot = (
+  searchDirectory: SearchDirectory,
+  extensionFilters: SearchStoreState["extensionFilters"],
+  regularFilters: SearchStoreState["regularFilters"]
+) => {
+  let root: SearchDirectoryNode | undefined = undefined;
+  const nodeMapper: Map<string, SearchEntryNode> = new Map();
+  const expendedRowKeys: string[] = [];
+
+  root = { ...searchDirectory, children: [], parent: null };
+
+  const directories: [SearchDirectory, SearchDirectoryNode][] = [[searchDirectory, root]];
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const item = directories.pop();
+    if (!item) break;
+
+    const [directory, directoryNode] = item;
+
+    for (const child of directory.children) {
+      // apply filters
+      let shouldDrop = false;
+      {
+        // apply regular filters
+        if (regularFilters.enabled) {
+          for (const regularFilter of regularFilters.filters) {
+            if (shouldDrop) break;
+            if (!regularFilter.value) continue;
+            if (!regularFilter.enabled) continue;
+            if (!regularFilter.file && child.type === "File") continue;
+            if (!regularFilter.directory && child.type === "Directory") continue;
+
+            let included: boolean;
+            if (regularFilter.regex) {
+              try {
+                included = new RegExp(regularFilter.value).test(child.name);
+              } catch (err) {
+                console.error(err);
+                continue;
+              }
+            } else {
+              included = child.name.includes(regularFilter.value);
+            }
+            shouldDrop = regularFilter.blacklist ? included : !included;
+          }
+        }
+
+        // apply extension filters for files
+        if (!shouldDrop && child.type === "File") {
+          if (child.extension) {
+            // for file having extension, filter them
+            const included = extensionFilters.extensions.includes(child.extension);
+            if (extensionFilters.state === ExtensionFilterState.Whitelist) {
+              shouldDrop = !included;
+            } else if (extensionFilters.state === ExtensionFilterState.Blacklist) {
+              shouldDrop = included;
+            }
+          } else {
+            // if file has no extension, drop only when extension filters enabled
+            if (extensionFilters.state !== ExtensionFilterState.Disabled) {
+              shouldDrop = true;
+            }
+          }
+        }
+      }
+
+      if (shouldDrop) continue;
+
+      if (child.type === "Directory") {
+        const subdirectoryNode = { ...child, children: [], parent: directoryNode };
+        expendedRowKeys.push(child.absolute);
+        directories.push([child, subdirectoryNode]);
+
+        directoryNode.children.push(subdirectoryNode);
+      } else {
+        const inputId = v4();
+        const outputId = v4();
+        const fileNode: SearchFileNode = {
+          ...child,
+          inputId,
+          outputId,
+          parent: directoryNode,
+        };
+
+        directoryNode.children.push(fileNode);
+        nodeMapper.set(fileNode.absolute, fileNode);
+        nodeMapper.set(inputId, fileNode);
+        nodeMapper.set(outputId, fileNode);
+      }
+    }
+
+    // if directory empty, clean upper directories
+    {
+      if (directoryNode.children.length === 0) {
+        if (directoryNode.parent) {
+          // recursively clean empty directories from current node to upper nodes
+          let node: SearchDirectoryNode = directoryNode;
+          while (node.parent) {
+            node.parent.children = node.parent.children.filter((child) => child !== node);
+
+            if (node.parent.children.length === 0) {
+              node = node.parent;
+            } else {
+              break;
+            }
+          }
+        } else {
+          // reach root node, if root node has no children, remove undefined directly
+          return { root, nodeMapper, expendedRowKeys };
+        }
+      }
+    }
+  }
+
+  return { root, nodeMapper, expendedRowKeys };
+};

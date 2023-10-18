@@ -50,6 +50,29 @@ pub(super) trait TaskStateMachineNode: Send {
 
 pub(super) struct Idle;
 
+impl Idle {
+    /// Creates parent directories for all output paths.
+    async fn mkdirs(task: &Task) -> Result<(), std::io::Error> {
+        for output in task.data.params.outputs.iter() {
+            let parent = output.path.as_ref().and_then(|path| {
+                PathBuf::from(path)
+                    .parent()
+                    .map(|parent| parent.to_path_buf())
+            });
+            match parent {
+                Some(path) => {
+                    if !path.is_dir() {
+                        fs::create_dir_all(path).await?;
+                    }
+                }
+                None => continue,
+            }
+        }
+
+        Ok(())
+    }
+}
+
 #[async_trait]
 impl TaskStateMachineNode for Idle {
     fn state_code(&self) -> TaskStateCode {
@@ -62,19 +85,9 @@ impl TaskStateMachineNode for Idle {
 
     async fn start(self: Box<Self>, task: Task) -> Box<dyn TaskStateMachineNode> {
         // create directories if not exist
-        for output in task.data.params.outputs.iter() {
-            match &output.path {
-                Some(path) => {
-                    let path = PathBuf::from(path);
-                    if !path.is_dir() {
-                        if let Err(err) = fs::create_dir_all(path).await {
-                            return Box::new(Errored::from_err(err));
-                        }
-                    }
-                }
-                None => continue,
-            }
-        }
+        if let Err(err) = Idle::mkdirs(&task).await {
+            return Box::new(Errored::from_err(err));
+        };
 
         // startup ffmpeg subprocess
         let mut command = Command::new(&task.data.program);
