@@ -1,18 +1,10 @@
-import {
-  Button,
-  Modal,
-  Popconfirm,
-  Space,
-  Table,
-  TableColumnProps,
-  Tooltip,
-  Typography,
-} from "@arco-design/web-react";
-import { IconDelete, IconFolder } from "@arco-design/web-react/icon";
-import { open, save } from "@tauri-apps/api/dialog";
+import { Button, Modal, Popconfirm, Space, Table, TableColumnProps } from "@arco-design/web-react";
+import { IconDelete } from "@arco-design/web-react/icon";
+import { open } from "@tauri-apps/api/dialog";
 import { join, sep } from "@tauri-apps/api/path";
 import { useCallback, useMemo, useState } from "react";
 import { v4 } from "uuid";
+import { TaskParamsModifyingValue } from ".";
 import { useAppStore } from "../../store/app";
 import { PresetType, usePresetStore } from "../../store/preset";
 import {
@@ -23,8 +15,8 @@ import {
   useTaskStore,
 } from "../../store/task";
 import { toTaskParams } from "../../utils";
-import { TaskParamsModifyingValue } from ".";
 import CodecModifier, { TaskParamsCodecValue } from "./CodecModifier";
+import OutputFileModifier from "./OutputFileModifier";
 
 export type SimpleTasksAddingProps = {
   visible: boolean;
@@ -85,7 +77,7 @@ const Footer = ({
 };
 
 export default function SimpleTasksModifier({ visible, onVisibleChange }: SimpleTasksAddingProps) {
-  const { configuration, openDialogFilters, saveDialogFilters } = useAppStore();
+  const { configuration, openDialogFilters } = useAppStore();
   const { presets, defaultDecode, defaultEncode } = usePresetStore();
 
   const [tasks, setTasks] = useState<SimpleTaskParams[]>([]);
@@ -131,34 +123,23 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
   /**
    * On select output files vis Tauri
    */
-  const onSelectOutputFile = useCallback(
-    async (id: string) => {
-      const file = await save({
-        title: "Select Output File",
-        defaultPath: configuration.saveDirectory,
-        filters: saveDialogFilters,
-      });
-
-      if (file) {
-        setTasks((state) =>
-          state.map((task) => {
-            if (task.id === id) {
-              return {
-                ...task,
-                output: {
-                  ...task.output,
-                  path: file,
-                },
-              };
-            } else {
-              return task;
-            }
-          })
-        );
-      }
-    },
-    [configuration.saveDirectory, saveDialogFilters]
-  );
+  const onSelectOutputFile = useCallback((id: string, path: string) => {
+    setTasks((state) =>
+      state.map((task) => {
+        if (task.id === id) {
+          return {
+            ...task,
+            output: {
+              ...task.output,
+              path,
+            },
+          };
+        } else {
+          return task;
+        }
+      })
+    );
+  }, []);
 
   /**
    * On change input or output params
@@ -295,24 +276,10 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
       {
         title: "Output File",
         render: (_col, task) => (
-          <div className="flex gap-2 items-center">
-            {/* Select Output File Button */}
-            <Tooltip content="Select Output File">
-              <Button
-                shape="circle"
-                size="mini"
-                type="primary"
-                className="flex-shrink-0"
-                icon={<IconFolder />}
-                onClick={() => onSelectOutputFile(task.id)}
-              />
-            </Tooltip>
-
-            {/* File Name */}
-            <Typography.Text editable className="flex-1" style={{ margin: "0" }}>
-              {task.output.path ?? "NULL"}
-            </Typography.Text>
-          </div>
+          <OutputFileModifier
+            path={task.output.path}
+            onSelectFile={(path) => onSelectOutputFile(task.id, path)}
+          />
         ),
       },
       {

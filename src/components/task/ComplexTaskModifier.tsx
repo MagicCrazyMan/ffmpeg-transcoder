@@ -1,19 +1,9 @@
-import {
-  Button,
-  Modal,
-  Popconfirm,
-  Space,
-  Table,
-  TableColumnProps,
-  Tooltip,
-  Typography,
-} from "@arco-design/web-react";
-import { IconDelete, IconFolder } from "@arco-design/web-react/icon";
+import { Button, Modal, Popconfirm, Space, Table, TableColumnProps } from "@arco-design/web-react";
+import { IconDelete } from "@arco-design/web-react/icon";
 import { open, save } from "@tauri-apps/api/dialog";
 import { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
 import { v4 } from "uuid";
 import { TaskParamsModifyingValue } from ".";
-import CodecModifier, { TaskParamsCodecValue } from "./CodecModifier";
 import { useAppStore } from "../../store/app";
 import { PresetType, usePresetStore } from "../../store/preset";
 import {
@@ -24,6 +14,8 @@ import {
   useTaskStore,
 } from "../../store/task";
 import { fromTaskParams, toTaskParams } from "../../utils";
+import CodecModifier, { TaskParamsCodecValue } from "./CodecModifier";
+import OutputFileModifier from "./OutputFileModifier";
 
 export type ComplexTaskModifierProps = {
   visible: boolean;
@@ -40,7 +32,6 @@ const UniverseTable = ({
   records: TaskParamsModifyingValue[];
   setRecords: Dispatch<SetStateAction<TaskParamsModifyingValue[]>>;
 }) => {
-  const { configuration, saveDialogFilters } = useAppStore();
   const presets = usePresetStore((state) => state.presets);
 
   const filesTitle = useMemo(() => (type === "input" ? "Input Files" : "Output Files"), [type]);
@@ -110,29 +101,21 @@ const UniverseTable = ({
   );
 
   const onSelectOutputFile = useCallback(
-    async (id: string) => {
-      const file = await save({
-        title: "Select Output File",
-        defaultPath: configuration.saveDirectory,
-        filters: saveDialogFilters,
-      });
-
-      if (file) {
-        setRecords((state) =>
-          state.map((record) => {
-            if (record.id === id) {
-              return {
-                ...record,
-                path: file as string,
-              };
-            } else {
-              return record;
-            }
-          })
-        );
-      }
+    (id: string, path: string) => {
+      setRecords((state) =>
+        state.map((record) => {
+          if (record.id === id) {
+            return {
+              ...record,
+              path,
+            };
+          } else {
+            return record;
+          }
+        })
+      );
     },
-    [configuration, saveDialogFilters, setRecords]
+    [setRecords]
   );
 
   const columns: TableColumnProps<TaskParamsModifyingValue>[] = useMemo(
@@ -145,24 +128,10 @@ const UniverseTable = ({
             return record.path ?? "NULL";
           } else {
             return (
-              <div className="flex gap-2 items-center">
-                {/* Select Output File Button */}
-                <Tooltip content="Select Output File">
-                  <Button
-                    shape="circle"
-                    size="mini"
-                    type="primary"
-                    className="flex-shrink-0"
-                    icon={<IconFolder />}
-                    onClick={() => onSelectOutputFile(record.id)}
-                  />
-                </Tooltip>
-
-                {/* File Name */}
-                <Typography.Text editable className="flex-1" style={{ margin: "0" }}>
-                  {record.path ?? "NULL"}
-                </Typography.Text>
-              </div>
+              <OutputFileModifier
+                path={record.path}
+                onSelectFile={(path) => onSelectOutputFile(record.id, path)}
+              />
             );
           }
         },
