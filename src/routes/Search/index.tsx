@@ -1,14 +1,14 @@
 import { Button } from "@arco-design/web-react";
-import { toTaskParams } from "../../components/task";
+import { useNavigate } from "react-router-dom";
 import { usePresetStore } from "../../store/preset";
 import { useSearchStore } from "../../store/search";
 import { TaskInputParams, TaskOutputParams, TaskParams, useTaskStore } from "../../store/task";
+import { toTaskParams } from "../../utils";
 import Directories from "./Directories";
 import ExtensionFilter from "./ExtensionFilter";
 import RegularFilters from "./RegularFilters";
 import SearchFileTable from "./SearchFileTable";
 import "./index.less";
-import { useNavigate } from "react-router-dom";
 
 /**
  * A page for searching files from a input directory

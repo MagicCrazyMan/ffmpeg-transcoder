@@ -13,7 +13,6 @@ import { open, save } from "@tauri-apps/api/dialog";
 import { join, sep } from "@tauri-apps/api/path";
 import { useCallback, useMemo, useState } from "react";
 import { v4 } from "uuid";
-import { toTaskParams } from ".";
 import { useAppStore } from "../../store/app";
 import { PresetType, usePresetStore } from "../../store/preset";
 import {
@@ -23,8 +22,9 @@ import {
   TaskParams,
   useTaskStore,
 } from "../../store/task";
-import { EditableTaskParams } from "./";
-import ParamsModifier, { ParamsModifierValue } from "./ParamsModifier";
+import { toTaskParams } from "../../utils";
+import { TaskParamsModifyingValue } from "../../components/task";
+import CodecModifier, { TaskParamsCodecValue } from "../../components/task/CodecModifier";
 
 export type SimpleTasksAddingProps = {
   visible: boolean;
@@ -33,8 +33,8 @@ export type SimpleTasksAddingProps = {
 
 type SimpleTaskParams = {
   id: string;
-  input: EditableTaskParams;
-  output: EditableTaskParams;
+  input: TaskParamsModifyingValue;
+  output: TaskParamsModifyingValue;
 };
 
 const Footer = ({
@@ -164,7 +164,7 @@ export default function SimpleTasksAdding({ visible, onVisibleChange }: SimpleTa
    * On change input or output params
    */
   const onChange = useCallback(
-    (id: string, values: Partial<ParamsModifierValue>, type: "input" | "output") => {
+    (id: string, values: Partial<TaskParamsCodecValue>, type: "input" | "output") => {
       setTasks((state) =>
         state.map((task) => {
           if (task[type].id !== id) {
@@ -184,13 +184,13 @@ export default function SimpleTasksAdding({ visible, onVisibleChange }: SimpleTa
     [setTasks]
   );
   const onChangeInputs = useCallback(
-    (id: string, values: Partial<ParamsModifierValue>) => {
+    (id: string, values: Partial<TaskParamsCodecValue>) => {
       onChange(id, values, "input");
     },
     [onChange]
   );
   const onChangeOutputs = useCallback(
-    (id: string, values: Partial<ParamsModifierValue>) => {
+    (id: string, values: Partial<TaskParamsCodecValue>) => {
       onChange(id, values, "output");
     },
     [onChange]
@@ -200,7 +200,7 @@ export default function SimpleTasksAdding({ visible, onVisibleChange }: SimpleTa
    * On apply one input or output params to all
    */
   const onApplyAll = useCallback(
-    ({ id, selection, custom }: ParamsModifierValue, type: "input" | "output") => {
+    ({ id, selection, custom }: TaskParamsCodecValue, type: "input" | "output") => {
       setTasks((state) =>
         state.map((task) => {
           if (task[type].id === id) {
@@ -214,13 +214,13 @@ export default function SimpleTasksAdding({ visible, onVisibleChange }: SimpleTa
     [setTasks]
   );
   const onApplyAllInputs = useCallback(
-    (params: ParamsModifierValue) => {
+    (params: TaskParamsCodecValue) => {
       onApplyAll(params, "input");
     },
     [onApplyAll]
   );
   const onApplyAllOutputs = useCallback(
-    (params: ParamsModifierValue) => {
+    (params: TaskParamsCodecValue) => {
       onApplyAll(params, "output");
     },
     [onApplyAll]
@@ -230,7 +230,7 @@ export default function SimpleTasksAdding({ visible, onVisibleChange }: SimpleTa
    * On apply one input or output params as custom
    */
   const onConvertCustom = useCallback(
-    ({ id, selection }: ParamsModifierValue, type: "input" | "output") => {
+    ({ id, selection }: TaskParamsCodecValue, type: "input" | "output") => {
       setTasks((state) =>
         state.map((task) => {
           if (task[type].id !== id) {
@@ -251,13 +251,13 @@ export default function SimpleTasksAdding({ visible, onVisibleChange }: SimpleTa
     [presets, setTasks]
   );
   const onConvertCustomInputs = useCallback(
-    (params: ParamsModifierValue) => {
+    (params: TaskParamsCodecValue) => {
       onConvertCustom(params, "input");
     },
     [onConvertCustom]
   );
   const onConvertCustomOutputs = useCallback(
-    (params: ParamsModifierValue) => {
+    (params: TaskParamsCodecValue) => {
       onConvertCustom(params, "output");
     },
     [onConvertCustom]
@@ -283,7 +283,7 @@ export default function SimpleTasksAdding({ visible, onVisibleChange }: SimpleTa
         title: "Decode Params",
         width: "20%",
         render: (_col, task) => (
-          <ParamsModifier
+          <CodecModifier
             presetType={PresetType.Decode}
             record={task.input}
             onChange={onChangeInputs}
@@ -319,7 +319,7 @@ export default function SimpleTasksAdding({ visible, onVisibleChange }: SimpleTa
         title: "Encode Params",
         width: "20%",
         render: (_col, task) => (
-          <ParamsModifier
+          <CodecModifier
             presetType={PresetType.Encode}
             record={task.output}
             onChange={onChangeOutputs}

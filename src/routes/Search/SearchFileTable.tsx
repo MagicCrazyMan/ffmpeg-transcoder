@@ -1,7 +1,7 @@
 import { Switch, Table, TableColumnProps } from "@arco-design/web-react";
 import { IconDown, IconRight } from "@arco-design/web-react/icon";
-import { EditableTaskParams } from "../../components/task";
-import ParamsModifier from "../../components/task/ParamsModifier";
+import { TaskParamsModifyingValue } from "../../components/task";
+import CodecModifier from "../../components/task/CodecModifier";
 import { PresetType, usePresetStore } from "../../store/preset";
 import { useSearchStore } from "../../store/search";
 import { ParamsSource } from "../../store/task";
@@ -67,7 +67,7 @@ export default function SearchFileTable() {
     const presetType = type === "input" ? PresetType.Decode : PresetType.Encode;
     const setter = type === "input" ? setInputParamsMap : setOutputParamsMap;
 
-    const onChange = (id: string, partial: Partial<EditableTaskParams>) =>
+    const onChange = (id: string, partial: Partial<TaskParamsModifyingValue>) =>
       setter((state) => {
         const mapper = new Map(state);
         mapper.set(id, {
@@ -77,9 +77,9 @@ export default function SearchFileTable() {
         return mapper;
       });
 
-    const onApplyAll = (record: EditableTaskParams) => {
+    const onApplyAll = (record: TaskParamsModifyingValue) => {
       setter((state) => {
-        const mapper = new Map<string, EditableTaskParams>();
+        const mapper = new Map<string, TaskParamsModifyingValue>();
 
         const entries = state.entries();
         for (let next = entries.next(); !next.done; next = entries.next()) {
@@ -95,9 +95,9 @@ export default function SearchFileTable() {
       });
     };
 
-    const onConvertCustom = (record: EditableTaskParams) => {
+    const onConvertCustom = (record: TaskParamsModifyingValue) => {
       setter((state) => {
-        const mapper = new Map<string, EditableTaskParams>();
+        const mapper = new Map<string, TaskParamsModifyingValue>();
 
         const entries = state.entries();
         for (let next = entries.next(); !next.done; next = entries.next()) {
@@ -117,7 +117,7 @@ export default function SearchFileTable() {
       });
     };
     return (
-      <ParamsModifier
+      <CodecModifier
         presetType={presetType}
         record={params}
         onChange={onChange}

@@ -3,7 +3,6 @@ import { IconDelete } from "@arco-design/web-react/icon";
 import { open, save } from "@tauri-apps/api/dialog";
 import { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
 import { v4 } from "uuid";
-import { fromTaskParams, toTaskParams } from ".";
 import { useAppStore } from "../../store/app";
 import { PresetType, usePresetStore } from "../../store/preset";
 import {
@@ -13,8 +12,9 @@ import {
   TaskOutputParams,
   useTaskStore,
 } from "../../store/task";
-import { EditableTaskParams } from "./";
-import ParamsModifier, { ParamsModifierValue } from "./ParamsModifier";
+import { fromTaskParams, toTaskParams } from "../../utils";
+import { TaskParamsModifyingValue } from "../../components/task";
+import CodecModifier, { TaskParamsCodecValue } from "../../components/task/CodecModifier";
 
 export type ComplexTaskModifierProps = {
   visible: boolean;
@@ -32,13 +32,13 @@ const UniverseTable = ({
   filesTitle: string;
   paramsTitle: string;
   presetType: PresetType.Decode | PresetType.Encode;
-  records: EditableTaskParams[];
-  setRecords: Dispatch<SetStateAction<EditableTaskParams[]>>;
+  records: TaskParamsModifyingValue[];
+  setRecords: Dispatch<SetStateAction<TaskParamsModifyingValue[]>>;
 }) => {
   const presets = usePresetStore((state) => state.presets);
 
   const onChange = useCallback(
-    (id: string, values: Partial<ParamsModifierValue>) => {
+    (id: string, values: Partial<TaskParamsCodecValue>) => {
       setRecords((state) =>
         state.map((record) => {
           if (record.id === id) {
@@ -56,7 +56,7 @@ const UniverseTable = ({
   );
 
   const onApplyAll = useCallback(
-    ({ id, selection, custom }: ParamsModifierValue) => {
+    ({ id, selection, custom }: TaskParamsCodecValue) => {
       setRecords((state) =>
         state.map((record) => {
           if (record.id === id) {
@@ -71,7 +71,7 @@ const UniverseTable = ({
   );
 
   const onConvertCustom = useCallback(
-    ({ id, selection }: ParamsModifierValue) => {
+    ({ id, selection }: TaskParamsCodecValue) => {
       setRecords((state) =>
         state.map((record) => {
           if (record.id === id) {
@@ -96,7 +96,7 @@ const UniverseTable = ({
     [setRecords]
   );
 
-  const columns: TableColumnProps<EditableTaskParams>[] = useMemo(
+  const columns: TableColumnProps<TaskParamsModifyingValue>[] = useMemo(
     () => [
       {
         title: filesTitle,
@@ -107,7 +107,7 @@ const UniverseTable = ({
         title: paramsTitle,
         ellipsis: true,
         render: (_col, record) => (
-          <ParamsModifier
+          <CodecModifier
             presetType={presetType}
             record={record}
             onChange={onChange}
@@ -151,8 +151,8 @@ const InputTable = ({
   inputs,
   setInputs,
 }: {
-  inputs: EditableTaskParams[];
-  setInputs: Dispatch<SetStateAction<EditableTaskParams[]>>;
+  inputs: TaskParamsModifyingValue[];
+  setInputs: Dispatch<SetStateAction<TaskParamsModifyingValue[]>>;
 }) => {
   return (
     <UniverseTable
@@ -169,8 +169,8 @@ const OutputTable = ({
   outputs,
   setOutputs,
 }: {
-  outputs: EditableTaskParams[];
-  setOutputs: Dispatch<SetStateAction<EditableTaskParams[]>>;
+  outputs: TaskParamsModifyingValue[];
+  setOutputs: Dispatch<SetStateAction<TaskParamsModifyingValue[]>>;
 }) => {
   return (
     <UniverseTable
@@ -192,8 +192,8 @@ const Footer = ({
 }: {
   task?: Task;
   modified: boolean;
-  inputs: EditableTaskParams[];
-  outputs: EditableTaskParams[];
+  inputs: TaskParamsModifyingValue[];
+  outputs: TaskParamsModifyingValue[];
   onVisibleChange: (visible: boolean) => void;
 }) => {
   const { addTasks, updateTask } = useTaskStore();
@@ -246,19 +246,19 @@ export default function ComplexTaskModifier({
   const { configuration, openDialogFilters, saveDialogFilters } = useAppStore();
   const { presets, defaultDecode, defaultEncode } = usePresetStore();
 
-  const [inputs, setInputs] = useState<EditableTaskParams[]>([]);
-  const [outputs, setOutputs] = useState<EditableTaskParams[]>([]);
+  const [inputs, setInputs] = useState<TaskParamsModifyingValue[]>([]);
+  const [outputs, setOutputs] = useState<TaskParamsModifyingValue[]>([]);
   const [modified, setModified] = useState(false);
 
   const wrappedSetInputs = useCallback(
-    (s: SetStateAction<EditableTaskParams[]>) => {
+    (s: SetStateAction<TaskParamsModifyingValue[]>) => {
       setInputs(s);
       setModified(true);
     },
     [setInputs, setModified]
   );
   const wrappedSetOutputs = useCallback(
-    (s: SetStateAction<EditableTaskParams[]>) => {
+    (s: SetStateAction<TaskParamsModifyingValue[]>) => {
       setOutputs(s);
       setModified(true);
     },
@@ -271,10 +271,10 @@ export default function ComplexTaskModifier({
   useEffect(() => {
     if (task) {
       setInputs(
-        task.params.inputs.map((input) => fromTaskParams(input, presets) as EditableTaskParams)
+        task.params.inputs.map((input) => fromTaskParams(input, presets) as TaskParamsModifyingValue)
       );
       setOutputs(
-        task.params.outputs.map((output) => fromTaskParams(output, presets) as EditableTaskParams)
+        task.params.outputs.map((output) => fromTaskParams(output, presets) as TaskParamsModifyingValue)
       );
       setModified(false);
     } else {
@@ -305,7 +305,7 @@ export default function ComplexTaskModifier({
     })) as string[] | null;
 
     if (files) {
-      const inputs: EditableTaskParams[] = files.map((file) => ({
+      const inputs: TaskParamsModifyingValue[] = files.map((file) => ({
         id: v4(),
         path: file,
         selection: defaultDecode ?? ParamsSource.Auto,
@@ -325,7 +325,7 @@ export default function ComplexTaskModifier({
     });
 
     if (file) {
-      const output: EditableTaskParams = {
+      const output: TaskParamsModifyingValue = {
         id: v4(),
         path: file,
         selection: defaultEncode ?? ParamsSource.Auto,
@@ -338,7 +338,7 @@ export default function ComplexTaskModifier({
    * Add NULL output
    */
   const addNullOutput = () => {
-    const output: EditableTaskParams = {
+    const output: TaskParamsModifyingValue = {
       id: v4(),
       selection: defaultEncode ?? ParamsSource.Auto,
     };

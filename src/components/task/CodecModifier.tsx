@@ -3,9 +3,9 @@ import { IconCopy, IconFilter } from "@arco-design/web-react/icon";
 import { ReactNode } from "react";
 import { Preset, PresetType, usePresetStore } from "../../store/preset";
 import { ParamsSource } from "../../store/task";
-import { EditableTaskParams } from "./";
+import { TaskParamsModifyingValue } from ".";
 
-export type ParamsModifierValue = Omit<EditableTaskParams, "path">;
+export type TaskParamsCodecValue = Omit<TaskParamsModifyingValue, "path">;
 
 const DecodePresetOptions: ReactNode[] = [];
 const EncodePresetOptions: ReactNode[] = [];
@@ -34,23 +34,23 @@ usePresetStore.subscribe((state, prevState) => {
   updatePresetOptions(state.presets);
 });
 
-export type ParamsModifierProps = {
-  record: ParamsModifierValue;
-  onChange: (id: string, values: Partial<ParamsModifierValue>) => void;
+export type CodecModifierProps = {
+  record: TaskParamsCodecValue;
+  onChange: (id: string, values: Partial<TaskParamsCodecValue>) => void;
   presetType: PresetType.Decode | PresetType.Encode;
-  onApplyAll?: (record: ParamsModifierValue) => void;
-  onConvertCustom?: (record: ParamsModifierValue) => void;
+  onApplyAll?: (record: TaskParamsCodecValue) => void;
+  onConvertCustom?: (record: TaskParamsCodecValue) => void;
   className?: string;
 };
 
-export default function ParamsModifier({
+export default function CodecModifier({
   record,
   onChange,
   onApplyAll,
   onConvertCustom,
   presetType,
   className,
-}: ParamsModifierProps) {
+}: CodecModifierProps) {
   return (
     <div className={`flex flex-col gap-0.5 ${className ?? ""}`}>
       <div className="flex gap-2">

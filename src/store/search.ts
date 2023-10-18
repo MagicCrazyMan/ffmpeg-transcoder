@@ -1,7 +1,7 @@
 import { assignIn, cloneDeep } from "lodash";
 import { v4 } from "uuid";
 import { create } from "zustand";
-import { ParamsModifierValue } from "../components/task/ParamsModifier";
+import { TaskParamsCodecValue } from "../components/task/CodecModifier";
 import { SearchDirectory, SearchFile } from "../tauri/fs";
 import { usePresetStore } from "./preset";
 import { ParamsSource } from "./task";
@@ -144,20 +144,20 @@ export type SearchStoreState = {
   /**
    * A hash map maps inputId of search file node to an editable task params
    */
-  inputParamsMap: Map<string, ParamsModifierValue>;
+  inputParamsMap: Map<string, TaskParamsCodecValue>;
   setInputParamsMap: (
     inputParams:
-      | Map<string, ParamsModifierValue>
-      | ((state: Map<string, ParamsModifierValue>) => Map<string, ParamsModifierValue>)
+      | Map<string, TaskParamsCodecValue>
+      | ((state: Map<string, TaskParamsCodecValue>) => Map<string, TaskParamsCodecValue>)
   ) => void;
   /**
    * A hash map maps outputId of search file node to an editable task params
    */
-  outputParamsMap: Map<string, ParamsModifierValue>;
+  outputParamsMap: Map<string, TaskParamsCodecValue>;
   setOutputParamsMap: (
     outputParams:
-      | Map<string, ParamsModifierValue>
-      | ((state: Map<string, ParamsModifierValue>) => Map<string, ParamsModifierValue>)
+      | Map<string, TaskParamsCodecValue>
+      | ((state: Map<string, TaskParamsCodecValue>) => Map<string, TaskParamsCodecValue>)
   ) => void;
 };
 
@@ -375,8 +375,8 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
 
   const setInputParamsMap = (
     inputParamsMap:
-      | Map<string, ParamsModifierValue>
-      | ((state: Map<string, ParamsModifierValue>) => Map<string, ParamsModifierValue>)
+      | Map<string, TaskParamsCodecValue>
+      | ((state: Map<string, TaskParamsCodecValue>) => Map<string, TaskParamsCodecValue>)
   ) => {
     if (typeof inputParamsMap === "function") {
       set((state) => ({
@@ -389,8 +389,8 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
 
   const setOutputParamsMap = (
     outputParamsMap:
-      | Map<string, ParamsModifierValue>
-      | ((state: Map<string, ParamsModifierValue>) => Map<string, ParamsModifierValue>)
+      | Map<string, TaskParamsCodecValue>
+      | ((state: Map<string, TaskParamsCodecValue>) => Map<string, TaskParamsCodecValue>)
   ) => {
     if (typeof outputParamsMap === "function") {
       set((state) => ({
