@@ -172,67 +172,7 @@ export type TaskStateErrored = {
 };
 
 export const useTaskStore = create<TaskStoreState>((set, get) => {
-  const tasks: Task[] = [
-    {
-      id: v4(),
-      params: {
-        inputs: [
-          {
-            id: v4(),
-            path: "D:\\Captures\\2023-09-10 23-35-22.mp4",
-            source: ParamsSource.Custom,
-            params: ["-c:v", "av1_cuvid"],
-          },
-        ],
-        outputs: [
-          {
-            id: v4(),
-            path: "F:\\Transcode\\2023-09-10 23-35-22(2).mp4",
-            source: ParamsSource.Custom,
-            params: ["-c:v", "hevc_nvenc", "-b:v", "2000", "-preset", "fast", "-c:a", "copy"],
-          },
-        ],
-      },
-      state: {
-        type: "Idle",
-      },
-      workTimeDurations: [],
-    },
-    {
-      id: v4(),
-      params: {
-        inputs: [
-          {
-            id: v4(),
-            path: "E:\\Music\\Hatsune Miku\\[180110][LIVE]MAGICAL MIRAI 2017\\[Vmoe]Hatsune Miku「Magical Mirai 2017」[BDrip][1920x1080p][HEVC_YUV420p10_60fps_2FLAC_5.1ch&2.0ch_Chapter][Effect Subtitles].mkv",
-            source: ParamsSource.Custom,
-            params: ["-c:v", "hevc_qsv"],
-          },
-        ],
-        outputs: [
-          {
-            id: v4(),
-            path: "F:\\Transcode\\2.mp4",
-            source: ParamsSource.Custom,
-            params: [
-              "-c:v",
-              "hevc_nvenc",
-              "-preset",
-              "fast",
-              "-x265-params",
-              "lossless=1",
-              "-c:a",
-              "copy",
-            ],
-          },
-        ],
-      },
-      state: {
-        type: "Idle",
-      },
-      workTimeDurations: [],
-    },
-  ];
+  const tasks: Task[] = [];
 
   const updateTask = (id: string, partial: Partial<Task>) => {
     set((state) => ({
