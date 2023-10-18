@@ -123,7 +123,7 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
   /**
    * On select output files vis Tauri
    */
-  const onSelectOutputFile = useCallback((id: string, path: string) => {
+  const onOutputFileChange = useCallback((id: string, path: string) => {
     setTasks((state) =>
       state.map((task) => {
         if (task.id === id) {
@@ -278,7 +278,7 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
         render: (_col, task) => (
           <OutputFileModifier
             path={task.output.path}
-            onSelectFile={(path) => onSelectOutputFile(task.id, path)}
+            onChange={(path) => onOutputFileChange(task.id, path)}
           />
         ),
       },
@@ -313,7 +313,7 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
     ],
     [
       onRemove,
-      onSelectOutputFile,
+      onOutputFileChange,
       onChangeInputs,
       onChangeOutputs,
       onApplyAllInputs,

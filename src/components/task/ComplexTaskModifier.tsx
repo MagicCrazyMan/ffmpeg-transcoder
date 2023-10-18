@@ -100,7 +100,7 @@ const UniverseTable = ({
     [setRecords]
   );
 
-  const onSelectOutputFile = useCallback(
+  const onOutputFileChange = useCallback(
     (id: string, path: string) => {
       setRecords((state) =>
         state.map((record) => {
@@ -130,7 +130,7 @@ const UniverseTable = ({
             return (
               <OutputFileModifier
                 path={record.path}
-                onSelectFile={(path) => onSelectOutputFile(record.id, path)}
+                onChange={(path) => onOutputFileChange(record.id, path)}
               />
             );
           }
@@ -169,7 +169,7 @@ const UniverseTable = ({
       filesTitle,
       paramsTitle,
       type,
-      onSelectOutputFile,
+      onOutputFileChange,
       presetType,
       onChange,
       onApplyAll,

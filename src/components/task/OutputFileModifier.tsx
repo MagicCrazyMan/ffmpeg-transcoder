@@ -6,10 +6,10 @@ import { useAppStore } from "../../store/app";
 
 export default function OutputFileModifier({
   path,
-  onSelectFile,
+  onChange,
 }: {
   path?: string;
-  onSelectFile: (file: string) => void;
+  onChange: (file: string) => void;
 }) {
   const { configuration, saveDialogFilters } = useAppStore();
 
@@ -24,9 +24,9 @@ export default function OutputFileModifier({
     });
 
     if (file) {
-      onSelectFile(file);
+      onChange(file);
     }
-  }, [configuration.saveDirectory, onSelectFile, saveDialogFilters]);
+  }, [configuration.saveDirectory, onChange, saveDialogFilters]);
 
   return (
     <div className="flex gap-2 items-center">
@@ -35,7 +35,7 @@ export default function OutputFileModifier({
         <Button
           shape="circle"
           size="mini"
-          type="primary"
+          type="text"
           className="flex-shrink-0"
           icon={<IconFolder />}
           onClick={onSelectOutputFile}
@@ -43,7 +43,14 @@ export default function OutputFileModifier({
       </Tooltip>
 
       {/* File Name */}
-      <Typography.Text editable className="flex-1" style={{ margin: "0" }}>
+      <Typography.Text
+        editable={{
+          onChange,
+        }}
+        className="flex-1"
+        style={{ margin: "0" }}
+        onChange={() => console.log(111)}
+      >
         {path ?? "NULL"}
       </Typography.Text>
     </div>
