@@ -32,12 +32,12 @@ usePresetStore.subscribe((state, prevState) => {
   updatePresetOptions(state.presets);
 });
 
-export type ParamsModifierProps<P extends EditableTaskParams> = {
-  record: P;
-  onChange: (id: string, values: Partial<P>) => void;
+export type ParamsModifierProps = {
+  record: EditableTaskParams;
+  onChange: (id: string, values: Partial<EditableTaskParams>) => void;
   presetType: PresetType.Decode | PresetType.Encode;
-  onApplyAll?: (record: P) => void;
-  onConvertCustom?: (record: P) => void;
+  onApplyAll?: (record: EditableTaskParams) => void;
+  onConvertCustom?: (record: EditableTaskParams) => void;
   className?: string;
 };
 
@@ -48,7 +48,7 @@ export default function ParamsModifier({
   onConvertCustom,
   presetType,
   className,
-}: ParamsModifierProps<EditableTaskParams>) {
+}: ParamsModifierProps) {
   return (
     <div className={`flex flex-col gap-0.5 ${className ?? ""}`}>
       <div className="flex gap-2">

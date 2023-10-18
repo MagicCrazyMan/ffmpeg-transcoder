@@ -10,6 +10,8 @@ import "./index.less";
  * and adding multiple task from them
  */
 export default function SearchPage() {
+  const addTasks = () => {};
+
   return (
     <div className="container p-4 box-border h-screen flex basis-full flex-col">
       {/* Input & Output Directories Selector */}
@@ -26,7 +28,7 @@ export default function SearchPage() {
           </div>
 
           {/* Submit */}
-          <Button type="primary" className="submit">
+          <Button type="primary" className="submit" onClick={addTasks}>
             Add Tasks
           </Button>
         </div>

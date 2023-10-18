@@ -1,150 +1,75 @@
-import { Button, Switch, Table, TableColumnProps } from "@arco-design/web-react";
-import { IconDown, IconRight, IconSettings } from "@arco-design/web-react/icon";
+import { Switch, Table, TableColumnProps } from "@arco-design/web-react";
+import { IconDown, IconRight } from "@arco-design/web-react/icon";
 import { sep } from "@tauri-apps/api/path";
-import { ReactNode, useMemo, useState } from "react";
-import { ExtensionFilterState, useSearchStore } from "../../store/search";
-import { SearchDirectory, SearchFile } from "../../tauri/fs";
+import { useEffect, useMemo, useState } from "react";
+import { v4 } from "uuid";
+import { EditableTaskParams } from "../../components/task";
 import ParamsModifier from "../../components/task/ParamsModifier";
+import { PresetType, usePresetStore } from "../../store/preset";
+import { ExtensionFilterState, useSearchStore } from "../../store/search";
+import { ParamsSource } from "../../store/task";
+import { SearchDirectory, SearchFile } from "../../tauri/fs";
 
-type FilteredSearchEntry = FilteredSearchDirectory | FilteredSearchFile;
+type SearchEntryNode = SearchDirectoryNode | SearchFileNode;
 
-type FilteredSearchDirectory = {
+type SearchDirectoryNode = {
   type: "Directory";
   name: string;
   absolute: string;
   relative: string;
-  children: FilteredSearchEntry[];
+  children: SearchEntryNode[];
   path: string;
-  parent: FilteredSearchDirectory | null;
+  parent: SearchDirectoryNode | null;
 };
 
-type FilteredSearchFile = SearchFile & {
-  parent: FilteredSearchDirectory;
+type SearchFileNode = SearchFile & {
+  parent: SearchDirectoryNode;
+  inputId: string;
+  outputId: string;
 };
 
 export default function SearchFileTable() {
-  const { inputDir, outputDir, searchDirectory, isFileLoading, extensionFilters, regularFilters } =
-    useSearchStore();
+  const {
+    printRelativePath,
+    setPrintRelativePath,
+    inputDir,
+    outputDir,
+    searchDirectory,
+    isFileLoading,
+    extensionFilters,
+    regularFilters,
+  } = useSearchStore();
+  const { presets, defaultDecode, defaultEncode } = usePresetStore();
 
-  const [pathDisplayStyle, setPathDisplayStyle] = useState(false);
-
-  const tableCols: TableColumnProps<FilteredSearchEntry>[] = [
-    {
-      title: "Input Files",
-      width: "30%",
-      render(_col, item) {
-        if (pathDisplayStyle) {
-          return item.relative;
-        } else {
-          return (inputDir!.endsWith(sep) ? inputDir!.slice(0, -1) : inputDir!) + item.relative;
-        }
-      },
-    },
-    {
-      title: "Input Params",
-      width: "20%",
-      render(col, item, index) {
-        return <ParamsModifier />;
-      },
-    },
-    {
-      title: "Output Files",
-      width: "30%",
-      render(_col, item) {
-        if (item.type !== "File") return;
-        if (!selectedRowKeysSet.has(item.absolute)) return;
-        if (!outputDir) return "NULL";
-
-        if (pathDisplayStyle) {
-          return item.relative;
-        } else {
-          return (outputDir.endsWith(sep) ? outputDir.slice(0, -1) : outputDir) + item.relative;
-        }
-      },
-    },
-    {
-      title: "Output Params",
-      width: "20%",
-    },
-  ];
-
-  const components = {
-    header: {
-      operations: ({
-        selectionNode,
-        expandNode,
-      }: {
-        selectionNode?: ReactNode;
-        expandNode?: ReactNode;
-      }) => [
-        {
-          name: "selectionNode",
-          node: selectionNode,
-        },
-        {
-          name: "expandNode",
-          node: expandNode,
-        },
-        {
-          node: (
-            <th>
-              <div className="arco-table-th-item"></div>
-            </th>
-          ),
-          width: 32,
-        },
-      ],
-    },
-    body: {
-      operations: ({
-        selectionNode,
-        expandNode,
-      }: {
-        selectionNode?: ReactNode;
-        expandNode?: ReactNode;
-      }) => [
-        {
-          name: "selectionNode",
-          node: selectionNode,
-        },
-        {
-          name: "expandNode",
-          node: expandNode,
-        },
-        {
-          node: (item: FilteredSearchEntry) => {
-            if (item.type === "File" && selectedRowKeysSet.has(item.absolute)) {
-              return (
-                <td>
-                  <Button size="mini" shape="circle" icon={<IconSettings />} />
-                </td>
-              );
-            } else {
-              return <td></td>;
-            }
-          },
-          width: 32,
-        },
-      ],
-    },
-  };
-
+  const [root, setRoot] = useState<SearchDirectoryNode | undefined>(undefined);
+  const [nodeMapper, setNodeMapper] = useState<Map<string, SearchEntryNode>>(new Map());
   const [expendedRowKeys, setExpandedRowKeys] = useState<string[]>([]);
-  const root = useMemo(() => {
-    if (!searchDirectory) return;
+  const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
+  const selectedRowKeysSet = useMemo(() => new Set(selectedRowKeys), [selectedRowKeys]);
+  /**
+   * Updates data when search directory or filters change
+   */
+  useEffect(() => {
+    setSelectedRowKeys([]);
+    setNodeMapper(new Map());
+
+    if (!searchDirectory) {
+      setRoot(undefined);
+      setExpandedRowKeys([]);
+      return;
+    }
 
     const expendedRowKeys: string[] = [];
-    const clonedRoot: FilteredSearchDirectory = { ...searchDirectory, children: [], parent: null };
+    const nodeMapper = new Map<string, SearchFileNode>();
+    const root: SearchDirectoryNode = { ...searchDirectory, children: [], parent: null };
 
-    const directories: [SearchDirectory, FilteredSearchDirectory][] = [
-      [searchDirectory, clonedRoot],
-    ];
+    const directories: [SearchDirectory, SearchDirectoryNode][] = [[searchDirectory, root]];
     // eslint-disable-next-line no-constant-condition
     while (true) {
       const item = directories.pop();
       if (!item) break;
 
-      const [directory, cloned] = item;
+      const [directory, directoryNode] = item;
 
       directory.children.forEach((child) => {
         // apply filters
@@ -196,25 +121,30 @@ export default function SearchFileTable() {
         if (shouldDrop) return;
 
         if (child.type === "Directory") {
-          const clonedChild = { ...child, children: [], parent: cloned };
+          const subdirectoryNode = { ...child, children: [], parent: directoryNode };
           expendedRowKeys.push(child.absolute);
-          directories.push([child, clonedChild]);
+          directories.push([child, subdirectoryNode]);
 
-          cloned.children.push(clonedChild);
+          directoryNode.children.push(subdirectoryNode);
         } else {
-          cloned.children.push({
+          const fileNode: SearchFileNode = {
             ...child,
-            parent: cloned,
-          });
+            parent: directoryNode,
+            inputId: v4(),
+            outputId: v4(),
+          };
+
+          directoryNode.children.push(fileNode);
+          nodeMapper.set(fileNode.absolute, fileNode);
         }
       });
 
       // if directory empty, clean upper directories
       {
-        if (cloned.children.length === 0) {
-          if (cloned.parent) {
+        if (directoryNode.children.length === 0) {
+          if (directoryNode.parent) {
             // recursively clean empty directories from current node to upper nodes
-            let node: FilteredSearchDirectory = cloned;
+            let node: SearchDirectoryNode = directoryNode;
             while (node.parent) {
               node.parent.children = node.parent.children.filter((child) => child !== node);
 
@@ -232,12 +162,178 @@ export default function SearchFileTable() {
       }
     }
 
+    setRoot(root);
     setExpandedRowKeys(expendedRowKeys);
-    return clonedRoot;
+    setNodeMapper(nodeMapper);
   }, [searchDirectory, extensionFilters, regularFilters, setExpandedRowKeys]);
 
-  const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
-  const selectedRowKeysSet = useMemo(() => new Set(selectedRowKeys), [selectedRowKeys]);
+  /**
+   * A hash map mapping inputId and outputId of file node to editable task params
+   */
+  const [inputParamsMapper, setInputParamsMapper] = useState<Map<string, EditableTaskParams>>(
+    new Map()
+  );
+  const [outputParamsMapper, setOutputParamsMapper] = useState<Map<string, EditableTaskParams>>(
+    new Map()
+  );
+  /**
+   * Cleans params only when search directory
+   */
+  useEffect(() => {
+    setInputParamsMapper(new Map());
+    setOutputParamsMapper(new Map());
+  }, [searchDirectory]);
+  /**
+   * Updates task params when selected row keys change.
+   * Creates new params if one never selected before,
+   * but not deletes when unselecting.
+   */
+  useEffect(() => {
+    if (selectedRowKeys.length === 0) return;
+
+    setInputParamsMapper((state) => {
+      const mapper = new Map(state);
+
+      selectedRowKeys.forEach((absolute) => {
+        const node = nodeMapper.get(absolute);
+        if (!node || node.type !== "File") return;
+
+        if (!state.has(node.inputId)) {
+          mapper.set(node.inputId, {
+            id: node.inputId,
+            path: (inputDir!.endsWith(sep) ? inputDir!.slice(0, -1) : inputDir!) + node.relative,
+            selection: defaultDecode ?? ParamsSource.Auto,
+          });
+        }
+      });
+
+      return mapper;
+    });
+
+    setOutputParamsMapper((state) => {
+      const mapper = new Map(state);
+
+      selectedRowKeys.forEach((absolute) => {
+        const node = nodeMapper.get(absolute);
+        if (!node || node.type !== "File") return;
+
+        if (!state.has(node.outputId)) {
+          mapper.set(node.outputId, {
+            id: node.outputId,
+            path: (outputDir!.endsWith(sep) ? outputDir!.slice(0, -1) : outputDir!) + node.relative,
+            selection: defaultEncode ?? ParamsSource.Auto,
+          });
+        }
+      });
+
+      return mapper;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedRowKeys]);
+
+  const pathRender = (type: "input" | "output", item: SearchEntryNode) => {
+    const dir = type === "input" ? inputDir : outputDir;
+    if (!dir) return "NULL";
+
+    if (printRelativePath) {
+      return item.relative;
+    } else {
+      return (dir.endsWith(sep) ? dir.slice(0, -1) : dir) + item.relative;
+    }
+  };
+  const paramsRender = (type: "input" | "output", item: SearchEntryNode) => {
+    if (item.type !== "File") return;
+    if (!selectedRowKeysSet.has(item.absolute)) return;
+
+    const id = type === "input" ? item.inputId : item.outputId;
+    const mapper = type === "input" ? inputParamsMapper : outputParamsMapper;
+    const params = mapper.get(id);
+    if (!params) return;
+
+    const presetType = type === "input" ? PresetType.Decode : PresetType.Encode;
+    const setter = type === "input" ? setInputParamsMapper : setOutputParamsMapper;
+
+    const onChange = (id: string, partial: Partial<EditableTaskParams>) =>
+      setter((state) => {
+        const mapper = new Map(state);
+        mapper.set(id, {
+          ...state.get(id)!,
+          ...partial,
+        });
+        return mapper;
+      });
+
+    const onApplyAll = (record: EditableTaskParams) => {
+      setter((state) => {
+        const mapper = new Map<string, EditableTaskParams>();
+
+        const entries = state.entries();
+        for (let next = entries.next(); !next.done; next = entries.next()) {
+          const [id, value] = next.value;
+          if (id === record.id) {
+            mapper.set(id, value);
+          } else {
+            mapper.set(id, { ...value, selection: record.selection, custom: record.custom });
+          }
+        }
+
+        return mapper;
+      });
+    };
+
+    const onConvertCustom = (record: EditableTaskParams) => {
+      setter((state) => {
+        const mapper = new Map<string, EditableTaskParams>();
+
+        const entries = state.entries();
+        for (let next = entries.next(); !next.done; next = entries.next()) {
+          const [id, value] = next.value;
+          if (id === record.id) {
+            mapper.set(id, {
+              ...value,
+              selection: ParamsSource.Custom,
+              custom: presets.find((preset) => preset.id === record.selection)?.params.join(" "),
+            });
+          } else {
+            mapper.set(id, value);
+          }
+        }
+
+        return mapper;
+      });
+    };
+    return (
+      <ParamsModifier
+        presetType={presetType}
+        record={params}
+        onChange={onChange}
+        onApplyAll={onApplyAll}
+        onConvertCustom={onConvertCustom}
+      />
+    );
+  };
+  const tableCols: TableColumnProps<SearchEntryNode>[] = [
+    {
+      title: "Input Files",
+      width: "30%",
+      render: (_col, item) => pathRender("input", item),
+    },
+    {
+      title: "Input Params",
+      width: "20%",
+      render: (_col, item) => paramsRender("input", item),
+    },
+    {
+      title: "Output Files",
+      width: "30%",
+      render: (_col, item) => pathRender("output", item),
+    },
+    {
+      title: "Output Params",
+      width: "20%",
+      render: (_col, item) => paramsRender("output", item),
+    },
+  ];
 
   return (
     <div>
@@ -245,8 +341,8 @@ export default function SearchFileTable() {
         className="mb-2"
         checkedText="RELATIVE"
         uncheckedText="ABSOLUTE"
-        checked={pathDisplayStyle}
-        onChange={setPathDisplayStyle}
+        checked={printRelativePath}
+        onChange={setPrintRelativePath}
       />
 
       <Table

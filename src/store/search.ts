@@ -5,6 +5,15 @@ import { SearchDirectory } from "../tauri/fs";
 
 export type SearchStoreState = {
   /**
+   * Prints relative path in table
+   */
+  printRelativePath: boolean;
+  /**
+   * Sets should prints relative path or absolute path in table
+   * @param enabled `true` for printing relative path; `false` for printing absolute path
+   */
+  setPrintRelativePath: (enabled: boolean) => void;
+  /**
    * Input directory for searching
    */
   inputDir?: string;
@@ -154,9 +163,13 @@ export type RegularFilter = {
   file: boolean;
 };
 
-type SearchStorage = Pick<SearchStoreState, "extensionFilters" | "regularFilters" | "maxDepth">;
+type SearchStorage = Pick<
+  SearchStoreState,
+  "printRelativePath" | "extensionFilters" | "regularFilters" | "maxDepth"
+>;
 
 const DEFAULT_SEARCH_STORAGE: SearchStorage = {
+  printRelativePath: true,
   maxDepth: 5,
   extensionFilters: {
     state: ExtensionFilterState.Disabled,
@@ -191,7 +204,11 @@ const loadSearchStorage = (): SearchStorage => {
 };
 
 export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
-  const { maxDepth, extensionFilters, regularFilters } = loadSearchStorage();
+  const { printRelativePath, maxDepth, extensionFilters, regularFilters } = loadSearchStorage();
+
+  const setPrintRelativePath = (printRelativePath: boolean) => {
+    set({ printRelativePath });
+  };
 
   const setMaxDepth = (maxDepth: number) => {
     set({ maxDepth });
@@ -291,11 +308,13 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
    */
   api.subscribe((state, prevState) => {
     if (
+      state.printRelativePath !== prevState.printRelativePath ||
       state.maxDepth !== prevState.maxDepth ||
       state.extensionFilters !== prevState.extensionFilters ||
       state.regularFilters !== prevState.regularFilters
     ) {
       storeSearchStorage({
+        printRelativePath: state.printRelativePath,
         maxDepth: state.maxDepth,
         extensionFilters: state.extensionFilters,
         regularFilters: state.regularFilters,
@@ -304,6 +323,8 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
   });
 
   return {
+    printRelativePath,
+    setPrintRelativePath,
     maxDepth,
     setMaxDepth,
     setSearchDirectory,
