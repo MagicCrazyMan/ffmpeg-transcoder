@@ -94,6 +94,7 @@ export type Preset = {
   params: string[];
   remark?: string;
   isTemp?: true;
+  extension?: string;
 };
 
 type PresetStorage = {

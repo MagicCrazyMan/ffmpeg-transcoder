@@ -19,7 +19,7 @@ export default function SearchPage() {
   const {
     inputDir,
     outputDir,
-    nodeMapper,
+    nodeMap: nodeMapper,
     inputParamsMap,
     outputParamsMap,
     selectedRowKeys,

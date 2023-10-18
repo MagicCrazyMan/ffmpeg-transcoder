@@ -129,7 +129,7 @@ export type SearchStoreState = {
    * A hash map maps absolute path, inputId and outputId of node to node instance itself,
    * intend for rapid node searching.
    */
-  nodeMapper: Map<string, SearchEntryNode>;
+  nodeMap: Map<string, SearchEntryNode>;
   /**
    * Expended row keys in table
    */
@@ -419,7 +419,7 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
 
         set({
           root,
-          nodeMapper,
+          nodeMap: nodeMapper,
           expendedRowKeys,
           selectedRowKeys: [],
           selectedRowKeysSet: new Set(),
@@ -429,7 +429,7 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
       } else {
         set({
           root: undefined,
-          nodeMapper: new Map(),
+          nodeMap: new Map(),
           expendedRowKeys: [],
           selectedRowKeys: [],
           selectedRowKeysSet: new Set(),
@@ -466,7 +466,7 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
       const outputParamsMap = new Map(state.outputParamsMap);
 
       state.selectedRowKeys.forEach((key) => {
-        const node = state.nodeMapper.get(key);
+        const node = state.nodeMap.get(key);
         if (!node || node.type !== "File") return;
 
         if (!state.inputParamsMap.has(node.inputId)) {
@@ -526,7 +526,7 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
     removeRegularFilter,
     updateRegularFilter,
     root: undefined,
-    nodeMapper: new Map(),
+    nodeMap: new Map(),
     expendedRowKeys: [],
     setExpandedRowKeys,
     selectedRowKeys: [],

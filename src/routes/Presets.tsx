@@ -198,6 +198,28 @@ const editableCells: Record<
       );
     },
   },
+  /**
+   * for extension field
+   */
+  extension: {
+    cell({ children }: CellProps<"extension">): ReactNode {
+      return <div className="inline-block">{children}</div>;
+    },
+    editingCell(submit, { rowData }: CellProps<"extension">): ReactNode {
+      if (rowData.type === PresetType.Encode || rowData.type === PresetType.Universal) {
+        return (
+          <Form.Item
+            field="extension"
+            style={{ marginBottom: 0 }}
+            labelCol={{ span: 0 }}
+            wrapperCol={{ span: 24 }}
+          >
+            <Input autoFocus onPressEnter={submit} />
+          </Form.Item>
+        );
+      }
+    },
+  },
 };
 
 /**
@@ -495,6 +517,14 @@ export default function PresetsPage() {
         title: "Remark",
         dataIndex: "remark",
         width: "20%",
+        editable: true,
+        onCell,
+      },
+      {
+        title: "Extension",
+        dataIndex: "extension",
+        width: "6rem",
+        align: "center",
         editable: true,
         onCell,
       },

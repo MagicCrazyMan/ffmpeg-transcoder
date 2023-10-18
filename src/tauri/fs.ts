@@ -7,6 +7,7 @@ export type SearchEntry = SearchDirectory | SearchFile;
 export type SearchDirectory = {
   type: "Directory";
   name: string;
+  stem?: string;
   absolute: string;
   relative: string;
   children: SearchEntry[];
@@ -16,6 +17,7 @@ export type SearchDirectory = {
 export type SearchFile = {
   type: "File";
   name: string;
+  stem?: string;
   extension?: string;
   absolute: string;
   relative: string;

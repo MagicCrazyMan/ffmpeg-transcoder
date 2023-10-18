@@ -129,7 +129,7 @@ const UniverseTable = ({
           } else {
             return (
               <OutputFileModifier
-                path={record.path}
+                params={record}
                 onChange={(path) => onOutputFileChange(record.id, path)}
               />
             );

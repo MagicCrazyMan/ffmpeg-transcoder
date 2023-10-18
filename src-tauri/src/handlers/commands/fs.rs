@@ -7,6 +7,7 @@ use crate::handlers::error::Error;
 pub enum SearchEntry {
     Directory {
         name: String,
+        stem: Option<String>,
         /// Canonicalize path.
         /// On Windows os, extended length path is used.
         absolute: String,
@@ -17,6 +18,7 @@ pub enum SearchEntry {
     },
     File {
         name: String,
+        stem: Option<String>,
         /// File extension, lowercased.
         extension: Option<String>,
         /// Canonicalize path.
@@ -28,8 +30,9 @@ pub enum SearchEntry {
 
 impl SearchEntry {
     fn from_path(path: PathBuf, relative_prefix_len: usize) -> Option<Self> {
-        let (Some(name), extension, Ok(absolute)) = (
+        let (Some(name), stem, extension, Ok(absolute)) = (
             path.file_name().map(|s| s.to_string_lossy().to_string()),
+            path.file_stem().map(|s| s.to_string_lossy().to_string()),
             path.extension()
                 .map(|s| s.to_string_lossy().to_lowercase().to_string()),
             path.canonicalize().map(|s| s.to_string_lossy().to_string()),
@@ -42,6 +45,7 @@ impl SearchEntry {
         if path.is_dir() {
             Some(SearchEntry::Directory {
                 name,
+                stem,
                 absolute,
                 relative,
                 children: Vec::with_capacity(12),
@@ -50,6 +54,7 @@ impl SearchEntry {
         } else if path.is_file() {
             Some(SearchEntry::File {
                 name,
+                stem,
                 extension,
                 absolute,
                 relative,

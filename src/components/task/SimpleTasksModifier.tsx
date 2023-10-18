@@ -277,7 +277,7 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
         title: "Output File",
         render: (_col, task) => (
           <OutputFileModifier
-            path={task.output.path}
+            params={task.output}
             onChange={(path) => onOutputFileChange(task.id, path)}
           />
         ),

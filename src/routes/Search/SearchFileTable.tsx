@@ -49,10 +49,12 @@ export default function SearchFileTable() {
     const dir = type === "input" ? inputDir : outputDir;
     if (!dir) return "NULL";
 
-    if (printRelativePath) {
-      return item.relative;
+    // print custom output file if path not empty
+    if (type === "output" && item.type === "File" && outputParamsMap.has(item.outputId)) {
+      // const outputParams = outputParamsMap.get(item.outputId)!
+      return printRelativePath ? item.relative : `${dir}${item.relative}`
     } else {
-      return `${dir}${item.relative}`;
+      return printRelativePath ? item.relative : `${dir}${item.relative}`
     }
   };
   const paramsRender = (type: "input" | "output", item: SearchEntryNode) => {
