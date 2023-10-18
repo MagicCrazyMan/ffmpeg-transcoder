@@ -1,6 +1,7 @@
 import { assignIn, cloneDeep } from "lodash";
 import { v4 } from "uuid";
 import { create } from "zustand";
+import { TaskParamsModifyingValue } from "../components/task";
 import { TaskParamsCodecValue } from "../components/task/CodecModifier";
 import { SearchDirectory, SearchFile } from "../tauri/fs";
 import { usePresetStore } from "./preset";
@@ -144,20 +145,22 @@ export type SearchStoreState = {
   /**
    * A hash map maps inputId of search file node to an editable task params
    */
-  inputParamsMap: Map<string, TaskParamsCodecValue>;
+  inputParamsMap: Map<string, TaskParamsModifyingValue>;
   setInputParamsMap: (
-    inputParams:
-      | Map<string, TaskParamsCodecValue>
-      | ((state: Map<string, TaskParamsCodecValue>) => Map<string, TaskParamsCodecValue>)
+    inputParamsMap:
+      | Map<string, TaskParamsModifyingValue>
+      | ((state: Map<string, TaskParamsModifyingValue>) => Map<string, TaskParamsModifyingValue>)
   ) => void;
   /**
-   * A hash map maps outputId of search file node to an editable task params
+   * A hash map maps outputId of search file node to an editable task params.
+   *
+   * If `path` of output params is falsy, `inputDir` + `relative` will be used as path.
    */
-  outputParamsMap: Map<string, TaskParamsCodecValue>;
+  outputParamsMap: Map<string, TaskParamsModifyingValue>;
   setOutputParamsMap: (
-    outputParams:
-      | Map<string, TaskParamsCodecValue>
-      | ((state: Map<string, TaskParamsCodecValue>) => Map<string, TaskParamsCodecValue>)
+    outputParamsMap:
+      | Map<string, TaskParamsModifyingValue>
+      | ((state: Map<string, TaskParamsModifyingValue>) => Map<string, TaskParamsModifyingValue>)
   ) => void;
 };
 
@@ -411,7 +414,7 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
       state.regularFilters !== prevState.regularFilters
     ) {
       if (state.searchDirectory) {
-        const { root, nodeMapper, expendedRowKeys } = createRoot(
+        const { root, nodeMap, expendedRowKeys } = createRoot(
           state.searchDirectory,
           state.extensionFilters,
           state.regularFilters
@@ -419,7 +422,7 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
 
         set({
           root,
-          nodeMap: nodeMapper,
+          nodeMap,
           expendedRowKeys,
           selectedRowKeys: [],
           selectedRowKeysSet: new Set(),
@@ -545,7 +548,7 @@ const createRoot = (
   regularFilters: SearchStoreState["regularFilters"]
 ) => {
   let root: SearchDirectoryNode | undefined = undefined;
-  const nodeMapper: Map<string, SearchEntryNode> = new Map();
+  const nodeMap: Map<string, SearchEntryNode> = new Map();
   const expendedRowKeys: string[] = [];
 
   root = { ...searchDirectory, children: [], parent: null };
@@ -624,9 +627,9 @@ const createRoot = (
         };
 
         directoryNode.children.push(fileNode);
-        nodeMapper.set(fileNode.absolute, fileNode);
-        nodeMapper.set(inputId, fileNode);
-        nodeMapper.set(outputId, fileNode);
+        nodeMap.set(fileNode.absolute, fileNode);
+        nodeMap.set(inputId, fileNode);
+        nodeMap.set(outputId, fileNode);
       }
     }
 
@@ -647,11 +650,11 @@ const createRoot = (
           }
         } else {
           // reach root node, if root node has no children, remove undefined directly
-          return { root, nodeMapper, expendedRowKeys };
+          return { root, nodeMap, expendedRowKeys };
         }
       }
     }
   }
 
-  return { root, nodeMapper, expendedRowKeys };
+  return { root, nodeMap, expendedRowKeys };
 };
