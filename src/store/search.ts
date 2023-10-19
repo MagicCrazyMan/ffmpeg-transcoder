@@ -3,12 +3,7 @@ import { v4 } from "uuid";
 import { create } from "zustand";
 import { TaskParamsModifyingValue } from "../components/task";
 import { TaskParamsCodecValue } from "../components/task/CodecModifier";
-import {
-  Search,
-  SearchDirectory,
-  SearchFile,
-  getFilesFromDirectory as search_directory,
-} from "../tauri/fs";
+import { Search, SearchDirectory, SearchFile, searchDirectory } from "../tauri/fs";
 import { usePresetStore } from "./preset";
 import { ParamsSource } from "./task";
 
@@ -122,7 +117,15 @@ export type SearchStoreState = {
    */
   root: SearchDirectoryNode | undefined;
   /**
-   * A hash map maps absolute path, inputId and outputId of node to node instance itself,
+   * Files count
+   */
+  filesCount: number;
+  /**
+   * Directories count
+   */
+  directoriesCount: number;
+  /**
+   * A hash map maps absolute path, inputId and outputId of a **file** node to node instance itself,
    * intend for rapid node searching.
    */
   nodeMap: Map<string, SearchEntryNode>;
@@ -394,7 +397,7 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
 
       if (state.inputDir) {
         set({ isSearching: true });
-        search_directory(state.inputDir)
+        searchDirectory(state.inputDir, state.maxDepth)
           .then((search) => {
             set({ search });
           })
@@ -415,7 +418,7 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
       state.regularFilters !== prevState.regularFilters
     ) {
       if (state.search) {
-        const { root, nodeMap, expendedRowKeys } = createRoot(
+        const { filesCount, directoriesCount, root, nodeMap, expendedRowKeys } = createRoot(
           state.search.entry,
           state.extensionFilters,
           state.regularFilters
@@ -423,8 +426,11 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
 
         set({
           root,
+          filesCount,
+          directoriesCount,
           nodeMap,
-          expendedRowKeys,
+          // only expend keys when entries count smaller than or equals 100
+          expendedRowKeys: filesCount + directoriesCount <= 100 ? expendedRowKeys : [],
           selectedRowKeys: [],
           selectedRowKeysSet: new Set(),
           inputParamsMap: new Map(),
@@ -433,6 +439,8 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
       } else {
         set({
           root: undefined,
+          filesCount: 0,
+          directoriesCount: 0,
           nodeMap: new Map(),
           expendedRowKeys: [],
           selectedRowKeys: [],
@@ -528,6 +536,8 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
     removeRegularFilter,
     updateRegularFilter,
     root: undefined,
+    filesCount: 0,
+    directoriesCount: 0,
     nodeMap: new Map(),
     expendedRowKeys: [],
     setExpandedRowKeys,
@@ -546,6 +556,8 @@ const createRoot = (
   extensionFilters: SearchStoreState["extensionFilters"],
   regularFilters: SearchStoreState["regularFilters"]
 ) => {
+  let filesCount = 0;
+  let directoriesCount = 0;
   const nodeMap: Map<string, SearchEntryNode> = new Map();
   const expendedRowKeys: string[] = [];
 
@@ -619,6 +631,8 @@ const createRoot = (
         directories.push([child, subdirectoryNode]);
 
         directoryNode.children.push(subdirectoryNode);
+
+        directoriesCount++;
       } else {
         const inputId = v4();
         const outputId = v4();
@@ -633,6 +647,8 @@ const createRoot = (
         nodeMap.set(fileNode.absolute, fileNode);
         nodeMap.set(inputId, fileNode);
         nodeMap.set(outputId, fileNode);
+
+        filesCount++;
       }
     }
 
@@ -643,9 +659,12 @@ const createRoot = (
           // recursively clean empty directories from current node to upper nodes
           let node: SearchDirectoryNode = directoryNode;
           while (node.parent) {
-            node.parent.children = node.parent.children.filter((child) => child !== node);
+            const removed = node.parent.children.filter((child) => child !== node);
+            directoriesCount -= node.parent.children.length - removed.length;
 
-            if (node.parent.children.length === 0) {
+            node.parent.children = removed;
+
+            if (removed.length === 0) {
               node = node.parent;
             } else {
               break;
@@ -653,11 +672,11 @@ const createRoot = (
           }
         } else {
           // reach root node, if root node has no children, remove undefined directly
-          return { root, nodeMap, expendedRowKeys };
+          return { filesCount: 0, directoriesCount: 0, root, nodeMap, expendedRowKeys };
         }
       }
     }
   }
 
-  return { root, nodeMap, expendedRowKeys };
+  return { filesCount, directoriesCount, root, nodeMap, expendedRowKeys };
 };

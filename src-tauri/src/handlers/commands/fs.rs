@@ -89,6 +89,8 @@ impl SearchEntry {
 pub struct Search {
     search_dir: String,
     search_dir_components: SmallVec<[String; 5]>,
+    files_count: usize,
+    directories_count: usize,
     entry: SearchEntry,
 }
 
@@ -145,6 +147,8 @@ pub async fn search_directory(dir: String, max_depth: Option<usize>) -> Result<S
     };
 
     let root_ptr: *mut SearchEntry = &mut root;
+    let mut files_count = 0;
+    let mut directories_count = 0;
     let mut directories = VecDeque::from([(root_ptr, 0)]);
     while let Some((current_dir_ptr, depth)) = directories.pop_front() {
         let current_dir = unsafe { &mut *current_dir_ptr };
@@ -162,6 +166,12 @@ pub async fn search_directory(dir: String, max_depth: Option<usize>) -> Result<S
             .and_then(|e| e.ok())
             .and_then(|e| SearchEntry::from_path(e.path(), &search_dir_absolute))
         {
+            if next_entry.is_dir() {
+                directories_count += 1;
+            } else {
+                files_count += 1;
+            }
+
             children.push(next_entry);
         }
 
@@ -177,8 +187,10 @@ pub async fn search_directory(dir: String, max_depth: Option<usize>) -> Result<S
     }
 
     Ok(Search {
-        entry: root,
+        files_count,
+        directories_count,
         search_dir: search_dir_absolute,
         search_dir_components,
+        entry: root,
     })
 }

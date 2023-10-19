@@ -1,11 +1,11 @@
-import { Switch, Table, TableColumnProps } from "@arco-design/web-react";
+import { Switch, Table, TableColumnProps, Typography } from "@arco-design/web-react";
 import { IconDown, IconRight } from "@arco-design/web-react/icon";
+import { sep } from "@tauri-apps/api/path";
 import { TaskParamsModifyingValue } from "../../components/task";
 import CodecModifier from "../../components/task/CodecModifier";
 import { PresetType, usePresetStore } from "../../store/preset";
 import { SearchEntryNode, useSearchStore } from "../../store/search";
 import { ParamsSource } from "../../store/task";
-import { sep } from "@tauri-apps/api/path";
 
 export default function SearchFileTable() {
   const {
@@ -15,6 +15,8 @@ export default function SearchFileTable() {
     outputDir,
     isSearching,
     root,
+    filesCount,
+    directoriesCount,
     expendedRowKeys,
     setExpandedRowKeys,
     selectedRowKeys,
@@ -30,6 +32,7 @@ export default function SearchFileTable() {
   const pathRender = (type: "input" | "output", item: SearchEntryNode) => {
     const dir = type === "input" ? inputDir : outputDir;
     if (!dir) return "NULL";
+    if (type === "output" && item.type === "Directory") return;
 
     return printRelativePath
       ? [...item.relative_components, item.name].join(sep)
@@ -132,13 +135,23 @@ export default function SearchFileTable() {
 
   return (
     <div>
-      <Switch
-        className="mb-2"
-        checkedText="RELATIVE"
-        uncheckedText="ABSOLUTE"
-        checked={printRelativePath}
-        onChange={setPrintRelativePath}
-      />
+      <div className="flex justify-between">
+        {/* Prints Absolute or Relative Path Button */}
+        <Switch
+          className="mb-2"
+          checkedText="RELATIVE"
+          uncheckedText="ABSOLUTE"
+          checked={printRelativePath}
+          onChange={setPrintRelativePath}
+        />
+
+        {/* Files & Directories count */}
+        {root ? (
+          <Typography.Text type="secondary">
+            {filesCount} Files | {directoriesCount} Directories | {selectedRowKeys.length} Selected
+          </Typography.Text>
+        ) : null}
+      </div>
 
       <Table
         stripe

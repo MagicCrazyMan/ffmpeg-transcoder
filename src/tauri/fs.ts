@@ -38,5 +38,5 @@ export type SearchFile = {
  * @param maxDepth Max depth should walk in during searching, default for `5`
  * @returns Search result
  */
-export const getFilesFromDirectory = async (dir: string, maxDepth?: number) =>
+export const searchDirectory = async (dir: string, maxDepth?: number) =>
   await invoke<Search>("search_directory", { dir, maxDepth });
