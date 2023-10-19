@@ -30,9 +30,10 @@ export default function SearchFileTable() {
   const { presets } = usePresetStore();
 
   const pathRender = (type: "input" | "output", item: SearchEntryNode) => {
+    if (type === "output" && item.type === "Directory") return;
+
     const dir = type === "input" ? inputDir : outputDir;
     if (!dir) return "NULL";
-    if (type === "output" && item.type === "Directory") return;
 
     return printRelativePath
       ? [...item.relative_components, item.name].join(sep)
