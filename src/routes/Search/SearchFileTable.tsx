@@ -110,22 +110,22 @@ export default function SearchFileTable() {
   const tableCols: TableColumnProps<SearchEntryNode>[] = [
     {
       title: "Input Files",
-      width: "30%",
+      width: "25%",
       render: (_col, item) => pathRender("input", item),
     },
     {
       title: "Input Params",
-      width: "20%",
+      width: "25%",
       render: (_col, item) => paramsRender("input", item),
     },
     {
       title: "Output Files",
-      width: "30%",
+      width: "25%",
       render: (_col, item) => pathRender("output", item),
     },
     {
       title: "Output Params",
-      width: "20%",
+      width: "25%",
       render: (_col, item) => paramsRender("output", item),
     },
   ];

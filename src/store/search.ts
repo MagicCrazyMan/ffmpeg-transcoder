@@ -389,21 +389,18 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
    * Searches entries via Tauri when input directory change
    */
   api.subscribe((state, prevState) => {
-    if (state.inputDir !== prevState.inputDir) {
-      set({ isSearching: true, search: undefined });
+    if (state.inputDir !== prevState.inputDir || state.maxDepth !== prevState.maxDepth) {
+      set({ search: undefined });
 
       if (state.inputDir) {
+        set({ isSearching: true });
         search_directory(state.inputDir)
           .then((search) => {
-            console.log(search);
-            
             set({ search });
           })
           .finally(() => {
             set({ isSearching: false });
           });
-      } else {
-        set({ search: undefined });
       }
     }
   });
