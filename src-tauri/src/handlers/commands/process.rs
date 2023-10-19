@@ -41,6 +41,8 @@ pub async fn invoke_ffprobe(ffprobe: &str, args: &[&str]) -> Result<Output, Erro
     }
 }
 
+/// Invokes ffprobe in child process and gets media metadata in JSON format,
+/// Result is not deserialize for performance considering.
 pub async fn invoke_ffprobe_json_metadata(ffprobe: &str, path: &str) -> Result<String, Error> {
     let output = invoke_ffprobe(
         ffprobe,
