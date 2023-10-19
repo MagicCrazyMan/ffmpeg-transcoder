@@ -6,7 +6,6 @@ import { useMemo, useRef } from "react";
 import { useAppStore } from "../../store/app";
 import { useSearchStore } from "../../store/search";
 import { DirectoryNotFoundError, toMessage } from "../../tauri/error";
-import { getFilesFromDirectory } from "../../tauri/fs";
 import { verifyDirectory } from "../../tauri/system";
 
 /**
@@ -16,9 +15,7 @@ export default function Directories() {
   const {
     maxDepth,
     setMaxDepth,
-    setSearchDirectory,
-    isFileLoading,
-    setFileLoading,
+    isSearching,
     inputDir,
     outputDir,
     setInputDirectory,
@@ -46,11 +43,11 @@ export default function Directories() {
 
     if (dir) {
       formRef.current?.setFieldValue(type, dir as string);
-      onChange({ [type]: dir });
+      onChange();
     }
   };
 
-  const onChange = (partial: Partial<{ inputDir: string; depth: number; outputDir: string }>) => {
+  const onChange = () => {
     formRef.current
       ?.validate()
       .then((values) => {
@@ -61,26 +58,10 @@ export default function Directories() {
           values.outputDir.endsWith(sep) ? values.outputDir.slice(0, -1) : values.outputDir
         );
         setMaxDepth(values.depth);
-
-        // only refresh input files when input dir changed
-        if (values.inputDir) {
-          if (partial.inputDir) {
-            setFileLoading(true);
-            setSearchDirectory(undefined);
-            getFilesFromDirectory(values.inputDir, values.depth)
-              .then((searchDirectory) => {
-                setSearchDirectory(searchDirectory);
-              })
-              .finally(() => {
-                setFileLoading(false);
-              });
-          }
-        } else {
-          setSearchDirectory(undefined);
-        }
       })
       .catch(() => {
-        setSearchDirectory(undefined);
+        setInputDirectory(undefined);
+        setOutputDirectory(undefined);
       });
   };
 
@@ -119,14 +100,14 @@ export default function Directories() {
               allowClear
               placeholder="Input Directory"
               beforeStyle={{ padding: "0" }}
-              disabled={isFileLoading}
+              disabled={isSearching}
               value={inputDir}
               onChange={setInputDirectory}
               addBefore={
                 <Button
                   type="text"
                   icon={<IconFolder />}
-                  disabled={isFileLoading}
+                  disabled={isSearching}
                   onClick={() => selectDirectory("inputDir")}
                 ></Button>
               }
@@ -146,7 +127,7 @@ export default function Directories() {
               size="mini"
               min={0}
               step={1}
-              disabled={isFileLoading}
+              disabled={isSearching}
               value={maxDepth}
               onChange={setMaxDepth}
             />

@@ -2,25 +2,29 @@
 import { invoke } from "@tauri-apps/api";
 import type { DirectoryNotFoundError } from "./error";
 
+export type Search = {
+  search_dir: string;
+  search_dir_components: string[];
+  entry: SearchDirectory;
+};
+
 export type SearchEntry = SearchDirectory | SearchFile;
 
 export type SearchDirectory = {
   type: "Directory";
-  name: string;
-  stem?: string;
   absolute: string;
-  relative: string;
+  relative_components: string[];
+  name: string;
   children: SearchEntry[];
-  path: string;
 };
 
 export type SearchFile = {
   type: "File";
+  absolute: string;
+  relative_components: string[];
   name: string;
   stem?: string;
   extension?: string;
-  absolute: string;
-  relative: string;
 };
 
 /**
@@ -35,4 +39,4 @@ export type SearchFile = {
  * @returns Search result
  */
 export const getFilesFromDirectory = async (dir: string, maxDepth?: number) =>
-  await invoke<SearchDirectory>("files_from_directory", { dir, maxDepth });
+  await invoke<Search>("search_directory", { dir, maxDepth });

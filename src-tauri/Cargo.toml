@@ -33,6 +33,7 @@ uuid = { version = "1.4.1", features = ["v4", "wasm-bindgen"] }
 serde_with = "3.3.0"
 tokio-util = "0.7.9"
 async-trait = "0.1.73"
+smallvec = { version = "1.11.1", features = ["serde"] }
 
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem

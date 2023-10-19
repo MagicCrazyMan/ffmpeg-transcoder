@@ -3,27 +3,9 @@ import { IconDown, IconRight } from "@arco-design/web-react/icon";
 import { TaskParamsModifyingValue } from "../../components/task";
 import CodecModifier from "../../components/task/CodecModifier";
 import { PresetType, usePresetStore } from "../../store/preset";
-import { useSearchStore } from "../../store/search";
+import { SearchEntryNode, useSearchStore } from "../../store/search";
 import { ParamsSource } from "../../store/task";
-import { SearchFile } from "../../tauri/fs";
-
-type SearchEntryNode = SearchDirectoryNode | SearchFileNode;
-
-type SearchDirectoryNode = {
-  type: "Directory";
-  name: string;
-  absolute: string;
-  relative: string;
-  children: SearchEntryNode[];
-  path: string;
-  parent: SearchDirectoryNode | null;
-};
-
-type SearchFileNode = SearchFile & {
-  parent: SearchDirectoryNode;
-  inputId: string;
-  outputId: string;
-};
+import { sep } from "@tauri-apps/api/path";
 
 export default function SearchFileTable() {
   const {
@@ -31,7 +13,7 @@ export default function SearchFileTable() {
     setPrintRelativePath,
     inputDir,
     outputDir,
-    isFileLoading,
+    isSearching,
     root,
     expendedRowKeys,
     setExpandedRowKeys,
@@ -49,13 +31,9 @@ export default function SearchFileTable() {
     const dir = type === "input" ? inputDir : outputDir;
     if (!dir) return "NULL";
 
-    // print custom output file if path not empty
-    if (type === "output" && item.type === "File" && outputParamsMap.has(item.outputId)) {
-      // const outputParams = outputParamsMap.get(item.outputId)!
-      return printRelativePath ? item.relative : `${dir}${item.relative}`
-    } else {
-      return printRelativePath ? item.relative : `${dir}${item.relative}`
-    }
+    return printRelativePath
+      ? [...item.relative_components, item.name].join(sep)
+      : [dir, ...item.relative_components, item.name].join(sep)
   };
   const paramsRender = (type: "input" | "output", item: SearchEntryNode) => {
     if (item.type !== "File") return;
@@ -168,7 +146,7 @@ export default function SearchFileTable() {
         rowKey="absolute"
         scroll={{ y: "calc(100vh - 181px)" }}
         pagination={false}
-        loading={isFileLoading}
+        loading={isSearching}
         columns={tableCols}
         expandedRowKeys={expendedRowKeys}
         onExpandedRowsChange={(value) => setExpandedRowKeys(value as string[])}

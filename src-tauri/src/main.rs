@@ -10,7 +10,7 @@ use tauri_plugin_log::{LogTarget, RotationStrategy};
 use tokio::sync::Mutex;
 
 use crate::handlers::commands::{
-    fs::files_from_directory,
+    fs::search_directory,
     system::{load_configuration, verify_ffmpeg, verify_ffprobe, verify_directory},
     task::{media_metadata, pause_task, resume_task, start_task, stop_task},
 };
@@ -53,7 +53,7 @@ fn start_app() -> Result<(), tauri::Error> {
             verify_ffprobe,
             verify_directory,
             load_configuration,
-            files_from_directory,
+            search_directory,
             media_metadata,
             start_task,
             stop_task,

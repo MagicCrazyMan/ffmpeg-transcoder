@@ -3,7 +3,12 @@ import { v4 } from "uuid";
 import { create } from "zustand";
 import { TaskParamsModifyingValue } from "../components/task";
 import { TaskParamsCodecValue } from "../components/task/CodecModifier";
-import { SearchDirectory, SearchFile } from "../tauri/fs";
+import {
+  Search,
+  SearchDirectory,
+  SearchFile,
+  getFilesFromDirectory as search_directory,
+} from "../tauri/fs";
 import { usePresetStore } from "./preset";
 import { ParamsSource } from "./task";
 
@@ -35,7 +40,7 @@ export type SearchStoreState = {
    *
    * @param inputDir Input directory
    */
-  setInputDirectory: (inputDir: string) => void;
+  setInputDirectory: (inputDir?: string) => void;
   /**
    * Output directory for saving result files
    */
@@ -45,25 +50,15 @@ export type SearchStoreState = {
    *
    * @param outputDir Output directory
    */
-  setOutputDirectory: (outputDir: string) => void;
+  setOutputDirectory: (outputDir?: string) => void;
   /**
-   * Search directory
+   * Search result
    */
-  searchDirectory?: SearchDirectory;
-  /**
-   * Sets search directory
-   * @param searchDirectory Search directory
-   */
-  setSearchDirectory: (searchDirectory?: SearchDirectory) => void;
+  search?: Search;
   /**
    * Is file loading
    */
-  isFileLoading: boolean;
-  /**
-   * Sets is file loading
-   * @param loading Is file loading
-   */
-  setFileLoading: (loading: boolean) => void;
+  isSearching: boolean;
   /**
    * Extension filters
    */
@@ -166,13 +161,8 @@ export type SearchStoreState = {
 
 export type SearchEntryNode = SearchDirectoryNode | SearchFileNode;
 
-export type SearchDirectoryNode = {
-  type: "Directory";
-  name: string;
-  absolute: string;
-  relative: string;
+export type SearchDirectoryNode = Omit<SearchDirectory, "children"> & {
   children: SearchEntryNode[];
-  path: string;
   parent: SearchDirectoryNode | null;
 };
 
@@ -276,21 +266,12 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
     set({ maxDepth });
   };
 
-  const setInputDirectory = (inputDir: string) => {
+  const setInputDirectory = (inputDir?: string) => {
     set({ inputDir });
   };
 
-  const setOutputDirectory = (outputDir: string) => {
+  const setOutputDirectory = (outputDir?: string) => {
     set({ outputDir });
-  };
-
-  const setSearchDirectory = (searchDirectory?: SearchDirectory) => {
-    set({ searchDirectory });
-  };
-
-  const isFileLoading = false;
-  const setFileLoading = (isFileLoading: boolean) => {
-    set({ isFileLoading });
   };
 
   const setExtensionFilterState = (state: ExtensionFilterState) => {
@@ -405,17 +386,40 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
   };
 
   /**
+   * Searches entries via Tauri when input directory change
+   */
+  api.subscribe((state, prevState) => {
+    if (state.inputDir !== prevState.inputDir) {
+      set({ isSearching: true, search: undefined });
+
+      if (state.inputDir) {
+        search_directory(state.inputDir)
+          .then((search) => {
+            console.log(search);
+            
+            set({ search });
+          })
+          .finally(() => {
+            set({ isSearching: false });
+          });
+      } else {
+        set({ search: undefined });
+      }
+    }
+  });
+
+  /**
    * Creates new tree for table when search directory, extension filters or regular filters change
    */
   api.subscribe((state, prevState) => {
     if (
-      state.searchDirectory !== prevState.searchDirectory ||
+      state.search !== prevState.search ||
       state.extensionFilters !== prevState.extensionFilters ||
       state.regularFilters !== prevState.regularFilters
     ) {
-      if (state.searchDirectory) {
+      if (state.search) {
         const { root, nodeMap, expendedRowKeys } = createRoot(
-          state.searchDirectory,
+          state.search.entry,
           state.extensionFilters,
           state.regularFilters
         );
@@ -447,7 +451,7 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
    * Cleans params only when search directory
    */
   api.subscribe((state, prevState) => {
-    if (state.searchDirectory !== prevState.searchDirectory) {
+    if (state.search !== prevState.search) {
       set({
         inputParamsMap: new Map(),
         outputParamsMap: new Map(),
@@ -515,9 +519,7 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
     setPrintRelativePath,
     maxDepth,
     setMaxDepth,
-    setSearchDirectory,
-    isFileLoading,
-    setFileLoading,
+    isSearching: false,
     setInputDirectory,
     setOutputDirectory,
     extensionFilters,
@@ -543,17 +545,16 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
 });
 
 const createRoot = (
-  searchDirectory: SearchDirectory,
+  entry: SearchDirectory,
   extensionFilters: SearchStoreState["extensionFilters"],
   regularFilters: SearchStoreState["regularFilters"]
 ) => {
-  let root: SearchDirectoryNode | undefined = undefined;
   const nodeMap: Map<string, SearchEntryNode> = new Map();
   const expendedRowKeys: string[] = [];
 
-  root = { ...searchDirectory, children: [], parent: null };
+  const root: SearchDirectoryNode = { ...entry, children: [], parent: null };
 
-  const directories: [SearchDirectory, SearchDirectoryNode][] = [[searchDirectory, root]];
+  const directories: [SearchDirectory, SearchDirectoryNode][] = [[entry, root]];
   // eslint-disable-next-line no-constant-condition
   while (true) {
     const item = directories.pop();
@@ -577,7 +578,8 @@ const createRoot = (
             let included: boolean;
             if (regularFilter.regex) {
               try {
-                included = new RegExp(regularFilter.value).test(child.name);
+                const regex = new RegExp(regularFilter.value);
+                included = regex.test(child.name);
               } catch (err) {
                 console.error(err);
                 continue;
@@ -611,7 +613,11 @@ const createRoot = (
       if (shouldDrop) continue;
 
       if (child.type === "Directory") {
-        const subdirectoryNode = { ...child, children: [], parent: directoryNode };
+        const subdirectoryNode: SearchDirectoryNode = {
+          ...child,
+          children: [],
+          parent: directoryNode,
+        };
         expendedRowKeys.push(child.absolute);
         directories.push([child, subdirectoryNode]);
 

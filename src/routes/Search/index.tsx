@@ -1,4 +1,5 @@
 import { Button } from "@arco-design/web-react";
+import { sep } from "@tauri-apps/api/path";
 import { useNavigate } from "react-router-dom";
 import { usePresetStore } from "../../store/preset";
 import { useSearchStore } from "../../store/search";
@@ -17,9 +18,8 @@ import "./index.less";
 export default function SearchPage() {
   const navigate = useNavigate();
   const {
-    inputDir,
     outputDir,
-    nodeMap: nodeMapper,
+    nodeMap,
     inputParamsMap,
     outputParamsMap,
     selectedRowKeys,
@@ -30,7 +30,7 @@ export default function SearchPage() {
 
   const onAddTasks = () => {
     const taskParams = selectedRowKeys.reduce((taskParams, key) => {
-      const fileNode = nodeMapper.get(key);
+      const fileNode = nodeMap.get(key);
       if (!fileNode || fileNode.type !== "File") return taskParams;
 
       const inputParams = inputParamsMap.get(fileNode.inputId);
@@ -43,7 +43,7 @@ export default function SearchPage() {
           toTaskParams(
             {
               ...inputParams,
-              path: `${inputDir!}${fileNode.relative}`,
+              path: fileNode.absolute,
             },
             presets
           ) as TaskInputParams,
@@ -52,7 +52,11 @@ export default function SearchPage() {
           toTaskParams(
             {
               ...outputParams,
-              path: outputDir ? `${outputDir}${fileNode.relative}` : undefined,
+              path: [
+                outputDir,
+                ...fileNode.relative_components,
+                `${fileNode.stem ?? ""}${fileNode.extension ? `.${fileNode.extension}` : ""}`,
+              ].join(sep),
             },
             presets
           ) as TaskOutputParams,
