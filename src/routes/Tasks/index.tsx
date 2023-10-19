@@ -74,7 +74,7 @@ export default function QueuePage() {
         rowKey="id"
         columns={tableCols}
         data={tasks}
-        scroll={{ y: "calc(100vh - 112px)" }}
+        scroll={{ x: "1200px", y: "calc(100vh - 112px)" }}
       ></Table>
 
       {/* Simple Tasks Adding Dialog */}

@@ -33,7 +33,7 @@ export default function SearchFileTable() {
 
     return printRelativePath
       ? [...item.relative_components, item.name].join(sep)
-      : [dir, ...item.relative_components, item.name].join(sep)
+      : [dir, ...item.relative_components, item.name].join(sep);
   };
   const paramsRender = (type: "input" | "output", item: SearchEntryNode) => {
     if (item.type !== "File") return;
@@ -144,7 +144,7 @@ export default function SearchFileTable() {
         stripe
         size="mini"
         rowKey="absolute"
-        scroll={{ y: "calc(100vh - 181px)" }}
+        scroll={{ x: "1200px", y: "calc(100vh - 181px)" }}
         pagination={false}
         loading={isSearching}
         columns={tableCols}

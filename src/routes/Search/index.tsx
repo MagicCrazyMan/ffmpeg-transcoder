@@ -76,8 +76,8 @@ export default function SearchPage() {
       {/* Input & Output Directories Selector */}
       <Directories />
 
-      <div className="flex-1 overflow-y-hidden flex">
-        <div className="mr-4 basis-96 flex flex-col">
+      <div className="flex-1 overflow-hidden flex">
+        <div className="mr-4 basis-72 flex-shrink-0 flex flex-col">
           {/* Extensions Filter */}
           <ExtensionFilter />
 
@@ -98,7 +98,7 @@ export default function SearchPage() {
         </div>
 
         {/* Files Table */}
-        <div className="flex-1">
+        <div className="flex-1 overflow-hidden">
           <SearchFileTable />
         </div>
       </div>

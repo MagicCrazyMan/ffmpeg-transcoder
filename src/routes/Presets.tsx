@@ -618,7 +618,7 @@ export default function PresetsPage() {
         size="mini"
         rowKey="id"
         className="draggable-table"
-        scroll={{ y: "calc(100vh - 112px)" }}
+        scroll={{ x: "1200px", y: "calc(100vh - 112px)" }}
         pagination={false}
         columns={tableCols}
         data={tableData}
