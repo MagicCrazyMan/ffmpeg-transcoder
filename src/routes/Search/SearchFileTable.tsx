@@ -114,29 +114,25 @@ export default function SearchFileTable() {
   const tableCols: TableColumnProps<SearchEntryNode>[] = [
     {
       title: "Input Files",
-      width: "25%",
       render: (_col, item) => pathRender("input", item),
     },
     {
       title: "Input Params",
-      width: "25%",
       render: (_col, item) => paramsRender("input", item),
     },
     {
       title: "Output Files",
-      width: "25%",
       render: (_col, item) => pathRender("output", item),
     },
     {
       title: "Output Params",
-      width: "25%",
       render: (_col, item) => paramsRender("output", item),
     },
   ];
 
   return (
     <div>
-      <div className="flex justify-between">
+      <div className="flex justify-between items-center">
         {/* Prints Absolute or Relative Path Button */}
         <Switch
           className="mb-2"
@@ -158,7 +154,7 @@ export default function SearchFileTable() {
         stripe
         size="mini"
         rowKey="absolute"
-        scroll={{ x: "1200px", y: "calc(100vh - 181px)" }}
+        scroll={{ x: "1400px", y: "calc(100vh - 181px)" }}
         pagination={false}
         loading={isSearching}
         columns={tableCols}
