@@ -21,22 +21,22 @@ export default function GlobalOperations({
   const {
     total,
     idlesCount,
-    commandingsCount,
-    erroredsCount,
-    finishedsCount,
-    pasuingsCount,
-    queueingsCount,
-    runningsCount,
-    stoppedsCount,
+    commandingCount,
+    erroredCount,
+    finishedCount,
+    pausingCount,
+    queueingCount,
+    runningCount,
+    stoppedCount,
   } = useMemo(() => {
     let idlesCount = 0;
-    let commandingsCount = 0;
-    let queueingsCount = 0;
-    let runningsCount = 0;
-    let pasuingsCount = 0;
-    let stoppedsCount = 0;
-    let finishedsCount = 0;
-    let erroredsCount = 0;
+    let commandingCount = 0;
+    let queueingCount = 0;
+    let runningCount = 0;
+    let pausingCount = 0;
+    let stoppedCount = 0;
+    let finishedCount = 0;
+    let erroredCount = 0;
 
     tasks.forEach((task) => {
       switch (task.state.type) {
@@ -44,25 +44,25 @@ export default function GlobalOperations({
           idlesCount++;
           break;
         case "Commanding":
-          commandingsCount++;
+          commandingCount++;
           break;
         case "Queueing":
-          queueingsCount++;
+          queueingCount++;
           break;
         case "Running":
-          runningsCount++;
+          runningCount++;
           break;
         case "Pausing":
-          pasuingsCount++;
+          pausingCount++;
           break;
         case "Stopped":
-          stoppedsCount++;
+          stoppedCount++;
           break;
         case "Finished":
-          finishedsCount++;
+          finishedCount++;
           break;
         case "Errored":
-          erroredsCount++;
+          erroredCount++;
           break;
       }
     });
@@ -70,13 +70,13 @@ export default function GlobalOperations({
     return {
       total: tasks.length,
       idlesCount,
-      commandingsCount,
-      queueingsCount,
-      runningsCount,
-      pasuingsCount,
-      stoppedsCount,
-      finishedsCount,
-      erroredsCount,
+      commandingCount,
+      queueingCount,
+      runningCount,
+      pausingCount,
+      stoppedCount,
+      finishedCount,
+      erroredCount,
     };
   }, [tasks]);
 
@@ -152,13 +152,13 @@ export default function GlobalOperations({
       <Space>
         <Typography.Text type="secondary">{total} Tasks</Typography.Text>|
         <Typography.Text type="secondary">{idlesCount} Idles</Typography.Text>|
-        <Typography.Text type="primary">{commandingsCount} Commanding</Typography.Text>|
-        <Typography.Text type="primary">{runningsCount} Running</Typography.Text>|
-        <Typography.Text type="warning">{queueingsCount} Queueing</Typography.Text>|
-        <Typography.Text type="warning">{pasuingsCount} Pausing</Typography.Text>|
-        <Typography.Text type="error">{stoppedsCount} Stopped</Typography.Text>|
-        <Typography.Text type="error">{erroredsCount} Errored</Typography.Text>|
-        <Typography.Text type="success">{finishedsCount} Finish</Typography.Text>
+        <Typography.Text type="primary">{commandingCount} Commanding</Typography.Text>|
+        <Typography.Text type="primary">{runningCount} Running</Typography.Text>|
+        <Typography.Text type="warning">{queueingCount} Queueing</Typography.Text>|
+        <Typography.Text type="warning">{pausingCount} Pausing</Typography.Text>|
+        <Typography.Text type="error">{stoppedCount} Stopped</Typography.Text>|
+        <Typography.Text type="error">{erroredCount} Errored</Typography.Text>|
+        <Typography.Text type="success">{finishedCount} Finished</Typography.Text>
       </Space>
     </div>
   );
