@@ -40,3 +40,20 @@ pub async fn invoke_ffprobe(ffprobe: &str, args: &[&str]) -> Result<Output, Erro
         },
     }
 }
+
+pub async fn invoke_ffprobe_json_metadata(ffprobe: &str, path: &str) -> Result<String, Error> {
+    let output = invoke_ffprobe(
+        ffprobe,
+        with_default_args! {
+            "-print_format",
+            "json",
+            "-show_format",
+            "-show_streams",
+            "-show_chapters",
+            &path
+        },
+    )
+    .await?;
+
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}

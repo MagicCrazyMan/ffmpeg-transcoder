@@ -17,31 +17,10 @@ use super::{
 /// Task data.
 pub(super) struct TaskData {
     pub(super) id: String,
-    pub(super) program: String,
+    pub(super) ffmpeg_program: String,
+    pub(super) ffprobe_program: String,
     pub(super) params: TaskParams,
-    pub(super) args: Vec<String>,
-    pub(super) total_duration: f64,
     pub(super) app_handle: tauri::AppHandle,
-}
-
-impl TaskData {
-    pub(super) fn new(
-        id: String,
-        program: String,
-        params: TaskParams,
-        total_duration: f64,
-        app_handle: tauri::AppHandle,
-    ) -> Self {
-        let args = params.to_args();
-        Self {
-            id,
-            program,
-            params,
-            args,
-            total_duration,
-            app_handle,
-        }
-    }
 }
 
 /// Task Item.
@@ -57,19 +36,19 @@ impl Task {
     pub(super) fn new(
         id: String,
         app_handle: tauri::AppHandle,
-        program: String,
+        ffmpeg_program: String,
+        ffprobe_program: String,
         params: TaskParams,
-        total_duration: f64,
         store: Weak<Mutex<HashMap<String, Task>>>,
     ) -> Self {
         Self {
-            data: Arc::new(TaskData::new(
+            data: Arc::new(TaskData {
                 id,
-                program,
+                ffmpeg_program,
+                ffprobe_program,
                 params,
-                total_duration,
                 app_handle,
-            )),
+            }),
             state: Arc::new(Mutex::new(Some(Box::new(Idle)))),
             store,
         }

@@ -2,6 +2,7 @@ use std::{path::PathBuf, process::Stdio, sync::Arc};
 
 use async_trait::async_trait;
 use log::{info, trace, warn};
+use serde_json::{Map, Value};
 use tauri::Manager;
 use tokio::{
     fs,
@@ -13,6 +14,7 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 
 use crate::handlers::{
+    commands::process::invoke_ffprobe_json_metadata,
     error::Error,
     task::message::{TaskMessage, TaskRunningMessage, TASK_MESSAGE_EVENT},
 };
@@ -51,6 +53,53 @@ pub(super) trait TaskStateMachineNode: Send {
 pub(super) struct Idle;
 
 impl Idle {
+    async fn find_max_duration(task: &Task) -> Result<f64, Error> {
+        // find maximum duration from all inputs
+        let mut total_duration = 0.0;
+        for input in task.data.params.inputs.iter() {
+            let raw = invoke_ffprobe_json_metadata(&task.data.ffprobe_program, &input.path).await?;
+            let obj: Map<String, Value> = match serde_json::from_str(&raw) {
+                Ok(obj) => obj,
+                Err(_) => continue,
+            };
+
+            // extract duration from format
+            if let Some(Value::Object(format)) = obj.get("format") {
+                if let Some(Value::String(duration)) = format.get("duration") {
+                    if let Ok(duration) = duration.parse::<f64>() {
+                        if duration > total_duration {
+                            total_duration = duration;
+                        }
+                    }
+                }
+            }
+
+            // extract duration from streams
+            let Some(Value::Array(streams)) = obj.get("streams") else {
+                continue;
+            };
+            for stream in streams {
+                let Value::Object(stream) = stream else {
+                    continue;
+                };
+
+                let Some(Value::String(duration)) = stream.get("duration") else {
+                    continue;
+                };
+
+                let Ok(duration) = duration.parse::<f64>() else {
+                    continue;
+                };
+
+                if duration > total_duration {
+                    total_duration = duration;
+                }
+            }
+        }
+
+        Ok(total_duration)
+    }
+
     /// Creates parent directories for all output paths.
     async fn mkdirs(task: &Task) -> Result<(), std::io::Error> {
         for output in task.data.params.outputs.iter() {
@@ -84,13 +133,20 @@ impl TaskStateMachineNode for Idle {
     }
 
     async fn start(self: Box<Self>, task: Task) -> Box<dyn TaskStateMachineNode> {
+        // find maximum duration from all inputs
+        let total_duration = match Idle::find_max_duration(&task).await {
+            Ok(total_duration) => total_duration,
+            Err(err) => return Box::new(Errored::from_err(err)),
+        };
+
         // create directories if not exist
         if let Err(err) = Idle::mkdirs(&task).await {
             return Box::new(Errored::from_err(err));
         };
 
         // startup ffmpeg subprocess
-        let mut command = Command::new(&task.data.program);
+        let args = task.data.params.to_args();
+        let mut command = Command::new(&task.data.ffmpeg_program);
 
         #[cfg(windows)]
         {
@@ -99,14 +155,14 @@ impl TaskStateMachineNode for Idle {
         };
 
         let process = command
-            .args(&task.data.args)
+            .args(&args)
             .stdin(Stdio::piped())
             .stderr(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()
             .map_err(|err| match err.kind() {
-                std::io::ErrorKind::NotFound => Error::ffmpeg_not_found(&task.data.program),
-                _ => Error::ffmpeg_unavailable_with_raw_error(&task.data.program, err),
+                std::io::ErrorKind::NotFound => Error::ffmpeg_not_found(&task.data.ffmpeg_program),
+                _ => Error::ffmpeg_unavailable_with_raw_error(&task.data.ffmpeg_program, err),
             });
         let process = match process {
             Ok(process) => Arc::new(Mutex::new(process)),
@@ -118,11 +174,13 @@ impl TaskStateMachineNode for Idle {
         let watchdog_cancellations = (CancellationToken::new(), CancellationToken::new());
         let watchdog_handle = start_watchdog(
             Arc::clone(&process),
-            task.clone(),
             watchdog_cancellations.clone(),
+            task.clone(),
+            total_duration,
         );
 
         let next_state = Box::new(Running {
+            total_duration,
             process,
             watchdog_cancellations,
             watchdog_handle,
@@ -131,10 +189,8 @@ impl TaskStateMachineNode for Idle {
         info!(
             "[{}] start task with command: {} {}",
             task.data.id,
-            task.data.program,
-            task.data
-                .args
-                .iter()
+            task.data.ffmpeg_program,
+            args.iter()
                 .map(|arg| if arg.contains(" ") {
                     format!("\"{arg}\"")
                 } else {
@@ -172,6 +228,7 @@ impl TaskStateMachineNode for Idle {
 }
 
 pub(super) struct Running {
+    total_duration: f64,
     process: Arc<Mutex<Child>>,
     watchdog_cancellations: (CancellationToken, CancellationToken),
     watchdog_handle: JoinHandle<()>,
@@ -218,7 +275,10 @@ impl TaskStateMachineNode for Running {
         #[cfg(not(windows))]
         {}
 
-        Box::new(Pausing { process })
+        Box::new(Pausing {
+            total_duration: self.total_duration,
+            process,
+        })
     }
 
     async fn resume(self: Box<Self>, task: Task) -> Box<dyn TaskStateMachineNode> {
@@ -268,6 +328,7 @@ impl TaskStateMachineNode for Running {
 }
 
 pub(super) struct Pausing {
+    total_duration: f64,
     process: Arc<Mutex<Child>>,
 }
 
@@ -315,11 +376,13 @@ impl TaskStateMachineNode for Pausing {
         let watchdog_cancellations = (CancellationToken::new(), CancellationToken::new());
         let watchdog_handle = start_watchdog(
             Arc::clone(&process),
-            task.clone(),
             watchdog_cancellations.clone(),
+            task.clone(),
+            self.total_duration,
         );
 
         Box::new(Running {
+            total_duration: self.total_duration,
             process,
             watchdog_cancellations,
             watchdog_handle,
@@ -509,8 +572,9 @@ impl TaskStateMachineNode for Finished {
 fn start_capture(
     stdout: ChildStdout,
     stderr: ChildStderr,
-    task: Task,
     watchdog_cancellations: (CancellationToken, CancellationToken),
+    task: Task,
+    total_duration: f64,
 ) -> (
     JoinHandle<(ChildStdout, Result<bool, Error>)>,
     JoinHandle<(ChildStderr, Result<(), Error>)>,
@@ -521,8 +585,7 @@ fn start_capture(
     let stdout_handle = tokio::spawn(async move {
         let mut line = String::new();
         let mut reader = BufReader::new(stdout);
-        let mut message =
-            TaskRunningMessage::new(task.data.id.to_string(), task.data.total_duration);
+        let mut message = TaskRunningMessage::new(task.data.id.to_string(), total_duration);
         let result = loop {
             // check state
             if state_cloned.lock().await.as_ref().unwrap().state_code() != TaskStateCode::Running {
@@ -674,8 +737,9 @@ enum ProcessStatus {
 
 fn start_watchdog(
     process: Arc<Mutex<Child>>,
-    task: Task,
     watchdog_cancellations: (CancellationToken, CancellationToken),
+    task: Task,
+    total_duration: f64,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
         info!("[{}] start subprocess output capturing", task.data.id);
@@ -691,8 +755,13 @@ fn start_watchdog(
 
         // spawns threads to capture log from stdout and stderr.
         // stdout and stdin are taken out from subprocess
-        let (stdout_handle, stderr_handle) =
-            start_capture(stdout, stderr, task.clone(), watchdog_cancellations);
+        let (stdout_handle, stderr_handle) = start_capture(
+            stdout,
+            stderr,
+            watchdog_cancellations,
+            task.clone(),
+            total_duration,
+        );
 
         // waits for watchdog finished or process killed
         let status = tokio::select! {

@@ -47,15 +47,15 @@ impl TaskStore {
         id: String,
         params: TaskParams,
         app_handle: tauri::AppHandle,
-        total_duration: f64,
-        program: String,
+        ffmpeg_program: String,
+        ffprobe_program: String,
     ) {
         let task = Task::new(
             id.clone(),
             app_handle,
-            program,
+            ffmpeg_program,
+            ffprobe_program,
             params,
-            total_duration,
             Arc::downgrade(&self.store),
         );
 

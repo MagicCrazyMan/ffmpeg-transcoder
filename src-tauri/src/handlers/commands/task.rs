@@ -1,11 +1,9 @@
-use serde_json::{Map, Value};
-
 use crate::{
     handlers::{config::AppConfig, error::Error, task::store::TaskStore},
     with_default_args,
 };
 
-use super::process::invoke_ffprobe;
+use super::process::invoke_ffprobe_json_metadata;
 
 /// A structure receiving ffmpeg command line arguments.
 #[derive(Debug, serde::Deserialize)]
@@ -85,56 +83,13 @@ pub async fn start_task(
         return Err(Error::configuration_not_loaded());
     };
 
-    // find maximum duration from all inputs
-    let mut total_duration = 0.0;
-    for input in params.inputs.iter() {
-        let raw = media_metadata_inner(config.ffprobe(), &input.path).await?;
-        let obj: Map<String, Value> = match serde_json::from_str(&raw) {
-            Ok(obj) => obj,
-            Err(_) => continue,
-        };
-
-        // extract duration from format
-        if let Some(Value::Object(format)) = obj.get("format") {
-            if let Some(Value::String(duration)) = format.get("duration") {
-                if let Ok(duration) = duration.parse::<f64>() {
-                    if duration > total_duration {
-                        total_duration = duration;
-                    }
-                }
-            }
-        }
-
-        // extract duration from streams
-        let Some(Value::Array(streams)) = obj.get("streams") else {
-            continue;
-        };
-        for stream in streams {
-            let Value::Object(stream) = stream else {
-                continue;
-            };
-
-            let Some(Value::String(duration)) = stream.get("duration") else {
-                continue;
-            };
-
-            let Ok(duration) = duration.parse::<f64>() else {
-                continue;
-            };
-
-            if duration > total_duration {
-                total_duration = duration;
-            }
-        }
-    }
-
     task_store
         .start(
             id,
             params,
             app_handle,
-            total_duration,
             config.ffmpeg().to_string(),
+            config.ffprobe().to_string(),
         )
         .await;
 
@@ -162,23 +117,6 @@ pub async fn resume_task(task_store: tauri::State<'_, TaskStore>, id: String) ->
     Ok(())
 }
 
-async fn media_metadata_inner(ffprobe: &str, path: &str) -> Result<String, Error> {
-    let output = invoke_ffprobe(
-        ffprobe,
-        with_default_args! {
-            "-print_format",
-            "json",
-            "-show_format",
-            "-show_streams",
-            "-show_chapters",
-            &path
-        },
-    )
-    .await?;
-
-    Ok(String::from_utf8_lossy(&output.stdout).to_string())
-}
-
 /// A command returns media properties using ffprobe.
 ///
 /// Preventing unnecessary conversion between json object and plain text,
@@ -193,6 +131,6 @@ pub async fn media_metadata(
         return Err(Error::configuration_not_loaded());
     };
 
-    let metadata = media_metadata_inner(config.ffprobe(), &path).await?;
+    let metadata = invoke_ffprobe_json_metadata(config.ffprobe(), &path).await?;
     Ok(metadata)
 }
