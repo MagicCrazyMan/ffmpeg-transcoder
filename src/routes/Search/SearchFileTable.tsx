@@ -36,16 +36,16 @@ export default function SearchFileTable() {
     if (!dir) return "NULL";
 
     return printRelativePath
-      ? [...item.relative_components, item.name].join(sep)
-      : [dir, ...item.relative_components, item.name].join(sep);
+      ? [...item.relative, item.name].join(sep)
+      : [dir, ...item.relative, item.name].join(sep);
   };
   const paramsRender = (type: "input" | "output", item: SearchEntryNode) => {
     if (item.type !== "File") return;
     if (!selectedRowKeysSet.has(item.absolute)) return;
 
     const id = type === "input" ? item.inputId : item.outputId;
-    const mapper = type === "input" ? inputParamsMap : outputParamsMap;
-    const params = mapper.get(id);
+    const map = type === "input" ? inputParamsMap : outputParamsMap;
+    const params = map.get(id);
     if (!params) return;
 
     const presetType = type === "input" ? PresetType.Decode : PresetType.Encode;
@@ -53,51 +53,51 @@ export default function SearchFileTable() {
 
     const onChange = (id: string, partial: Partial<TaskParamsModifyingValue>) =>
       setter((state) => {
-        const mapper = new Map(state);
-        mapper.set(id, {
+        const map = new Map(state);
+        map.set(id, {
           ...state.get(id)!,
           ...partial,
         });
-        return mapper;
+        return map;
       });
 
     const onApplyAll = (record: TaskParamsModifyingValue) => {
       setter((state) => {
-        const mapper = new Map<string, TaskParamsModifyingValue>();
+        const map = new Map<string, TaskParamsModifyingValue>();
 
         const entries = state.entries();
         for (let next = entries.next(); !next.done; next = entries.next()) {
           const [id, value] = next.value;
           if (id === record.id) {
-            mapper.set(id, value);
+            map.set(id, value);
           } else {
-            mapper.set(id, { ...value, selection: record.selection, custom: record.custom });
+            map.set(id, { ...value, selection: record.selection, custom: record.custom });
           }
         }
 
-        return mapper;
+        return map;
       });
     };
 
     const onConvertCustom = (record: TaskParamsModifyingValue) => {
       setter((state) => {
-        const mapper = new Map<string, TaskParamsModifyingValue>();
+        const map = new Map<string, TaskParamsModifyingValue>();
 
         const entries = state.entries();
         for (let next = entries.next(); !next.done; next = entries.next()) {
           const [id, value] = next.value;
           if (id === record.id) {
-            mapper.set(id, {
+            map.set(id, {
               ...value,
               selection: ParamsSource.Custom,
               custom: presets.find((preset) => preset.id === record.selection)?.params.join(" "),
             });
           } else {
-            mapper.set(id, value);
+            map.set(id, value);
           }
         }
 
-        return mapper;
+        return map;
       });
     };
     return (

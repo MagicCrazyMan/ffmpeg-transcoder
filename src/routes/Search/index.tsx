@@ -54,7 +54,7 @@ export default function SearchPage() {
               ...outputParams,
               path: [
                 outputDir,
-                ...fileNode.relative_components,
+                ...fileNode.relative,
                 `${fileNode.stem ?? ""}${fileNode.extension ? `.${fileNode.extension}` : ""}`,
               ].join(sep),
             },

@@ -17,15 +17,15 @@ export default function OutputFileModifier({
   const { configuration, saveDialogFilters } = useAppStore();
   const { presets } = usePresetStore();
 
-  const preset =
-    params.selection !== ParamsSource.Auto && params.selection !== ParamsSource.Custom
-      ? presets.find((preset) => preset.id === params.selection)
-      : undefined;
-
   /**
    * On select output files vis Tauri
    */
   const onSelectOutputFile = useCallback(async () => {
+    const preset =
+      params.selection !== ParamsSource.Auto && params.selection !== ParamsSource.Custom
+        ? presets.find((preset) => preset.id === params.selection)
+        : undefined;
+
     const file = await save({
       title: "Select Output File",
       defaultPath: configuration.saveDirectory,
@@ -37,7 +37,7 @@ export default function OutputFileModifier({
     if (file) {
       onChange(file);
     }
-  }, [configuration.saveDirectory, onChange, preset, saveDialogFilters]);
+  }, [configuration, onChange, params, presets, saveDialogFilters]);
 
   return (
     <div className="flex gap-2 items-center">
@@ -60,7 +60,6 @@ export default function OutputFileModifier({
         }}
         className="flex-1"
         style={{ margin: "0" }}
-        onChange={() => console.log(111)}
       >
         {params?.path ?? "NULL"}
       </Typography.Text>
