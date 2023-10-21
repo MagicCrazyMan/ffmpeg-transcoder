@@ -11,7 +11,7 @@ use crate::handlers::commands::task::TaskParams;
 
 use super::{
     message::{TaskMessage, TASK_MESSAGE_EVENT},
-    state_machine::{Idle, TaskStateCode, TaskStateMachineNode},
+    state_machine::{Idle, TaskStateCode, TaskState},
 };
 
 /// Task data.
@@ -27,7 +27,7 @@ pub(super) struct TaskData {
 #[derive(Clone)]
 pub struct Task {
     pub(super) data: Arc<TaskData>,
-    pub(super) state: Arc<Mutex<Option<Box<dyn TaskStateMachineNode>>>>,
+    pub(super) state: Arc<Mutex<Option<Box<dyn TaskState>>>>,
     pub(super) store: Weak<Mutex<HashMap<String, Task>>>,
 }
 
@@ -65,7 +65,7 @@ macro_rules! controls {
                 let current_state = state.take().unwrap(); // safely unwrap
                 let next_state = current_state.$name(self.clone()).await;
 
-                let next_state_code = next_state.state_code();
+                let next_state_code = next_state.code();
                 let next_state_message = next_state.message().map(|msg| msg.to_string());
                 Self::update_state(self.clone(), next_state_code, next_state_message).await;
 
@@ -87,7 +87,7 @@ impl Task {
         let current_state = state.take().unwrap(); // safely unwrap
         let next_state = current_state.error(self.clone(), reason.into()).await;
 
-        let next_state_code = next_state.state_code();
+        let next_state_code = next_state.code();
         let next_state_message = next_state.message().map(|msg| msg.to_string());
         Self::update_state(self.clone(), next_state_code, next_state_message).await;
 
