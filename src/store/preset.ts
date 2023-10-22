@@ -1,20 +1,12 @@
-import { assignIn, cloneDeep } from "lodash";
 import { v4 } from "uuid";
 import { create } from "zustand";
+import { Preset } from "../libs/preset";
 
 export type PresetStoreState = {
   /**
-   * Presets
+   * Data that persisted inside local storage.
    */
-  presets: Preset[];
-  /**
-   * Default preset id for decoding
-   */
-  defaultDecode?: string;
-  /**
-   * Default preset id for encoding
-   */
-  defaultEncode?: string;
+  storage: PresetStorage;
   /**
    * Sets default preset id for decoding
    * @param id Preset id
@@ -26,19 +18,10 @@ export type PresetStoreState = {
    */
   setDefaultEncode: (id?: string) => void;
   /**
-   * Temporary preset for add new preset
+   * Adds a new preset.
+   * @param preset Preset
    */
-  tempPreset?: Preset;
-  // Useless since new presets are only created from `persistTempPreset`
-  //
-  // /**
-  //  * Adds a new preset.
-  //  * @param type Preset type
-  //  * @param name Preset name
-  //  * @param params Preset params
-  //  * @param remark Preset remark, optional
-  //  */
-  // addPreset: (type: PresetType, name: string, params: string[], remark?: string) => void;
+  addPreset: (preset: Preset) => void;
   /**
    * Swaps two presets by ids
    * @param i1 Index of preset 1
@@ -61,40 +44,6 @@ export type PresetStoreState = {
    * @param id Preset id
    */
   removePreset: (id: string) => void;
-  /**
-   * Enables temporary preset
-   */
-  enableTempPreset: () => void;
-  /**
-   * Disables temporary preset and discards all values
-   */
-  disableTempPreset: () => void;
-  /**
-   * Updates temporary preset
-   * @param preset Partial preset values
-   */
-  updateTempPreset: (preset: Partial<Preset>) => void;
-  /**
-   * Persists temporary preset and adds it into presets list
-   * Values of temporary preset will be cleaned
-   */
-  persistTempPreset: () => void;
-};
-
-export enum PresetType {
-  Universal = 0,
-  Decode = 1,
-  Encode = 2,
-}
-
-export type Preset = {
-  id: string;
-  type: PresetType;
-  name: string;
-  params: string[];
-  remark?: string;
-  isTemp?: true;
-  extension?: string;
 };
 
 type PresetStorage = {
@@ -103,14 +52,10 @@ type PresetStorage = {
   presets: Preset[];
 };
 
-const DEFAULT_PRESET_STORAGE: PresetStorage = {
-  presets: [],
-};
-
 const PRESETS_LOCALSTORAGE_KEY = "presets";
 
 /**
- * Stores presets into local storage
+ * Stores presets storage into local storage
  * @param storage Storage data
  */
 const storePresetStorage = (storage: PresetStorage) => {
@@ -118,179 +63,120 @@ const storePresetStorage = (storage: PresetStorage) => {
 };
 
 /**
- * Loads presets from local storage.
+ * Loads presets storage from local storage.
  */
 const loadPresetStorage = (): PresetStorage => {
-  const raw = localStorage.getItem(PRESETS_LOCALSTORAGE_KEY);
-  if (raw) {
-    const presetsStorage: PresetStorage = assignIn(
-      cloneDeep(DEFAULT_PRESET_STORAGE),
-      JSON.parse(raw)
-    );
-    // verifies defaultDecode and defaultEncode id
-    if (presetsStorage.defaultDecode)
-      presetsStorage.defaultDecode = presetsStorage.presets.find(
-        (preset) => preset.id === presetsStorage.defaultDecode
-      )
-        ? presetsStorage.defaultDecode
-        : undefined;
-    if (presetsStorage.defaultEncode)
-      presetsStorage.defaultEncode = presetsStorage.presets.find(
-        (preset) => preset.id === presetsStorage.defaultEncode
-      )
-        ? presetsStorage.defaultEncode
-        : undefined;
+  const defaultStorage = {
+    presets: [],
+  };
 
-    return presetsStorage;
-  } else {
-    return cloneDeep(DEFAULT_PRESET_STORAGE);
-  }
+  const raw = localStorage.getItem(PRESETS_LOCALSTORAGE_KEY);
+  if (!raw) return defaultStorage;
+
+  const loaded: PresetStorage = JSON.parse(raw);
+
+  // verifies defaultDecode and defaultEncode id
+  if (loaded.defaultDecode)
+    loaded.defaultDecode = loaded.presets.find((preset) => preset.id === loaded.defaultDecode)
+      ? loaded.defaultDecode
+      : undefined;
+  if (loaded.defaultEncode)
+    loaded.defaultEncode = loaded.presets.find((preset) => preset.id === loaded.defaultEncode)
+      ? loaded.defaultEncode
+      : undefined;
+
+  return {
+    ...defaultStorage,
+    ...loaded,
+  };
 };
 
-export const usePresetStore = create<PresetStoreState>((set, get, api) => {
-  const { presets, defaultDecode, defaultEncode } = loadPresetStorage();
+export const usePresetStore = create<PresetStoreState>((set, _oget, api) => {
+  const storage = loadPresetStorage();
 
   /**
    * Subscribes state change event,
    * stores presets into local storage if presets changed.
    */
   api.subscribe((state, prevState) => {
-    if (
-      state.presets !== prevState.presets ||
-      state.defaultDecode !== prevState.defaultDecode ||
-      state.defaultEncode !== prevState.defaultEncode
-    ) {
-      storePresetStorage({
-        presets: state.presets,
-        defaultDecode: state.defaultDecode,
-        defaultEncode: state.defaultEncode,
-      });
-    }
+    if (state.storage !== prevState.storage) storePresetStorage(state.storage);
   });
 
-  const setDefaultDecode = (id?: string) => {
-    set({ defaultDecode: id });
-  };
-  const setDefaultEncode = (id?: string) => {
-    set({ defaultEncode: id });
-  };
-
-  const duplicatePreset = (id: string) => {
-    set((state) => {
-      const presets = state.presets.reduce((v, p) => {
-        v.push(p);
-        // duplicate new preset right next to target preset
-        if (p.id === id) {
-          v.push({
-            ...p,
-            id: v4(),
-            name: `${p.name} (2)`,
-          });
-        }
-
-        return v;
-      }, [] as Preset[]);
-
-      return { presets };
-    });
-  };
-
-  const movePreset = (from: number, to: number) => {
-    if (from === to) return;
-
-    set((state) => {
-      let presets: Preset[];
-      if (from > to) {
-        presets = [
-          ...state.presets.slice(0, to),
-          state.presets[from],
-          ...state.presets.slice(to, from),
-          ...state.presets.slice(from + 1),
-        ];
-      } else {
-        presets = [
-          ...state.presets.slice(0, from),
-          ...state.presets.slice(from + 1, to + 1),
-          state.presets[from],
-          ...state.presets.slice(to + 1),
-        ];
-      }
-      return { presets };
-    });
-  };
-
-  const updatePreset = (id: string, preset: Partial<Preset>) => {
-    set((state) => ({
-      presets: state.presets.map((p) => (p.id === id ? { ...p, ...preset } : p)),
-    }));
-  };
-
-  const removePreset = (id: string) => {
-    set((state) => ({
-      presets: state.presets.filter((p) => p.id !== id),
-      defaultDecode: state.defaultDecode === id ? undefined : state.defaultDecode,
-      defaultEncode: state.defaultEncode === id ? undefined : state.defaultEncode,
-    }));
-  };
-
-  const tempPreset = undefined as Preset | undefined;
-
-  const enableTempPreset = () => {
-    set({
-      tempPreset: {
-        id: v4(),
-        name: "",
-        type: PresetType.Universal,
-        params: [],
-        isTemp: true,
-      },
-    });
-  };
-
-  const disableTempPreset = () => {
-    set({ tempPreset: undefined });
-  };
-
-  const updateTempPreset = (preset: Partial<Preset>) => {
-    const tempPreset = get().tempPreset;
-    if (tempPreset) {
-      set({ tempPreset: { ...tempPreset, ...preset } });
-    }
-  };
-
-  const persistTempPreset = () => {
-    const tempPreset = get().tempPreset;
-
-    if (!tempPreset || !tempPreset.name) return;
-    set((state) => ({
-      presets: [
-        ...state.presets,
-        {
-          id: tempPreset.id,
-          name: tempPreset.name,
-          type: tempPreset.type,
-          params: tempPreset.params,
-          remark: tempPreset.remark,
-        },
-      ],
-      tempPreset: undefined,
-    }));
-  };
-
   return {
-    presets,
-    defaultDecode,
-    defaultEncode,
-    setDefaultDecode,
-    setDefaultEncode,
-    duplicatePreset,
-    movePreset,
-    updatePreset,
-    removePreset,
-    tempPreset,
-    enableTempPreset,
-    disableTempPreset,
-    updateTempPreset,
-    persistTempPreset,
+    storage,
+    setDefaultDecode(defaultDecode?: string) {
+      set(({ storage }) => ({ storage: { ...storage, defaultDecode } }));
+    },
+    setDefaultEncode(defaultEncode?: string) {
+      set(({ storage }) => ({ storage: { ...storage, defaultEncode } }));
+    },
+    addPreset(preset: Preset) {
+      set(({ storage }) => ({
+        storage: {
+          ...storage,
+          presets: [...storage.presets, preset],
+        },
+      }));
+    },
+    duplicatePreset(id: string) {
+      set(({ storage }) => {
+        const presets = storage.presets.reduce((nPresets, preset) => {
+          nPresets.push(preset);
+          // duplicate new preset right next to target preset
+          if (preset.id === id) {
+            nPresets.push({
+              ...preset,
+              id: v4(),
+              name: preset.name,
+            });
+          }
+
+          return nPresets;
+        }, [] as Preset[]);
+
+        return { storage: { ...storage, presets } };
+      });
+    },
+    movePreset(from: number, to: number) {
+      if (from === to) return;
+
+      set(({ storage }) => {
+        let presets: Preset[];
+        if (from > to) {
+          presets = [
+            ...storage.presets.slice(0, to),
+            storage.presets[from],
+            ...storage.presets.slice(to, from),
+            ...storage.presets.slice(from + 1),
+          ];
+        } else {
+          presets = [
+            ...storage.presets.slice(0, from),
+            ...storage.presets.slice(from + 1, to + 1),
+            storage.presets[from],
+            ...storage.presets.slice(to + 1),
+          ];
+        }
+        return { storage: { ...storage, presets } };
+      });
+    },
+    updatePreset(id: string, preset: Partial<Preset>) {
+      set(({ storage }) => ({
+        storage: {
+          ...storage,
+          presets: storage.presets.map((p) => (p.id === id ? { ...p, ...preset } : p)),
+        },
+      }));
+    },
+    removePreset(id: string) {
+      set(({ storage }) => ({
+        storage: {
+          ...storage,
+          presets: storage.presets.filter((p) => p.id !== id),
+          defaultDecode: storage.defaultDecode === id ? undefined : storage.defaultDecode,
+          defaultEncode: storage.defaultEncode === id ? undefined : storage.defaultEncode,
+        },
+      }));
+    },
   };
 });

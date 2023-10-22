@@ -2,6 +2,7 @@ import { listen } from "@tauri-apps/api/event";
 import dayjs, { Dayjs } from "dayjs";
 import { v4 } from "uuid";
 import { create } from "zustand";
+import { Preset } from "../libs/preset";
 import {
   FFmpegNotFoundError,
   FFmpegUnavailableError,
@@ -19,7 +20,6 @@ import {
 } from "../tauri/task";
 import { useAppStore } from "./app";
 import { useHistoryStore } from "./history";
-import { Preset } from "./preset";
 
 export type TaskStoreState = {
   /**

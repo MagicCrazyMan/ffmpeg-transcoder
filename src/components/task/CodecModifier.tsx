@@ -1,9 +1,10 @@
 import { Button, Input, Select, Tooltip } from "@arco-design/web-react";
 import { IconCopy, IconFilter } from "@arco-design/web-react/icon";
 import { ReactNode } from "react";
-import { Preset, PresetType, usePresetStore } from "../../store/preset";
-import { ParamsSource } from "../../store/task";
 import { TaskParamsModifyingValue } from ".";
+import { Preset, PresetType } from "../../libs/preset";
+import { usePresetStore } from "../../store/preset";
+import { ParamsSource } from "../../store/task";
 
 export type TaskParamsCodecValue = Omit<TaskParamsModifyingValue, "path">;
 
@@ -27,11 +28,11 @@ const updatePresetOptions = (presets: Preset[]) => {
     }
   });
 };
-updatePresetOptions(usePresetStore.getState().presets);
+updatePresetOptions(usePresetStore.getState().storage.presets);
 
 usePresetStore.subscribe((state, prevState) => {
-  if (state.presets === prevState.presets) return;
-  updatePresetOptions(state.presets);
+  if (state.storage.presets === prevState.storage.presets) return;
+  updatePresetOptions(state.storage.presets);
 });
 
 export type CodecModifierProps = {

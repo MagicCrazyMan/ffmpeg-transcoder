@@ -26,7 +26,7 @@ export default function SearchPage() {
     setSelectedRowKeys,
   } = useSearchStore();
   const { addTasks } = useTaskStore();
-  const { presets } = usePresetStore();
+  const presets = usePresetStore((state) => state.storage.presets);
 
   const onAddTasks = () => {
     const taskParams = selectedRowKeys.reduce((taskParams, key) => {

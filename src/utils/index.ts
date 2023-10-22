@@ -2,7 +2,7 @@ import dayjs, { Dayjs } from "dayjs";
 import { cloneDeep } from "lodash";
 import { v4 } from "uuid";
 import { TaskParamsModifyingValue } from "../components/task";
-import { Preset } from "../store/preset";
+import { Preset } from "../libs/preset";
 import { ParamsSource, TaskInputParams, TaskOutputParams } from "../store/task";
 
 /**

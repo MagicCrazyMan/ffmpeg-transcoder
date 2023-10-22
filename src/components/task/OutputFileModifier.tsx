@@ -15,7 +15,7 @@ export default function OutputFileModifier({
   onChange: (file: string) => void;
 }) {
   const { configuration, saveDialogFilters } = useAppStore();
-  const { presets } = usePresetStore();
+  const { storage } = usePresetStore();
 
   /**
    * On select output files vis Tauri
@@ -23,7 +23,7 @@ export default function OutputFileModifier({
   const onSelectOutputFile = useCallback(async () => {
     const preset =
       params.selection !== ParamsSource.Auto && params.selection !== ParamsSource.Custom
-        ? presets.find((preset) => preset.id === params.selection)
+        ? storage.presets.find((preset) => preset.id === params.selection)
         : undefined;
 
     const file = await save({
@@ -37,7 +37,7 @@ export default function OutputFileModifier({
     if (file) {
       onChange(file);
     }
-  }, [configuration, onChange, params, presets, saveDialogFilters]);
+  }, [configuration.saveDirectory, onChange, params.selection, saveDialogFilters, storage.presets]);
 
   return (
     <div className="flex gap-2 items-center">

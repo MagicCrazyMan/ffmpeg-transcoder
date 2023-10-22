@@ -4,8 +4,9 @@ import { open, save } from "@tauri-apps/api/dialog";
 import { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
 import { v4 } from "uuid";
 import { TaskParamsModifyingValue } from ".";
+import { PresetType } from "../../libs/preset";
 import { useAppStore } from "../../store/app";
-import { PresetType, usePresetStore } from "../../store/preset";
+import { usePresetStore } from "../../store/preset";
 import {
   ParamsSource,
   Task,
@@ -32,7 +33,7 @@ const UniverseTable = ({
   records: TaskParamsModifyingValue[];
   setRecords: Dispatch<SetStateAction<TaskParamsModifyingValue[]>>;
 }) => {
-  const presets = usePresetStore((state) => state.presets);
+  const presets = usePresetStore((state) => state.storage.presets);
 
   const filesTitle = useMemo(() => (type === "input" ? "Input Files" : "Output Files"), [type]);
   const paramsTitle = useMemo(() => (type === "input" ? "Decode Params" : "Encode Params"), [type]);
@@ -204,7 +205,7 @@ const Footer = ({
   onVisibleChange: (visible: boolean) => void;
 }) => {
   const { addTasks, updateTask } = useTaskStore();
-  const presets = usePresetStore((state) => state.presets);
+  const presets = usePresetStore((state) => state.storage.presets);
 
   const onCancel = () => onVisibleChange(false);
   const onSubmit = () => {
@@ -251,7 +252,7 @@ export default function ComplexTaskModifier({
   task,
 }: ComplexTaskModifierProps) {
   const { configuration, openDialogFilters, saveDialogFilters } = useAppStore();
-  const { presets, defaultDecode, defaultEncode } = usePresetStore();
+  const { storage } = usePresetStore();
 
   const [inputs, setInputs] = useState<TaskParamsModifyingValue[]>([]);
   const [outputs, setOutputs] = useState<TaskParamsModifyingValue[]>([]);
@@ -279,12 +280,12 @@ export default function ComplexTaskModifier({
     if (task) {
       setInputs(
         task.params.inputs.map(
-          (input) => fromTaskParams(input, presets) as TaskParamsModifyingValue
+          (input) => fromTaskParams(input, storage.presets) as TaskParamsModifyingValue
         )
       );
       setOutputs(
         task.params.outputs.map(
-          (output) => fromTaskParams(output, presets) as TaskParamsModifyingValue
+          (output) => fromTaskParams(output, storage.presets) as TaskParamsModifyingValue
         )
       );
       setModified(false);
@@ -293,7 +294,7 @@ export default function ComplexTaskModifier({
       setOutputs([]);
       setModified(false);
     }
-  }, [task, presets]);
+  }, [task, storage.presets]);
 
   /**
    * Reset to unmodified if inputs and outputs both fallback to empty when adding new task
@@ -319,7 +320,7 @@ export default function ComplexTaskModifier({
       const inputs: TaskParamsModifyingValue[] = files.map((file) => ({
         id: v4(),
         path: file,
-        selection: defaultDecode ?? ParamsSource.Auto,
+        selection: storage.defaultDecode ?? ParamsSource.Auto,
       }));
       wrappedSetInputs((state) => [...state, ...inputs]);
     }
@@ -339,7 +340,7 @@ export default function ComplexTaskModifier({
       const output: TaskParamsModifyingValue = {
         id: v4(),
         path: file,
-        selection: defaultEncode ?? ParamsSource.Auto,
+        selection: storage.defaultEncode ?? ParamsSource.Auto,
       };
       wrappedSetOutputs((state) => [...state, { ...output }]);
     }
@@ -351,7 +352,7 @@ export default function ComplexTaskModifier({
   const addNullOutput = () => {
     const output: TaskParamsModifyingValue = {
       id: v4(),
-      selection: defaultEncode ?? ParamsSource.Auto,
+      selection: storage.defaultEncode ?? ParamsSource.Auto,
     };
 
     wrappedSetOutputs((state) => [...state, { ...output }]);

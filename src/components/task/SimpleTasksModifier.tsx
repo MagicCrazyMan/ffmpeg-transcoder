@@ -5,8 +5,9 @@ import { join, sep } from "@tauri-apps/api/path";
 import { useCallback, useMemo, useState } from "react";
 import { v4 } from "uuid";
 import { TaskParamsModifyingValue } from ".";
+import { PresetType } from "../../libs/preset";
 import { useAppStore } from "../../store/app";
-import { PresetType, usePresetStore } from "../../store/preset";
+import { usePresetStore } from "../../store/preset";
 import {
   ParamsSource,
   TaskInputParams,
@@ -37,7 +38,7 @@ const Footer = ({
   onVisibleChange: (visible: boolean) => void;
 }) => {
   const { addTasks } = useTaskStore();
-  const presets = usePresetStore((state) => state.presets);
+  const presets = usePresetStore((state) => state.storage.presets);
 
   const modified = useMemo(() => records.length !== 0, [records]);
 
@@ -78,7 +79,7 @@ const Footer = ({
 
 export default function SimpleTasksModifier({ visible, onVisibleChange }: SimpleTasksAddingProps) {
   const { configuration, openDialogFilters } = useAppStore();
-  const { presets, defaultDecode, defaultEncode } = usePresetStore();
+  const { storage } = usePresetStore();
 
   const [tasks, setTasks] = useState<SimpleTaskParams[]>([]);
 
@@ -106,12 +107,12 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
           input: {
             id: v4(),
             path: file,
-            selection: defaultDecode ?? ParamsSource.Auto,
+            selection: storage.defaultDecode ?? ParamsSource.Auto,
           },
           output: {
             id: v4(),
             path: defaultOutputPath,
-            selection: defaultEncode ?? ParamsSource.Auto,
+            selection: storage.defaultEncode ?? ParamsSource.Auto,
           },
         } as SimpleTaskParams;
       });
@@ -222,14 +223,14 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
               [type]: {
                 ...task[type],
                 selection: ParamsSource.Custom,
-                custom: presets.find((preset) => preset.id === selection)?.params.join(" "),
+                custom: storage.presets.find((preset) => preset.id === selection)?.params.join(" "),
               },
             };
           }
         })
       );
     },
-    [presets, setTasks]
+    [storage.presets, setTasks]
   );
   const onConvertCustomInputs = useCallback(
     (params: TaskParamsCodecValue) => {

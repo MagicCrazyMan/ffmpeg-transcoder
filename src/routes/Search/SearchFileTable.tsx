@@ -3,7 +3,8 @@ import { IconDown, IconRight } from "@arco-design/web-react/icon";
 import { sep } from "@tauri-apps/api/path";
 import { TaskParamsModifyingValue } from "../../components/task";
 import CodecModifier from "../../components/task/CodecModifier";
-import { PresetType, usePresetStore } from "../../store/preset";
+import { PresetType } from "../../libs/preset";
+import { usePresetStore } from "../../store/preset";
 import { SearchEntryNode, useSearchStore } from "../../store/search";
 import { ParamsSource } from "../../store/task";
 
@@ -27,7 +28,7 @@ export default function SearchFileTable() {
     outputParamsMap,
     setOutputParamsMap,
   } = useSearchStore();
-  const { presets } = usePresetStore();
+  const presets = usePresetStore((state) => state.storage.presets);
 
   const pathRender = (type: "input" | "output", item: SearchEntryNode) => {
     if (type === "output" && item.type === "Directory") return;

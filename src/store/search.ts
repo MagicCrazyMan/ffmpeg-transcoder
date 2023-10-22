@@ -473,7 +473,7 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
     if (state.selectedRowKeys !== prevState.selectedRowKeys) {
       if (state.selectedRowKeys.length === 0) return;
 
-      const { defaultDecode, defaultEncode } = usePresetStore.getState();
+      const { storage } = usePresetStore.getState();
       const inputParamsMap = new Map(state.inputParamsMap);
       const outputParamsMap = new Map(state.outputParamsMap);
 
@@ -484,14 +484,14 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
         if (!state.inputParamsMap.has(node.inputId)) {
           inputParamsMap.set(node.inputId, {
             id: node.inputId,
-            selection: defaultDecode ?? ParamsSource.Auto,
+            selection: storage.defaultDecode ?? ParamsSource.Auto,
           });
         }
 
         if (!state.outputParamsMap.has(node.outputId)) {
           outputParamsMap.set(node.outputId, {
             id: node.outputId,
-            selection: defaultEncode ?? ParamsSource.Auto,
+            selection: storage.defaultEncode ?? ParamsSource.Auto,
           });
         }
       });
