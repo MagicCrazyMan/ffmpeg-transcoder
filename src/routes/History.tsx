@@ -28,7 +28,7 @@ const FilesList = ({ params }: { params: TaskInputParams[] | TaskOutputParams[] 
 export default function QueuePage() {
   const navigate = useNavigate();
   const { addTasks } = useTaskStore();
-  const { tasks, removeHistoryTask } = useHistoryStore();
+  const { storage, removeHistoryTask } = useHistoryStore();
 
   const tableCols: TableColumnProps<HistoryTask>[] = [
     {
@@ -86,7 +86,7 @@ export default function QueuePage() {
         pagination={false}
         scroll={{ x: "1200px", y: "calc(100vh - 112px)" }}
         columns={tableCols}
-        data={tasks}
+        data={storage.tasks}
       ></Table>
     </div>
   );

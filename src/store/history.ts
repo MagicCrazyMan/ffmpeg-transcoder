@@ -4,9 +4,9 @@ import { Task } from "./task";
 
 export type HistoryState = {
   /**
-   * History tasks
+   * Data that persist inside local storage.
    */
-  tasks: HistoryTask[];
+  storage: HistoryStorage;
   /**
    * Adds history tasks
    * @param tasks History tasks
@@ -21,13 +21,14 @@ export type HistoryState = {
 
 export type HistoryTask = Pick<Task, "id" | "params" | "creationTime">;
 
-type HistoryStorage = Pick<HistoryState, "tasks">;
+type HistoryStorage = {
+  /**
+   * History tasks
+   */
+  tasks: HistoryTask[];
+};
 
 const HISTORIES_LOCALSTORAGE_KEY = "histories";
-
-const DEFAULT_HISTORIES_STORAGE: HistoryStorage = {
-  tasks: [],
-};
 
 /**
  * Stores history storage into local storage
@@ -42,44 +43,48 @@ const storeHistoriesStorage = (storage: HistoryStorage) => {
  * @returns History storage
  */
 const loadHistoriesStorage = (): HistoryStorage => {
+  const defaultStorage: HistoryStorage = {
+    tasks: [],
+  };
+
   const raw = localStorage.getItem(HISTORIES_LOCALSTORAGE_KEY);
-  return raw ? JSON.parse(raw) : cloneDeep(DEFAULT_HISTORIES_STORAGE);
+  return raw ? { ...defaultStorage, ...JSON.parse(raw) } : defaultStorage;
 };
 
 export const useHistoryStore = create<HistoryState>((set, _get, api) => {
-  const { tasks } = loadHistoriesStorage();
-
-  const addHistoryTasks = (...tasks: HistoryTask[]) => {
-    set((state) => ({
-      tasks: [
-        ...state.tasks,
-        ...tasks.map(({ creationTime, id, params }) => ({
-          id,
-          creationTime,
-          params: cloneDeep(params),
-        })),
-      ],
-    }));
-  };
-
-  const removeHistoryTask = (id: string) => {
-    set((state) => ({
-      tasks: state.tasks.filter((task) => task.id !== id),
-    }));
-  };
-
   /**
    * Stores histories into local storage when histories change
    */
   api.subscribe((state, prevState) => {
-    if (state.tasks !== prevState.tasks) {
-      storeHistoriesStorage({ tasks: state.tasks });
+    if (state.storage !== prevState.storage) {
+      storeHistoriesStorage(state.storage);
     }
   });
 
   return {
-    tasks,
-    addHistoryTasks,
-    removeHistoryTask,
+    storage: loadHistoriesStorage(),
+    addHistoryTasks(...tasks: HistoryTask[]) {
+      set(({ storage }) => ({
+        storage: {
+          ...storage,
+          tasks: [
+            ...storage.tasks,
+            ...tasks.map(({ creationTime, id, params }) => ({
+              id,
+              creationTime,
+              params: cloneDeep(params),
+            })),
+          ],
+        },
+      }));
+    },
+    removeHistoryTask(id: string) {
+      set(({ storage }) => ({
+        storage: {
+          ...storage,
+          tasks: storage.tasks.filter((task) => task.id !== id),
+        },
+      }));
+    },
   };
 });

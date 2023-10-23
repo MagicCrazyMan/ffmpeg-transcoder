@@ -4,7 +4,7 @@ import { Preset } from "../libs/preset";
 
 export type PresetStoreState = {
   /**
-   * Data that persisted inside local storage.
+   * Data that persist inside local storage.
    */
   storage: PresetStorage;
   /**
@@ -47,8 +47,17 @@ export type PresetStoreState = {
 };
 
 type PresetStorage = {
+  /**
+   * Default preset for decoding
+   */
   defaultDecode?: string;
+  /**
+   * Default preset for encoding
+   */
   defaultEncode?: string;
+  /**
+   * Presets list
+   */
   presets: Preset[];
 };
 
@@ -66,7 +75,7 @@ const storePresetStorage = (storage: PresetStorage) => {
  * Loads presets storage from local storage.
  */
 const loadPresetStorage = (): PresetStorage => {
-  const defaultStorage = {
+  const defaultStorage: PresetStorage = {
     presets: [],
   };
 
@@ -92,8 +101,6 @@ const loadPresetStorage = (): PresetStorage => {
 };
 
 export const usePresetStore = create<PresetStoreState>((set, _oget, api) => {
-  const storage = loadPresetStorage();
-
   /**
    * Subscribes state change event,
    * stores presets into local storage if presets changed.
@@ -103,7 +110,7 @@ export const usePresetStore = create<PresetStoreState>((set, _oget, api) => {
   });
 
   return {
-    storage,
+    storage: loadPresetStorage(),
     setDefaultDecode(defaultDecode?: string) {
       set(({ storage }) => ({ storage: { ...storage, defaultDecode } }));
     },
