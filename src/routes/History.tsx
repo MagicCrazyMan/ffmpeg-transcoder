@@ -1,9 +1,10 @@
 import { Button, Space, Table, TableColumnProps } from "@arco-design/web-react";
 import { IconDelete, IconPlus } from "@arco-design/web-react/icon";
 import dayjs from "dayjs";
-import { HistoryTask, useHistoryStore } from "../store/history";
-import { TaskInputParams, TaskOutputParams, useTaskStore } from "../store/task";
 import { useNavigate } from "react-router-dom";
+import { HistoryTask } from "../libs/history";
+import { useHistoryStore } from "../store/history";
+import { TaskInputParams, TaskOutputParams, useTaskStore } from "../store/task";
 
 const FileItem = ({ path }: { path?: string }) => {
   return <span className="flex-1">{path ?? "NULL"}</span>;

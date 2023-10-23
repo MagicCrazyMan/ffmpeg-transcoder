@@ -1,6 +1,6 @@
 import { cloneDeep } from "lodash";
 import { create } from "zustand";
-import { Task } from "./task";
+import { HistoryTask } from "../libs/history";
 
 export type HistoryState = {
   /**
@@ -18,8 +18,6 @@ export type HistoryState = {
    */
   removeHistoryTask: (id: string) => void;
 };
-
-export type HistoryTask = Pick<Task, "id" | "params" | "creationTime">;
 
 type HistoryStorage = {
   /**
