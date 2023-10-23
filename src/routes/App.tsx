@@ -3,8 +3,9 @@ import enUS from "@arco-design/web-react/es/locale/en-US";
 import { IconMoonFill, IconSunFill, IconThunderbolt } from "@arco-design/web-react/icon";
 import { useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Theme } from "../libs/config";
 import { pageRoutes } from "../router";
-import { Theme, useAppStore } from "../store/app";
+import { useAppStore } from "../store/app";
 import { loadConfiguration } from "../tauri/system";
 
 /**
@@ -28,18 +29,14 @@ const SidebarMenu = () => {
     return id ? [id] : [];
   }, [location]);
 
-  return (
-    <Menu selectedKeys={selectedKey}>
-      {menuItems}
-    </Menu>
-  );
+  return <Menu selectedKeys={selectedKey}>{menuItems}</Menu>;
 };
 
 /**
  * Theme switcher
  */
 const ThemeSwitcher = () => {
-  const { currentTheme, configuration, setLocalConfiguration } = useAppStore();
+  const { currentTheme, configuration, updateConfiguration } = useAppStore();
 
   const icon = useMemo(() => {
     switch (configuration.theme) {
@@ -54,7 +51,7 @@ const ThemeSwitcher = () => {
 
   const droplist = useMemo(
     () => (
-      <Menu onClickMenuItem={(theme) => setLocalConfiguration({ theme: theme as Theme })}>
+      <Menu onClickMenuItem={(theme) => updateConfiguration({ theme: theme as Theme })}>
         <Menu.Item key={Theme.Light}>
           {configuration.theme === Theme.Light ? <IconSunFill /> : <Icon />} Light
         </Menu.Item>
@@ -67,7 +64,7 @@ const ThemeSwitcher = () => {
         </Menu.Item>
       </Menu>
     ),
-    [configuration.theme, setLocalConfiguration]
+    [configuration.theme, updateConfiguration]
   );
 
   return (
@@ -77,9 +74,9 @@ const ThemeSwitcher = () => {
         icon={icon}
         onClick={() => {
           if (currentTheme === Theme.Dark) {
-            setLocalConfiguration({ theme: Theme.Light });
+            updateConfiguration({ theme: Theme.Light });
           } else {
-            setLocalConfiguration({ theme: Theme.Dark });
+            updateConfiguration({ theme: Theme.Dark });
           }
         }}
       ></Button>

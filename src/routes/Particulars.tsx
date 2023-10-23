@@ -2,7 +2,8 @@ import { Descriptions, Image, Tag } from "@arco-design/web-react";
 import { useMemo } from "react";
 import FFmpegDarkThemeLogo from "../assets/ffmpeg_dark_theme.svg";
 import FFmpegLightThemeLogo from "../assets/ffmpeg_light_theme.svg";
-import { Theme, useAppStore } from "../store/app";
+import { Theme } from "../libs/config";
+import { useAppStore } from "../store/app";
 
 /**
  * A page informing ffmpeg and system basic information.
@@ -38,7 +39,7 @@ export default function ParticularsPage() {
       },
       {
         label: "Version",
-        value: systemParticulars.ffmpeg.banner.version ?? "Unknown",
+        value: systemParticulars.ffmpeg.banner.version ?? "Unknown Version",
       },
       {
         label: "Copyright",

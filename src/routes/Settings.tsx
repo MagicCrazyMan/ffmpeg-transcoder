@@ -11,7 +11,8 @@ import { IconFile, IconFolder } from "@arco-design/web-react/icon";
 import { open } from "@tauri-apps/api/dialog";
 import { useEffect, useRef, useState } from "react";
 import { unstable_useBlocker } from "react-router-dom";
-import { Configuration, LogLevel, Theme, useAppStore } from "../store/app";
+import { Configuration, LogLevel, Theme } from "../libs/config";
+import { useAppStore } from "../store/app";
 import {
   FFmpegNotFoundError,
   FFmpegUnavailableError,
@@ -25,7 +26,7 @@ import { loadConfiguration, verifyDirectory, verifyFFmpeg, verifyFFprobe } from 
  * A page managing system settings.
  */
 export default function Settings() {
-  const { systemParticulars, setSystemParticulars, configuration, setLocalConfiguration } =
+  const { configuration, updateConfiguration, systemParticulars, setSystemParticulars } =
     useAppStore();
   const formInstance = useRef<FormInstance<Configuration>>(null);
 
@@ -49,7 +50,7 @@ export default function Settings() {
     if (path) {
       formInstance.current?.setFieldValue("ffmpeg", path as string);
       formInstance.current?.validate(["ffmpeg"]).then((value) => {
-        setLocalConfiguration({
+        updateConfiguration({
           ffmpeg: value.ffmpeg as string,
         });
       });
@@ -68,7 +69,7 @@ export default function Settings() {
     if (path) {
       formInstance.current?.setFieldValue("ffprobe", path as string);
       formInstance.current?.validate(["ffprobe"]).then((value) => {
-        setLocalConfiguration({
+        updateConfiguration({
           ffprobe: value.ffprobe as string,
         });
       });
@@ -87,7 +88,7 @@ export default function Settings() {
 
     if (path) {
       formInstance.current?.setFieldValue("saveDirectory", path as string);
-      setLocalConfiguration({
+      updateConfiguration({
         saveDirectory: path as string,
       });
     }
@@ -108,7 +109,7 @@ export default function Settings() {
         config.ffprobe = config.ffprobe.trim();
 
         setSystemParticulars(await loadConfiguration(config));
-        setLocalConfiguration(localConfiguration);
+        updateConfiguration(localConfiguration);
         setBlocking(false);
       })
       .catch((err) => {

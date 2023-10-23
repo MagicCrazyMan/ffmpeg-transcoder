@@ -2,107 +2,73 @@ import { DialogFilter } from "@tauri-apps/api/dialog";
 import { OsType, type as getOsType } from "@tauri-apps/api/os";
 import { cloneDeep } from "lodash";
 import { create } from "zustand";
-import { type SystemParticulars } from "../tauri/system";
+import { Configuration, LogLevel, OpenFileFilters, Theme } from "../libs/config";
+import { SystemParticulars } from "../libs/particulars";
+
+export type AppState = {
+  /**
+   * App configuration,
+   * merge default configuration and local configuration
+   */
+  configuration: Configuration;
+  /**
+   * Data that persist inside local storage.
+   */
+  configurationStorage: ConfigurationStorage;
+  /**
+   * Updates configuration storage
+   * @param partial Storage configuration
+   */
+  updateConfiguration: (partial: Partial<Configuration>) => void;
+
+  /**
+   * Current Operation System type.
+   */
+  osType?: OsType;
+  /**
+   * Current using theme.
+   */
+  currentTheme: Theme.Dark | Theme.Light;
+  /**
+   * File filters for open file dialog.
+   *
+   * This field synchronize from {@link Configuration.openFileFilters}.
+   */
+  openDialogFilters: DialogFilter[];
+  /**
+   * File filters for save file dialog.
+   *
+   * This field synchronize from {@link Configuration.saveFileFilters}.
+   */
+  saveDialogFilters: DialogFilter[];
+
+  /**
+   * System particulars of current machine
+   */
+  systemParticulars?: SystemParticulars;
+  /**
+   * Sets system particulars
+   */
+  setSystemParticulars: (systemParticulars?: SystemParticulars) => void;
+};
+
+type ConfigurationStorage = Partial<Configuration>;
+
+const CONFIGURATION_LOCALSTORAGE_KEY = "configuration";
 
 /**
- * Theme color mode.
+ * Stores configuration into local storage
  */
-export enum Theme {
-  /**
-   * Follows system theme.
-   */
-  FollowSystem = "0",
-  /**
-   * Uses dark theme and saves to local storage.
-   */
-  Light = "1",
-  /**
-   * Uses light theme and saves to local storage.
-   */
-  Dark = "2",
-}
-
-/**
- * Updates arco design theme mode and saves to local storage
- * @param theme Theme
- */
-const setArcoTheme = (theme: Theme) => {
-  let exactTheme: Theme;
-  if (theme === Theme.FollowSystem) {
-    exactTheme = window.matchMedia("(prefers-color-scheme: dark)").matches
-      ? Theme.Dark
-      : Theme.Light;
-  } else {
-    exactTheme = theme;
-  }
-
-  if (exactTheme === Theme.Dark) {
-    document.body.setAttribute("arco-theme", "dark");
-    document.body.style.colorScheme = "dark";
-  } else {
-    document.body.removeAttribute("arco-theme");
-    document.body.style.colorScheme = "light";
-  }
-
-  return exactTheme;
+const storeConfigurationStorage = (configurationStorage: ConfigurationStorage) => {
+  localStorage.setItem(CONFIGURATION_LOCALSTORAGE_KEY, JSON.stringify(configurationStorage));
 };
 
 /**
- * File filters by media types
+ * Loads configuration from local storage
  */
-export type OpenFileFilters = {
-  videos: string[];
-  audios: string[];
-  images: string[];
-  subtitles: string[];
-  text: string[];
-};
-
-export enum LogLevel {
-  Off = "OFF",
-  Error = "ERROR",
-  Warn = "WARN",
-  Info = "INFO",
-  Debug = "DEBUG",
-  Trace = "TRACE",
-}
-
-/**
- * App configuration
- */
-export type Configuration = {
-  /**
-   * FFmpeg binary program
-   */
-  loglevel: LogLevel;
-  /**
-   * FFmpeg binary program
-   */
-  ffmpeg: string;
-  /**
-   * FFprobe binary program
-   */
-  ffprobe: string;
-  /**
-   * Current theme
-   */
-  theme: Theme;
-  /**
-   * Maximum running tasks
-   */
-  maxRunning: number;
-  /**
-   * Default save directory, optional
-   */
-  saveDirectory?: string;
-  /**
-   * File filters for open dialog
-   */
-  openFileFilters: OpenFileFilters;
-  /**
-   * File filters for save dialog
-   */
-  saveFileFilters: DialogFilter[];
+const loadConfigurationStorage = (): ConfigurationStorage => {
+  const raw = localStorage.getItem(CONFIGURATION_LOCALSTORAGE_KEY);
+  return raw ? JSON.parse(raw) : {};
 };
 
 const DEFAULT_CONFIGURATION: Configuration = {
@@ -268,23 +234,29 @@ const DEFAULT_CONFIGURATION: Configuration = {
   ],
 };
 
-type LocalConfigurationStorage = Partial<Configuration>;
-
-const LOCAL_CONFIGURATION_LOCALSTORAGE_KEY = "configuration";
-
 /**
- * Stores local configuration into local storage
+ * Updates arco design theme mode and saves to local storage
+ * @param theme Theme
  */
-const storeLocalConfigurationStorage = (configuration: LocalConfigurationStorage) => {
-  localStorage.setItem(LOCAL_CONFIGURATION_LOCALSTORAGE_KEY, JSON.stringify(configuration));
-};
+const setArcoTheme = (theme: Theme) => {
+  let exactTheme: Theme;
+  if (theme === Theme.FollowSystem) {
+    exactTheme = window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? Theme.Dark
+      : Theme.Light;
+  } else {
+    exactTheme = theme;
+  }
 
-/**
- * Loads local configuration from local storage
- */
-const loadLocalConfigurationStorage = (): LocalConfigurationStorage => {
-  const raw = localStorage.getItem(LOCAL_CONFIGURATION_LOCALSTORAGE_KEY);
-  return raw ? JSON.parse(raw) : {};
+  if (exactTheme === Theme.Dark) {
+    document.body.setAttribute("arco-theme", "dark");
+    document.body.style.colorScheme = "dark";
+  } else {
+    document.body.removeAttribute("arco-theme");
+    document.body.style.colorScheme = "light";
+  }
+
+  return exactTheme;
 };
 
 /**
@@ -313,72 +285,12 @@ const formalizeOpenDialogFilters = ({
   ];
 };
 
-export type AppState = {
-  /**
-   * App configuration,
-   * merge default configuration and local configuration
-   */
-  configuration: Configuration;
-  /**
-   * App local configuration
-   */
-  localConfiguration: LocalConfigurationStorage;
-  /**
-   * Sets configuration
-   * @param localConfiguration Local configuration
-   */
-  setLocalConfiguration: (localConfiguration: LocalConfigurationStorage) => void;
-
-  /**
-   * Current Operation System type.
-   */
-  osType?: OsType;
-  /**
-   * Current using theme.
-   */
-  currentTheme: Theme.Dark | Theme.Light;
-  /**
-   * File filters for open file dialog.
-   *
-   * This field synchronize from {@link Configuration.openFileFilters}.
-   */
-  openDialogFilters: DialogFilter[];
-  /**
-   * File filters for save file dialog.
-   *
-   * This field synchronize from {@link Configuration.saveFileFilters}.
-   */
-  saveDialogFilters: DialogFilter[];
-
-  /**
-   * System particulars of current machine
-   */
-  systemParticulars: null | SystemParticulars;
-  /**
-   * Sets system particulars
-   */
-  setSystemParticulars: (systemParticulars: SystemParticulars | null) => void;
-};
-
 /**
  * App store
  */
 export const useAppStore = create<AppState>((set, _get, api) => {
-  const localConfiguration = loadLocalConfigurationStorage();
-  const setLocalConfiguration = (localConfiguration: LocalConfigurationStorage) => {
-    // updates and stores local configuration
-    set((state) => {
-      const lc = { ...state.localConfiguration, ...localConfiguration };
-      storeLocalConfigurationStorage(lc);
-      return { localConfiguration: lc };
-    });
-    // updates configuration
-    set((state) => ({
-      configuration: { ...state.configuration, ...localConfiguration },
-    }));
-  };
-
-  const configuration = { ...cloneDeep(DEFAULT_CONFIGURATION), ...localConfiguration };
+  const configurationStorage = loadConfigurationStorage();
+  const configuration = { ...DEFAULT_CONFIGURATION, ...configurationStorage };
 
   api.subscribe((state, prevState) => {
     // updates arco if theme changed
@@ -396,29 +308,27 @@ export const useAppStore = create<AppState>((set, _get, api) => {
     }
   });
 
-  const osType: OsType | undefined = undefined;
+  /**
+   * Gets OS type immediately
+   */
   getOsType().then((osType) => set({ osType }));
-
-  const currentTheme = setArcoTheme(configuration.theme);
-  const openDialogFilters: DialogFilter[] = formalizeOpenDialogFilters(
-    configuration.openFileFilters
-  );
-  const saveDialogFilters: DialogFilter[] = cloneDeep(configuration.saveFileFilters);
-
-  const systemParticulars = null as null | SystemParticulars;
-  const setSystemParticulars = (systemParticulars: SystemParticulars | null) => {
-    set({ systemParticulars: systemParticulars });
-  };
 
   return {
     configuration,
-    localConfiguration,
-    setLocalConfiguration,
-    osType,
-    currentTheme,
-    openDialogFilters,
-    saveDialogFilters,
-    systemParticulars,
-    setSystemParticulars,
+    configurationStorage,
+    updateConfiguration(partial: Partial<Configuration>) {
+      // updates and stores local configuration
+      set((state) => {
+        const configurationStorage = { ...state.configurationStorage, ...partial };
+        storeConfigurationStorage(configurationStorage);
+        return { configurationStorage, configuration: { ...state.configuration, ...partial } };
+      });
+    },
+    currentTheme: setArcoTheme(configuration.theme),
+    openDialogFilters: formalizeOpenDialogFilters(configuration.openFileFilters),
+    saveDialogFilters: cloneDeep(configuration.saveFileFilters),
+    setSystemParticulars(systemParticulars?: SystemParticulars) {
+      set({ systemParticulars });
+    },
   };
 });
