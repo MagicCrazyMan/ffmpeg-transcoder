@@ -8,27 +8,30 @@ import {
   IconRecordStop,
   IconStop,
 } from "@arco-design/web-react/icon";
-import { Task } from "../../store/task";
+import { Task } from "../../libs/task";
+import { TaskStateCode } from "../../libs/task/state_machine";
 
 const iconSize = "20px";
 
 export default function Progress({ task }: { task: Task }) {
-  switch (task.state.type) {
-    case "Idle":
+  if (task.isCommanding) {
+    return <Spin size={20}></Spin>;
+  }
+
+  switch (task.state.code) {
+    case TaskStateCode.Idle:
       return <IconRecordStop fontSize={iconSize} />;
-    case "Commanding":
-      return <Spin size={20}></Spin>;
-    case "Queueing":
-      return <IconMore fontSize={iconSize} style={{ color: "rgb(var(--warning-6))" }} />;
-    case "Running":
+    case TaskStateCode.Running:
       return <IconPlayCircle fontSize={iconSize} style={{ color: "rgb(var(--primary-5))" }} />;
-    case "Pausing":
+    case TaskStateCode.Queueing:
+      return <IconMore fontSize={iconSize} style={{ color: "rgb(var(--warning-6))" }} />;
+    case TaskStateCode.Pausing:
       return <IconPauseCircle fontSize={iconSize} style={{ color: "rgb(var(--warning-6))" }} />;
-    case "Stopped":
+    case TaskStateCode.Stopped:
       return <IconStop fontSize={iconSize} style={{ color: "rgb(var(--danger-6))" }} />;
-    case "Finished":
+    case TaskStateCode.Finished:
       return <IconCheckCircle fontSize={iconSize} style={{ color: "rgb(var(--success-6))" }} />;
-    case "Errored":
+    case TaskStateCode.Errored:
       return <IconCloseCircle fontSize={iconSize} style={{ color: "rgb(var(--danger-6))" }} />;
   }
 }

@@ -4,8 +4,11 @@ export type TauriError =
   | FFprobeNotFoundError
   | FFmpegUnavailableError
   | FFprobeUnavailableError
+  | FFmpegRuntimeError
+  | FFprobeRuntimeError
   | DirectoryNotFoundError
   | TaskNotFoundError
+  | TaskExistingError
   | ConfigurationNotLoadedError
   | ConfigurationUnavailableError;
 
@@ -29,6 +32,16 @@ export type FFprobeUnavailableError = {
   type: "FFprobeUnavailable";
 };
 
+export type FFmpegRuntimeError = {
+  type: "FFmpegRuntimeError";
+  reason: string;
+};
+
+export type FFprobeRuntimeError = {
+  type: "FFprobeRuntimeError";
+  reason: string;
+};
+
 export type DirectoryNotFoundError = {
   type: "DirectoryNotFound";
   path: string;
@@ -36,6 +49,11 @@ export type DirectoryNotFoundError = {
 
 export type TaskNotFoundError = {
   type: "TaskNotFound";
+  id: string;
+};
+
+export type TaskExistingError = {
+  type: "TaskExisting";
   id: string;
 };
 
@@ -73,12 +91,18 @@ export const toMessage: ErrorToMessage = (error, printKeywords = false) => {
       return "ffmpeg program unavailable";
     case "FFprobeUnavailable":
       return "ffprobe program unavailable";
+    case "FFmpegRuntimeError":
+      return printKeywords ? (error as FFmpegRuntimeError).reason : "ffmpeg runtime error";
+    case "FFprobeRuntimeError":
+      return printKeywords ? (error as FFprobeRuntimeError).reason : "ffprobe runtime error";
     case "DirectoryNotFound":
       return printKeywords
         ? `directory ${(error as DirectoryNotFoundError).path} not found`
         : "directory not found";
     case "TaskNotFound":
       return printKeywords ? `task ${(error as TaskNotFoundError).id} not found` : "task not found";
+    case "TaskExisting":
+      return printKeywords ? `task ${(error as TaskNotFoundError).id} existing` : "task existing";
     case "ConfigurationNotLoaded":
       return "configuration not loaded";
     case "ConfigurationUnavailable":

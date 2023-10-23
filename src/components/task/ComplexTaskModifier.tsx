@@ -5,15 +5,10 @@ import { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useState } f
 import { v4 } from "uuid";
 import { TaskParamsModifyingValue } from ".";
 import { PresetType } from "../../libs/preset";
+import { Task, TaskInputParams, TaskOutputParams, TaskParamsSource } from "../../libs/task";
 import { useAppStore } from "../../store/app";
 import { usePresetStore } from "../../store/preset";
-import {
-  ParamsSource,
-  Task,
-  TaskInputParams,
-  TaskOutputParams,
-  useTaskStore,
-} from "../../store/task";
+import { useTaskStore } from "../../store/task";
 import { fromTaskParams, toTaskParams } from "../../utils";
 import CodecModifier, { TaskParamsCodecValue } from "./CodecModifier";
 import OutputFileModifier from "./OutputFileModifier";
@@ -82,7 +77,7 @@ const UniverseTable = ({
           if (record.id === id) {
             return {
               ...record,
-              selection: ParamsSource.Custom,
+              selection: TaskParamsSource.Custom,
               custom: presets.find((preset) => preset.id === selection)?.params.join(" "),
             };
           } else {
@@ -215,9 +210,11 @@ const Footer = ({
     };
     if (task) {
       updateTask(task.id, {
-        metadata: [],
-        workTimeDurations: [],
-        params,
+        data: {
+          ...task.data,
+          metadata: [],
+          durations: [],
+        },
       });
     } else {
       addTasks(params);
@@ -279,12 +276,12 @@ export default function ComplexTaskModifier({
   useEffect(() => {
     if (task) {
       setInputs(
-        task.params.inputs.map(
+        task.data.params.inputs.map(
           (input) => fromTaskParams(input, storage.presets) as TaskParamsModifyingValue
         )
       );
       setOutputs(
-        task.params.outputs.map(
+        task.data.params.outputs.map(
           (output) => fromTaskParams(output, storage.presets) as TaskParamsModifyingValue
         )
       );
@@ -320,7 +317,7 @@ export default function ComplexTaskModifier({
       const inputs: TaskParamsModifyingValue[] = files.map((file) => ({
         id: v4(),
         path: file,
-        selection: storage.defaultDecode ?? ParamsSource.Auto,
+        selection: storage.defaultDecode ?? TaskParamsSource.Auto,
       }));
       wrappedSetInputs((state) => [...state, ...inputs]);
     }
@@ -340,7 +337,7 @@ export default function ComplexTaskModifier({
       const output: TaskParamsModifyingValue = {
         id: v4(),
         path: file,
-        selection: storage.defaultEncode ?? ParamsSource.Auto,
+        selection: storage.defaultEncode ?? TaskParamsSource.Auto,
       };
       wrappedSetOutputs((state) => [...state, { ...output }]);
     }
@@ -352,7 +349,7 @@ export default function ComplexTaskModifier({
   const addNullOutput = () => {
     const output: TaskParamsModifyingValue = {
       id: v4(),
-      selection: storage.defaultEncode ?? ParamsSource.Auto,
+      selection: storage.defaultEncode ?? TaskParamsSource.Auto,
     };
 
     wrappedSetOutputs((state) => [...state, { ...output }]);

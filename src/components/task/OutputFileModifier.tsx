@@ -3,9 +3,9 @@ import { IconFolder } from "@arco-design/web-react/icon";
 import { save } from "@tauri-apps/api/dialog";
 import { useCallback } from "react";
 import { TaskParamsModifyingValue } from ".";
+import { TaskParamsSource } from "../../libs/task";
 import { useAppStore } from "../../store/app";
 import { usePresetStore } from "../../store/preset";
-import { ParamsSource } from "../../store/task";
 
 export default function OutputFileModifier({
   params,
@@ -22,7 +22,7 @@ export default function OutputFileModifier({
    */
   const onSelectOutputFile = useCallback(async () => {
     const preset =
-      params.selection !== ParamsSource.Auto && params.selection !== ParamsSource.Custom
+      params.selection !== TaskParamsSource.Auto && params.selection !== TaskParamsSource.Custom
         ? storage.presets.find((preset) => preset.id === params.selection)
         : undefined;
 

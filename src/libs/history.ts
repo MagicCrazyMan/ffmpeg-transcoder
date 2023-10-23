@@ -1,3 +1,3 @@
-import { Task } from "../store/task";
+import { TaskData } from "./task";
 
-export type HistoryTask = Pick<Task, "id" | "params" | "creationTime">;
+export type HistoryTask = Pick<TaskData, "params" | "creationTime"> & { id: string };

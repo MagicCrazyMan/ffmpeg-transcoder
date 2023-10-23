@@ -1,9 +1,8 @@
 use std::{collections::HashMap, sync::Arc};
 
-use log::warn;
 use tokio::sync::Mutex;
 
-use crate::handlers::commands::task::TaskParams;
+use crate::handlers::{commands::task::TaskParams, error::Error};
 
 use super::task::Task;
 
@@ -12,23 +11,26 @@ pub struct TaskStore {
     store: Arc<Mutex<HashMap<String, Task>>>,
 }
 
-macro_rules! controls {
-    (
+macro_rules! operations {
+    ($((
         $(#[$meta:meta])*
         $name:ident
-    ) => {
-        $(#[$meta])*
-        pub async fn $name(&self, id: &str) {
-            let mut store = self.store.lock().await;
-            let Some(task) = store.get_mut(id) else {
-                warn!("jon id {} not found", id);
-                return;
-            };
+    )),+) => {
+        $(
+            $(#[$meta])*
+            pub async fn $name(&self, id: &str) -> Result<(), Error> {
+                let store = self.store.lock().await;
+                let Some(task) = store.get(id) else {
+                    return Err(Error::task_not_found(id));
+                };
 
-            let task = task.clone();
-            drop(store);
-            task.$name().await;
-        }
+                let task = task.clone();
+                drop(store);
+
+                task.$name().await;
+                Ok(())
+            }
+        )+
     };
 }
 
@@ -49,7 +51,12 @@ impl TaskStore {
         app_handle: tauri::AppHandle,
         ffmpeg_program: String,
         ffprobe_program: String,
-    ) {
+    ) -> Result<(), Error> {
+        let mut store = self.store.lock().await;
+        if store.contains_key(&id) {
+            return Err(Error::task_existing(id));
+        }
+
         let task = Task::new(
             id.clone(),
             app_handle,
@@ -58,29 +65,27 @@ impl TaskStore {
             params,
             Arc::downgrade(&self.store),
         );
+        store.insert(id, task.clone());
 
-        let removed = self.store.lock().await.insert(id, task.clone());
-        if let Some(removed) = removed {
-            tokio::spawn(async move {
-                removed.error("duplicated task id").await;
-            });
-        }
+        // drops store immediately
+        drop(store);
 
-        tokio::spawn(async move { task.start().await });
+        task.start().await;
+        Ok(())
     }
 
-    controls!(
-        /// Stops a task by id.
-        stop
-    );
-
-    controls!(
-        /// Pauses a task by id.
-        pause
-    );
-
-    controls!(
-        /// Resumes a task by id.
-        resume
-    );
+    operations! {
+        (
+            /// Stops a task by id.
+            stop
+        ),
+        (
+            /// Pauses a task by id.
+            pause
+        ),
+        (
+            /// Resumes a task by id.
+            resume
+        )
+    }
 }

@@ -3,8 +3,8 @@ import { IconCopy, IconFilter } from "@arco-design/web-react/icon";
 import { ReactNode } from "react";
 import { TaskParamsModifyingValue } from ".";
 import { Preset, PresetType } from "../../libs/preset";
+import { TaskParamsSource } from "../../libs/task";
 import { usePresetStore } from "../../store/preset";
-import { ParamsSource } from "../../store/task";
 
 export type TaskParamsCodecValue = Omit<TaskParamsModifyingValue, "path">;
 
@@ -64,8 +64,8 @@ export default function CodecModifier({
           value={record.selection}
           onChange={(value) => onChange(record.id, { selection: value })}
         >
-          <Select.Option value={ParamsSource.Auto}>Auto</Select.Option>
-          <Select.Option value={ParamsSource.Custom}>Custom</Select.Option>
+          <Select.Option value={TaskParamsSource.Auto}>Auto</Select.Option>
+          <Select.Option value={TaskParamsSource.Custom}>Custom</Select.Option>
           {presetType === PresetType.Decode ? DecodePresetOptions : EncodePresetOptions}
         </Select>
 
@@ -86,8 +86,8 @@ export default function CodecModifier({
 
         {/* Convert To Custom Button */}
         {onConvertCustom &&
-        record.selection !== ParamsSource.Auto &&
-        record.selection !== ParamsSource.Custom ? (
+        record.selection !== TaskParamsSource.Auto &&
+        record.selection !== TaskParamsSource.Custom ? (
           <Tooltip content="Convert To Custom">
             <Button
               shape="circle"
@@ -104,7 +104,7 @@ export default function CodecModifier({
       </div>
 
       {/* Custom Params Input */}
-      {record.selection === ParamsSource.Custom ? (
+      {record.selection === TaskParamsSource.Custom ? (
         <Input.TextArea
           autoFocus
           allowClear

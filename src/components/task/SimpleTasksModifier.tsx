@@ -6,15 +6,10 @@ import { useCallback, useMemo, useState } from "react";
 import { v4 } from "uuid";
 import { TaskParamsModifyingValue } from ".";
 import { PresetType } from "../../libs/preset";
+import { TaskInputParams, TaskOutputParams, TaskParams, TaskParamsSource } from "../../libs/task";
 import { useAppStore } from "../../store/app";
 import { usePresetStore } from "../../store/preset";
-import {
-  ParamsSource,
-  TaskInputParams,
-  TaskOutputParams,
-  TaskParams,
-  useTaskStore,
-} from "../../store/task";
+import { useTaskStore } from "../../store/task";
 import { toTaskParams } from "../../utils";
 import CodecModifier, { TaskParamsCodecValue } from "./CodecModifier";
 import OutputFileModifier from "./OutputFileModifier";
@@ -107,12 +102,12 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
           input: {
             id: v4(),
             path: file,
-            selection: storage.defaultDecode ?? ParamsSource.Auto,
+            selection: storage.defaultDecode ?? TaskParamsSource.Auto,
           },
           output: {
             id: v4(),
             path: defaultOutputPath,
-            selection: storage.defaultEncode ?? ParamsSource.Auto,
+            selection: storage.defaultEncode ?? TaskParamsSource.Auto,
           },
         } as SimpleTaskParams;
       });
@@ -222,7 +217,7 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
               ...task,
               [type]: {
                 ...task[type],
-                selection: ParamsSource.Custom,
+                selection: TaskParamsSource.Custom,
                 custom: storage.presets.find((preset) => preset.id === selection)?.params.join(" "),
               },
             };

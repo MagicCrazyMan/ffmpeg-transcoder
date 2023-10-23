@@ -3,16 +3,16 @@ use std::{
     sync::{Arc, Weak},
 };
 
-use log::{info, warn};
+use log::{error, info};
 use tauri::Manager;
 use tokio::sync::Mutex;
 
-use crate::handlers::commands::task::TaskParams;
-
-use super::{
-    message::{TaskMessage, TASK_MESSAGE_EVENT},
-    state_machine::{Idle, TaskStateCode, TaskState},
+use crate::handlers::{
+    commands::task::TaskParams,
+    task::message::{TaskMessage, TASK_MESSAGE_EVENT},
 };
+
+use super::state_machine::{Idle, TaskState};
 
 /// Task data.
 pub(super) struct TaskData {
@@ -55,89 +55,85 @@ impl Task {
     }
 }
 
-macro_rules! controls {
-    ($($name:ident),+) => {
+macro_rules! to_next_state {
+    ($(($name:ident, $func:ident)),+) => {
         $(
-            pub(super) async fn $name(&self) {
+            async fn $name(&self) {
                 let mut state = self.state.lock().await;
-
-                // change state
-                let current_state = state.take().unwrap(); // safely unwrap
-                let next_state = current_state.$name(self.clone()).await;
-
-                let next_state_code = next_state.code();
-                let next_state_message = next_state.message().map(|msg| msg.to_string());
-                Self::update_state(self.clone(), next_state_code, next_state_message).await;
-
-                state.replace(next_state);
+                *state = Some(state.take().unwrap().$func(self.clone()).await);
             }
         )+
     };
 }
 
 impl Task {
-    controls!(start, pause, resume, stop, finish);
-
-    pub(super) async fn error<S>(&self, reason: S)
-    where
-        S: Into<String> + Send + 'static,
-    {
-        let mut state = self.state.lock().await;
-
-        let current_state = state.take().unwrap(); // safely unwrap
-        let next_state = current_state.error(self.clone(), reason.into()).await;
-
-        let next_state_code = next_state.code();
-        let next_state_message = next_state.message().map(|msg| msg.to_string());
-        Self::update_state(self.clone(), next_state_code, next_state_message).await;
-
-        state.replace(next_state);
+    to_next_state! {
+        (to_start, start),
+        (to_pause, pause),
+        (to_resume, resume),
+        (to_stop, stop),
+        (to_finish, finish)
     }
 
-    async fn update_state(item: Task, next_state_code: TaskStateCode, message: Option<String>) {
-        // removes from store
-        match next_state_code {
-            TaskStateCode::Stopped | TaskStateCode::Finished | TaskStateCode::Errored => {
-                let Some(store) = item.store.upgrade() else {
-                    return;
-                };
-
-                let mut store = store.lock().await;
-                store.remove(&item.data.id);
-            }
-            TaskStateCode::Idle | TaskStateCode::Running => return,
-            _ => {}
-        }
-
-        // sends message and logs
-        let id = item.data.id.to_string();
-        let msg = match next_state_code {
-            TaskStateCode::Idle | TaskStateCode::Running => unreachable!(),
-            // reserve, reset is possible in the future
-            TaskStateCode::Pausing => {
-                info!("[{}] job paused", id);
-                TaskMessage::pausing(id)
-            }
-            TaskStateCode::Stopped => {
-                info!("[{}] job stopped", id);
-                TaskMessage::stopped(id)
-            }
-            TaskStateCode::Finished => {
-                info!("[{}] job finished", id);
-                TaskMessage::finished(id)
-            }
-            TaskStateCode::Errored => {
-                let message = message.unwrap_or("unknown error".to_string());
-                info!("[{}] job errored: {}", id, message);
-                TaskMessage::errored(id, message)
-            }
+    async fn remove(&self) {
+        // removes task from store
+        let Some(store) = self.store.upgrade() else {
+            return;
         };
+        store.lock().await.remove(&self.data.id);
+    }
 
-        if let Err(err) = item.data.app_handle.emit_all(TASK_MESSAGE_EVENT, msg) {
-            warn!(
-                "[{}] error occurred while sending data to frontend: {}",
-                item.data.id, err
+    fn send_message(&self, payload: TaskMessage<'_>) {
+        // send message to frontend
+        if let Err(err) = self.data.app_handle.emit_all(TASK_MESSAGE_EVENT, payload) {
+            error!(
+                "[{}] failed to send message to frontend: {}",
+                self.data.id, err
             );
-        };
+        }
+    }
+
+    pub(super) async fn start(&self) {
+        self.to_start().await;
+        info!("[{}] task started", self.data.id);
+    }
+
+    pub(super) async fn pause(&self) {
+        self.to_pause().await;
+        info!("[{}] task started", self.data.id);
+    }
+
+    pub(super) async fn resume(&self) {
+        self.to_resume().await;
+        info!("[{}] task started", self.data.id);
+    }
+
+    pub(super) async fn stop(&self) {
+        self.to_stop().await;
+        self.remove().await;
+        info!("[{}] task stopped", self.data.id);
+    }
+
+    pub(super) async fn finish(&self) {
+        self.to_finish().await;
+        self.remove().await;
+        self.send_message(TaskMessage::finished(self.data.id.clone()));
+        info!("[{}] task finished", self.data.id);
+    }
+
+    pub(super) async fn error(&self, reason: String) {
+        let mut state = self.state.lock().await;
+        *state = Some(
+            state
+                .take()
+                .unwrap()
+                .error(self.clone(), reason.clone())
+                .await,
+        );
+
+        self.remove().await;
+        self.send_message(TaskMessage::errored(self.data.id.clone(), reason));
+
+        info!("[{}] task errored", self.data.id);
     }
 }

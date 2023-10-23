@@ -1,12 +1,35 @@
-import { Switch, Table, TableColumnProps, Typography } from "@arco-design/web-react";
-import { IconDown, IconRight } from "@arco-design/web-react/icon";
+import { Space, Switch, Table, TableColumnProps, Typography } from "@arco-design/web-react";
+import {
+  IconCheckCircle,
+  IconDown,
+  IconFile,
+  IconFolder,
+  IconRight,
+} from "@arco-design/web-react/icon";
 import { sep } from "@tauri-apps/api/path";
 import { TaskParamsModifyingValue } from "../../components/task";
 import CodecModifier from "../../components/task/CodecModifier";
 import { PresetType } from "../../libs/preset";
+import { TaskParamsSource } from "../../libs/task";
 import { usePresetStore } from "../../store/preset";
 import { SearchEntryNode, useSearchStore } from "../../store/search";
-import { ParamsSource } from "../../store/task";
+
+const Statistic = () => {
+  const { filesCount, directoriesCount, selectedRowKeys } = useSearchStore();
+
+  return (
+    <Space className="flex items-center justify-center">
+      <Typography.Text type="secondary">{filesCount}</Typography.Text>
+      <IconFile fontSize={20} />
+      <Typography.Text type="secondary">|</Typography.Text>
+      <Typography.Text type="secondary">{directoriesCount}</Typography.Text>
+      <IconFolder fontSize={20} />
+      <Typography.Text type="secondary">|</Typography.Text>
+      <Typography.Text type="secondary">{selectedRowKeys.length}</Typography.Text>
+      <IconCheckCircle fontSize={20} />
+    </Space>
+  );
+};
 
 export default function SearchFileTable() {
   const {
@@ -16,8 +39,6 @@ export default function SearchFileTable() {
     outputDir,
     isSearching,
     root,
-    filesCount,
-    directoriesCount,
     expendedRowKeys,
     setExpandedRowKeys,
     selectedRowKeys,
@@ -90,7 +111,7 @@ export default function SearchFileTable() {
           if (id === record.id) {
             map.set(id, {
               ...value,
-              selection: ParamsSource.Custom,
+              selection: TaskParamsSource.Custom,
               custom: presets.find((preset) => preset.id === record.selection)?.params.join(" "),
             });
           } else {
@@ -143,12 +164,8 @@ export default function SearchFileTable() {
           onChange={setPrintRelativePath}
         />
 
-        {/* Files & Directories count */}
-        {root ? (
-          <Typography.Text type="secondary">
-            {filesCount} Files | {directoriesCount} Directories | {selectedRowKeys.length} Selected
-          </Typography.Text>
-        ) : null}
+        {/* Files & Directories Statistic */}
+        <Statistic />
       </div>
 
       <Table

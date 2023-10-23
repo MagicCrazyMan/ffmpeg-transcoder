@@ -91,7 +91,7 @@ pub async fn start_task(
             config.ffmpeg().to_string(),
             config.ffprobe().to_string(),
         )
-        .await;
+        .await?;
 
     Ok(())
 }
@@ -99,21 +99,21 @@ pub async fn start_task(
 /// A command stops a new task.
 #[tauri::command]
 pub async fn stop_task(task_store: tauri::State<'_, TaskStore>, id: String) -> Result<(), Error> {
-    task_store.stop(&id).await;
+    task_store.stop(&id).await?;
     Ok(())
 }
 
 /// A command pauses a new task.
 #[tauri::command]
 pub async fn pause_task(task_store: tauri::State<'_, TaskStore>, id: String) -> Result<(), Error> {
-    task_store.pause(&id).await;
+    task_store.pause(&id).await?;
     Ok(())
 }
 
 /// A command resumes a new task.
 #[tauri::command]
 pub async fn resume_task(task_store: tauri::State<'_, TaskStore>, id: String) -> Result<(), Error> {
-    task_store.resume(&id).await;
+    task_store.resume(&id).await?;
     Ok(())
 }
 

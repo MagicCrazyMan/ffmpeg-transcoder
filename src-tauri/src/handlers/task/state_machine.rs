@@ -249,7 +249,7 @@ impl TaskState for Running {
         self
     }
 
-    async fn pause(self: Box<Self>, _task: Task) -> Box<dyn TaskState> {
+    async fn pause(self: Box<Self>, task: Task) -> Box<dyn TaskState> {
         self.watchdog_cancellations.0.cancel();
         self.watchdog_cancellations.1.cancel();
         if let Err(err) = self.watchdog_handle.await {
@@ -274,6 +274,8 @@ impl TaskState for Running {
 
         #[cfg(not(windows))]
         {}
+
+        info!("[{}] task pause", task.data.id);
 
         Box::new(Pausing {
             total_duration: self.total_duration,
@@ -380,6 +382,8 @@ impl TaskState for Pausing {
             task.clone(),
             self.total_duration,
         );
+
+        info!("[{}] task resume", task.data.id);
 
         Box::new(Running {
             total_duration: self.total_duration,

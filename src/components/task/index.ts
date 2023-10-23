@@ -1,4 +1,4 @@
-import { ParamsSource } from "../../store/task";
+import { TaskParamsSource } from "../../libs/task";
 
 export type TaskParamsModifyingValue = {
   id: string;
@@ -7,9 +7,9 @@ export type TaskParamsModifyingValue = {
    * Params source selection.
    * If it is a string value, it points to a preset id.
    */
-  selection: ParamsSource.Auto | ParamsSource.Custom | string;
+  selection: TaskParamsSource.Auto | TaskParamsSource.Custom | string;
   /**
-   * Custom params input field. If `selection` is not {@link ParamsSource.Custom}, `undefined`.
+   * Custom params input field. If `selection` is not {@link TaskParamsSource.Custom}, `undefined`.
    */
   custom?: string;
 };

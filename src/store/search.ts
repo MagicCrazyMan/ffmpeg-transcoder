@@ -5,7 +5,7 @@ import { TaskParamsModifyingValue } from "../components/task";
 import { TaskParamsCodecValue } from "../components/task/CodecModifier";
 import { Search, SearchDirectory, SearchFile, searchDirectory } from "../tauri/fs";
 import { usePresetStore } from "./preset";
-import { ParamsSource } from "./task";
+import { TaskParamsSource } from "../libs/task";
 
 export type SearchStoreState = {
   /**
@@ -484,14 +484,14 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
         if (!state.inputParamsMap.has(node.inputId)) {
           inputParamsMap.set(node.inputId, {
             id: node.inputId,
-            selection: storage.defaultDecode ?? ParamsSource.Auto,
+            selection: storage.defaultDecode ?? TaskParamsSource.Auto,
           });
         }
 
         if (!state.outputParamsMap.has(node.outputId)) {
           outputParamsMap.set(node.outputId, {
             id: node.outputId,
-            selection: storage.defaultEncode ?? ParamsSource.Auto,
+            selection: storage.defaultEncode ?? TaskParamsSource.Auto,
           });
         }
       });

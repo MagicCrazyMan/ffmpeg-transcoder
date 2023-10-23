@@ -3,8 +3,9 @@ import { IconDelete, IconPlus } from "@arco-design/web-react/icon";
 import dayjs from "dayjs";
 import { useNavigate } from "react-router-dom";
 import { HistoryTask } from "../libs/history";
+import { TaskInputParams, TaskOutputParams } from "../libs/task";
 import { useHistoryStore } from "../store/history";
-import { TaskInputParams, TaskOutputParams, useTaskStore } from "../store/task";
+import { useTaskStore } from "../store/task";
 
 const FileItem = ({ path }: { path?: string }) => {
   return <span className="flex-1">{path ?? "NULL"}</span>;

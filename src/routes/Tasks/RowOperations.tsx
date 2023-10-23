@@ -7,8 +7,10 @@ import {
   IconSettings,
   IconStop,
 } from "@arco-design/web-react/icon";
-import { Task, useTaskStore } from "../../store/task";
 import { useCallback } from "react";
+import TableIconPlaceholder from "../../components/TableIconPlaceholder";
+import { Task } from "../../libs/task";
+import { useTaskStore } from "../../store/task";
 
 const StartButton = ({ task }: { task: Task }) => {
   const startTask = useTaskStore((state) => state.startTask);
@@ -134,51 +136,22 @@ export default function Operations({
   task: Task;
   onModify: (task: Task) => void;
 }) {
-  switch (task.state.type) {
-    case "Idle": {
-      return (
-        <Space>
-          <StartButton task={task} />
-          <RemoveButton task={task} />
+  if (task.isCommanding) {
+    return <></>;
+  } else {
+    return (
+      <Space>
+        {task.state.startable ? <StartButton task={task} /> : <TableIconPlaceholder />}
+        {task.state.pauseable ? <PauseButton task={task} /> : <TableIconPlaceholder />}
+        {task.state.stoppable ? <StopButton task={task} /> : <TableIconPlaceholder />}
+        {task.state.removable ? <RemoveButton task={task} /> : <TableIconPlaceholder />}
+        {task.state.removable ? <ResetButton task={task} /> : <TableIconPlaceholder />}
+        {task.state.editable ? (
           <ModifyButton task={task} onModify={onModify} />
-        </Space>
-      );
-    }
-    case "Commanding": {
-      return <></>;
-    }
-    case "Queueing": {
-      return (
-        <Space>
-          <PauseButton task={task} />
-          <StopButton task={task} />
-        </Space>
-      );
-    }
-    case "Running": {
-      return (
-        <Space>
-          <PauseButton task={task} />
-          <StopButton task={task} />
-        </Space>
-      );
-    }
-    case "Pausing": {
-      return (
-        <Space>
-          <StartButton task={task} />
-          <StopButton task={task} />
-        </Space>
-      );
-    }
-    case "Stopped":
-    case "Finished":
-    case "Errored":
-      return (
-        <Space>
-          <ResetButton task={task} />
-          <RemoveButton task={task} />
-        </Space>
-      );
+        ) : (
+          <TableIconPlaceholder />
+        )}
+      </Space>
+    );
   }
 }

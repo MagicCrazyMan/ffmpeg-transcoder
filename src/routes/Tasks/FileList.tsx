@@ -3,8 +3,9 @@ import { IconFolder, IconPlayArrow } from "@arco-design/web-react/icon";
 import { OsType } from "@tauri-apps/api/os";
 import { Command, open } from "@tauri-apps/api/shell";
 import { useMemo } from "react";
+import { Task } from "../../libs/task";
+import { TaskStateCode } from "../../libs/task/state_machine";
 import { useAppStore } from "../../store/app";
-import { Task } from "../../store/task";
 
 const showInExplorer = async (path: string, osType: OsType) => {
   if (osType === "Windows_NT") {
@@ -57,12 +58,12 @@ const FileItem = ({
   return (
     <Space size="mini">
       {/* Show In Explorer Button */}
-      {path && (type === "input" || task.state.type === "Finished") ? (
+      {path && (type === "input" || task.state.code === TaskStateCode.Finished) ? (
         <ShowInExplorerButton path={path} />
       ) : null}
 
       {/* Open File Button */}
-      {path && (type === "input" || task.state.type === "Finished") ? (
+      {path && (type === "input" || task.state.code === TaskStateCode.Finished) ? (
         <OpenFileButton path={path} />
       ) : null}
 
@@ -77,7 +78,7 @@ const FileItem = ({
  */
 export default function FilesList({ task, type }: { task: Task; type: "input" | "output" }) {
   const params = useMemo(
-    () => (type === "input" ? task.params.inputs : task.params.outputs),
+    () => (type === "input" ? task.data.params.inputs : task.data.params.outputs),
     [task, type]
   );
 

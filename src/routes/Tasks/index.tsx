@@ -1,8 +1,9 @@
 import { Table, TableColumnProps } from "@arco-design/web-react";
 import { useState } from "react";
-import { Task, useTaskStore } from "../../store/task";
 import ComplexTaskModifier from "../../components/task/ComplexTaskModifier";
 import SimpleTasksModifier from "../../components/task/SimpleTasksModifier";
+import { Task } from "../../libs/task";
+import { useTaskStore } from "../../store/task";
 import FilesList from "./FileList";
 import GlobalOperations from "./GlobalOperations";
 import Progress from "./Progress";
@@ -54,7 +55,8 @@ export default function QueuePage() {
     {
       title: "Operations",
       fixed: "right",
-      width: "128px",
+      width: "13rem",
+      align: "center",
       render: (_, task) => <RowOperations task={task} onModify={onModify} />,
     },
   ];

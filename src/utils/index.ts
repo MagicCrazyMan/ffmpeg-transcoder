@@ -3,7 +3,7 @@ import { cloneDeep } from "lodash";
 import { v4 } from "uuid";
 import { TaskParamsModifyingValue } from "../components/task";
 import { Preset } from "../libs/preset";
-import { ParamsSource, TaskInputParams, TaskOutputParams } from "../store/task";
+import { TaskParamsSource, TaskInputParams, TaskOutputParams } from "../libs/task";
 
 /**
  * Converts a numerical value in seconds to duration.
@@ -88,15 +88,15 @@ export const toTaskParams = (
   { selection, path, custom }: Omit<TaskParamsModifyingValue, "id">,
   presets: Preset[]
 ) => {
-  let source: ParamsSource, params: string[] | Preset | undefined;
-  if (selection === ParamsSource.Auto) {
-    source = ParamsSource.Auto;
+  let source: TaskParamsSource, params: string[] | Preset | undefined;
+  if (selection === TaskParamsSource.Auto) {
+    source = TaskParamsSource.Auto;
     params = undefined;
-  } else if (selection === ParamsSource.Custom) {
-    source = ParamsSource.Custom;
+  } else if (selection === TaskParamsSource.Custom) {
+    source = TaskParamsSource.Custom;
     params = custom?.split(" ").filter((param) => !!param.trim());
   } else {
-    source = ParamsSource.FromPreset;
+    source = TaskParamsSource.FromPreset;
     params = cloneDeep(presets.find((preset) => preset.id === selection)!);
   }
 
@@ -119,20 +119,20 @@ export const fromTaskParams = (
   presets: Preset[]
 ): TaskParamsModifyingValue => {
   switch (source) {
-    case ParamsSource.Auto:
+    case TaskParamsSource.Auto:
       return {
         id: v4(),
         path,
-        selection: ParamsSource.Auto,
+        selection: TaskParamsSource.Auto,
       };
-    case ParamsSource.Custom:
+    case TaskParamsSource.Custom:
       return {
         id: v4(),
         path,
-        selection: ParamsSource.Custom,
+        selection: TaskParamsSource.Custom,
         custom: (params as string[]).join(" "),
       };
-    case ParamsSource.FromPreset: {
+    case TaskParamsSource.FromPreset: {
       const preset = presets.find((preset) => preset.id === (params as Preset).id);
       if (preset) {
         return {
@@ -144,7 +144,7 @@ export const fromTaskParams = (
         return {
           id: v4(),
           path,
-          selection: ParamsSource.Custom,
+          selection: TaskParamsSource.Custom,
           custom: (params as Preset).params.join(" "),
         };
       }

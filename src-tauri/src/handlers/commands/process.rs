@@ -57,5 +57,11 @@ pub async fn invoke_ffprobe_json_metadata(ffprobe: &str, path: &str) -> Result<S
     )
     .await?;
 
-    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    if !stderr.is_empty() {
+        Err(Error::ffprobe_runtime_error(stderr.to_string()))
+    } else {
+        let stdout: std::borrow::Cow<'_, str> = String::from_utf8_lossy(&output.stdout);
+        Ok(stdout.to_string())
+    }
 }

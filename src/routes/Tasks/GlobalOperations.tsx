@@ -8,6 +8,7 @@ import {
   IconSubscribeAdd,
 } from "@arco-design/web-react/icon";
 import { useMemo } from "react";
+import { TaskStateCode } from "../../libs/task/state_machine";
 import { useTaskStore } from "../../store/task";
 
 export default function GlobalOperations({
@@ -39,29 +40,31 @@ export default function GlobalOperations({
     let erroredCount = 0;
 
     tasks.forEach((task) => {
-      switch (task.state.type) {
-        case "Idle":
+      if (task.isCommanding) {
+        commandingCount++;
+        return;
+      }
+
+      switch (task.state.code) {
+        case TaskStateCode.Idle:
           idlesCount++;
           break;
-        case "Commanding":
-          commandingCount++;
-          break;
-        case "Queueing":
-          queueingCount++;
-          break;
-        case "Running":
+        case TaskStateCode.Running:
           runningCount++;
           break;
-        case "Pausing":
+        case TaskStateCode.Queueing:
+          queueingCount++;
+          break;
+        case TaskStateCode.Pausing:
           pausingCount++;
           break;
-        case "Stopped":
+        case TaskStateCode.Stopped:
           stoppedCount++;
           break;
-        case "Finished":
+        case TaskStateCode.Finished:
           finishedCount++;
           break;
-        case "Errored":
+        case TaskStateCode.Errored:
           erroredCount++;
           break;
       }

@@ -37,10 +37,16 @@ pub enum Error {
     FFmpegRuntimeError {
         reason: String,
     },
+    FFprobeRuntimeError {
+        reason: String,
+    },
     DirectoryNotFound {
         path: String,
     },
     TaskNotFound {
+        id: String,
+    },
+    TaskExisting {
         id: String,
     },
     ConfigurationNotLoaded,
@@ -132,6 +138,15 @@ impl Error {
         }
     }
 
+    pub fn ffprobe_runtime_error<S>(reason: S) -> Self
+    where
+        S: Into<String>,
+    {
+        Self::FFprobeRuntimeError {
+            reason: reason.into(),
+        }
+    }
+
     pub fn directory_not_found<S>(path: S) -> Self
     where
         S: Into<String>,
@@ -144,6 +159,13 @@ impl Error {
         S: Into<String>,
     {
         Self::TaskNotFound { id: id.into() }
+    }
+
+    pub fn task_existing<S>(id: S) -> Self
+    where
+        S: Into<String>,
+    {
+        Self::TaskExisting { id: id.into() }
     }
 
     pub fn configuration_not_loaded() -> Self {
@@ -191,11 +213,17 @@ impl Display for Error {
             Error::FFmpegRuntimeError { reason } => {
                 f.write_fmt(format_args!("ffmpeg runtime error: {}", reason))
             }
+            Error::FFprobeRuntimeError { reason } => {
+                f.write_fmt(format_args!("ffprobe runtime error: {}", reason))
+            }
             Error::DirectoryNotFound { path, .. } => {
                 f.write_fmt(format_args!("directory not found: \"{}\"", path))
             }
             Error::TaskNotFound { id, .. } => {
                 f.write_fmt(format_args!("task with specified id not found: \"{}\"", id))
+            }
+            Error::TaskExisting { id, .. } => {
+                f.write_fmt(format_args!("task with specified id is existing: \"{}\"", id))
             }
             Error::ConfigurationNotLoaded => f.write_str("configuration not loaded"),
             Error::ConfigurationUnavailable { reasons } => {

@@ -49,8 +49,6 @@ impl TaskRunningMessage {
 #[serde(tag = "state")]
 pub(super) enum TaskMessage<'a> {
     Running(&'a TaskRunningMessage),
-    Pausing { id: String },
-    Stopped { id: String },
     Finished { id: String },
     Errored { id: String, reason: String },
 }
@@ -58,14 +56,6 @@ pub(super) enum TaskMessage<'a> {
 impl<'a> TaskMessage<'a> {
     pub(super) fn running(msg: &'a TaskRunningMessage) -> Self {
         Self::Running(msg)
-    }
-
-    pub(super) fn pausing(id: String) -> Self {
-        Self::Pausing { id }
-    }
-
-    pub(super) fn stopped(id: String) -> Self {
-        Self::Stopped { id }
     }
 
     pub(super) fn finished(id: String) -> Self {
