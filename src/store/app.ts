@@ -8,11 +8,11 @@ import { SystemParticulars } from "../libs/particulars";
 export type AppState = {
   /**
    * App configuration,
-   * merge default configuration and local configuration
+   * merge default configuration and configuration storage
    */
   configuration: Configuration;
   /**
-   * Data that persist inside local storage.
+   * Data that persist inside local storage
    */
   configurationStorage: ConfigurationStorage;
   /**
@@ -22,21 +22,21 @@ export type AppState = {
   updateConfiguration: (partial: Partial<Configuration>) => void;
 
   /**
-   * Current Operation System type.
+   * Current Operation System type
    */
   osType?: OsType;
   /**
-   * Current using theme.
+   * Current using theme
    */
   currentTheme: Theme.Dark | Theme.Light;
   /**
-   * File filters for open file dialog.
+   * File filters for open file dialog
    *
    * This field synchronize from {@link Configuration.openFileFilters}.
    */
   openDialogFilters: DialogFilter[];
   /**
-   * File filters for save file dialog.
+   * File filters for save file dialog
    *
    * This field synchronize from {@link Configuration.saveFileFilters}.
    */
