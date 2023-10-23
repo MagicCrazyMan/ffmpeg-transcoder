@@ -14,7 +14,7 @@ import { TaskStateCode } from "../../libs/task/state_machine";
 const iconSize = "20px";
 
 export default function Progress({ task }: { task: Task }) {
-  if (task.isCommanding) {
+  if (task.data.commanding) {
     return <Spin size={20}></Spin>;
   }
 

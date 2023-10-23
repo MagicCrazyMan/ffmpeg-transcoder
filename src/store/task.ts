@@ -12,7 +12,6 @@ import {
   TaskState,
   TaskStateCode,
 } from "../libs/task/state_machine";
-import { useHistoryStore } from "./history";
 
 export type TaskStoreState = {
   /**
@@ -80,33 +79,35 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
 
   const toState = async (id: string | Task, action: "start" | "pause" | "stop") => {
     const task = typeof id === "string" ? getTask(id) : id;
-    if (!task || task.isCommanding) return;
+    if (!task || task.data.commanding) return;
 
     set(({ tasks }) => ({
       tasks: tasks.map((t) => {
         if (t.id === task.id) {
           return {
             ...t,
-            isCommanding: true,
+            data: {
+              ...t.data,
+              commanding: true,
+            },
           };
         } else {
-          return task;
+          return t;
         }
       }),
     }));
 
     let nextState: TaskState;
     let nextData: Partial<TaskData>;
+    let nextTask: Task | undefined;
     if (action === "start") {
       nextState = await task.state.start(task);
-      nextData = {
-        durations: [...task.data.durations, [dayjs(), undefined]],
-      };
-      useHistoryStore.getState().addHistoryTasks({
-        id: v4(),
-        creationTime: task.data.creationTime,
-        params: task.data.params,
-      });
+
+      if (nextState.code === TaskStateCode.Running) {
+        nextData = {
+          durations: [...task.data.durations, [dayjs(), undefined]],
+        };
+      }
     } else {
       if (action === "pause") {
         nextState = await task.state.pause(task);
@@ -116,13 +117,14 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
 
       nextData = {
         durations: task.data.durations.map((duration, index, array) => {
-          if (index !== array.length - 1) {
+          if (index < array.length - 1) {
             return duration;
           } else {
             return [duration[0], dayjs()];
           }
         }),
       };
+      nextTask = get().tasks.find((task) => task.state.code === TaskStateCode.Queueing);
     }
 
     set(({ tasks }) => ({
@@ -133,15 +135,18 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
             data: {
               ...t.data,
               ...nextData,
+              commanding: false,
             },
             state: nextState,
-            isCommanding: false,
           };
         } else {
-          return task;
+          return t;
         }
       }),
     }));
+
+    // starts next task if some tasks in queueing
+    if (nextTask) await toState(nextTask.id, "start");
   };
 
   return {
@@ -157,9 +162,9 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
                 params,
                 durations: [],
                 creationTime: new Date().toISOString(),
+                commanding: false,
               },
               state: new Idle(),
-              isCommanding: false,
             } as Task;
           }),
         ],
@@ -201,10 +206,15 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
           tasks: state.tasks.map((task) => {
             if (task.id === id) {
               return {
-                ...task,
                 id: v4(),
                 state: new Idle(),
-              };
+                data: {
+                  commanding: false,
+                  creationTime: new Date().toISOString(),
+                  params: task.data.params,
+                  durations: [],
+                },
+              } as Task;
             } else {
               return task;
             }
@@ -213,13 +223,19 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
       }
     },
     async startAllTasks() {
-      await Promise.all(get().tasks.map((task) => toState(task, "start")));
+      for (const task of get().tasks) {
+        await toState(task, "start");
+      }
     },
     async pauseAllTasks() {
-      await Promise.all(get().tasks.map((task) => toState(task, "pause")));
+      for (const task of get().tasks) {
+        await toState(task, "pause");
+      }
     },
     async stopAllTasks() {
-      await Promise.all(get().tasks.map((task) => toState(task, "stop")));
+      for (const task of get().tasks) {
+        await toState(task, "stop");
+      }
     },
     removeAllTasks() {
       const removable = new Set(

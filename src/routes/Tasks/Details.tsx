@@ -6,8 +6,8 @@ import {
   Running as RunningState,
   TaskStateCode,
 } from "../../libs/task/state_machine";
-import { sumCostTime, toDuration } from "../../utils";
 import { toMessage } from "../../tauri/error";
+import { sumCostTime, toDuration } from "../../utils";
 
 const Commanding = () => (
   <Typography.Text style={{ color: "rgb(var(--primary-5))" }}>Commanding</Typography.Text>
@@ -98,8 +98,8 @@ const Errored = ({ task }: { task: Task }) => (
   </Typography.Text>
 );
 
-export default function Progress({ task }: { task: Task }) {
-  if (task.isCommanding) {
+export default function Details({ task }: { task: Task }) {
+  if (task.data.commanding) {
     return <Commanding />;
   }
 

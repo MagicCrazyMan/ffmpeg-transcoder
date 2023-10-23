@@ -7,10 +7,10 @@ export type Task = {
   id: string;
   data: TaskData;
   state: TaskState;
-  isCommanding: boolean;
 };
 
 export type TaskData = {
+  commanding: boolean;
   params: TaskParams;
   creationTime: string;
   durations: [Dayjs, Dayjs | undefined][];

@@ -40,7 +40,7 @@ export default function GlobalOperations({
     let erroredCount = 0;
 
     tasks.forEach((task) => {
-      if (task.isCommanding) {
+      if (task.data.commanding) {
         commandingCount++;
         return;
       }

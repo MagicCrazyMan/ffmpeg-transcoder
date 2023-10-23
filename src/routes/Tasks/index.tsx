@@ -4,9 +4,9 @@ import ComplexTaskModifier from "../../components/task/ComplexTaskModifier";
 import SimpleTasksModifier from "../../components/task/SimpleTasksModifier";
 import { Task } from "../../libs/task";
 import { useTaskStore } from "../../store/task";
+import Details from "./Details";
 import FilesList from "./FileList";
 import GlobalOperations from "./GlobalOperations";
-import Progress from "./Progress";
 import RowOperations from "./RowOperations";
 import Status from "./Status";
 
@@ -50,7 +50,7 @@ export default function QueuePage() {
       bodyCellStyle: {
         lineHeight: "1",
       },
-      render: (_, task) => <Progress task={task} />,
+      render: (_, task) => <Details task={task} />,
     },
     {
       title: "Operations",

@@ -38,6 +38,8 @@ const PauseButton = ({ task }: { task: Task }) => {
   const pause = useCallback(
     (e: Event) => {
       e.stopPropagation();
+      console.log(task.id);
+      
       pauseTask(task.id);
     },
     [task, pauseTask]
@@ -136,7 +138,7 @@ export default function Operations({
   task: Task;
   onModify: (task: Task) => void;
 }) {
-  if (task.isCommanding) {
+  if (task.data.commanding) {
     return <></>;
   } else {
     return (

@@ -1,5 +1,7 @@
+import { v4 } from "uuid";
 import { Task } from ".";
 import { useAppStore } from "../../store/app";
+import { useHistoryStore } from "../../store/history";
 import { useTaskStore } from "../../store/task";
 import { TauriError } from "../../tauri/error";
 import { pauseTask, resumeTask, startTask, stopTask } from "../../tauri/task";
@@ -64,7 +66,7 @@ export class Idle extends TaskState {
   public readonly pauseable = false;
   public readonly stoppable = false;
   public readonly editable = true;
-  public readonly removable = false;
+  public readonly removable = true;
 
   public async start(task: Task): Promise<TaskState> {
     if (isOverflow()) {
@@ -73,6 +75,13 @@ export class Idle extends TaskState {
 
     try {
       await startTask(task.id, task.data.params);
+
+      useHistoryStore.getState().addHistoryTasks({
+        id: v4(),
+        creationTime: task.data.creationTime,
+        params: task.data.params,
+      });
+
       return new Running();
     } catch (err) {
       return new Errored(err as TauriError);
@@ -80,13 +89,11 @@ export class Idle extends TaskState {
   }
 
   public async pause(): Promise<TaskState> {
-    console.warn("Attempting to pause a idle task");
-    return this;
+    return new Idle();
   }
 
   public async stop(): Promise<TaskState> {
-    console.warn("Attempting to stop a idle task");
-    return this;
+    return new Stopped();
   }
 
   public async finish(): Promise<TaskState> {
@@ -114,24 +121,15 @@ export class Queueing extends TaskState {
   }
 
   public async start(task: Task): Promise<TaskState> {
-    if (isOverflow()) {
-      return Promise.resolve(new Queueing(this.previousState));
-    }
-
-    try {
-      await startTask(task.id, task.data.params);
-      return new Running();
-    } catch (err) {
-      return new Errored(err as TauriError);
-    }
+    return this.previousState.start(task);
   }
 
   public async pause(): Promise<TaskState> {
-    return new Pausing();
+    return this.previousState.pause();
   }
 
-  public async stop(): Promise<TaskState> {
-    return new Stopped();
+  public async stop(task: Task): Promise<TaskState> {
+    return this.previousState.stop(task);
   }
 
   public async finish(): Promise<TaskState> {
