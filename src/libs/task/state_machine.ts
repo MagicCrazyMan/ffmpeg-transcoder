@@ -1,5 +1,6 @@
+import dayjs from "dayjs";
 import { v4 } from "uuid";
-import { Task } from ".";
+import { Task, TaskData } from ".";
 import { useAppStore } from "../../store/app";
 import { useHistoryStore } from "../../store/history";
 import { useTaskStore } from "../../store/task";
@@ -30,17 +31,23 @@ export abstract class TaskState {
 
   public abstract readonly removable: boolean;
 
-  public abstract start(task: Task): Promise<TaskState>;
+  public abstract start(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }>;
 
-  public abstract pause(task: Task): Promise<TaskState>;
+  public abstract pause(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }>;
 
-  public abstract stop(task: Task): Promise<TaskState>;
+  public abstract stop(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }>;
 
-  public abstract finish(task: Task): Promise<TaskState>;
+  public abstract finish(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }>;
 
-  public async error(_task: Task, reason: TauriError): Promise<TaskState> {
+  public async error(
+    task: Task,
+    reason: TauriError
+  ): Promise<{ nextState: TaskState; nextData: TaskData }> {
     console.error(reason);
-    return new Errored(reason);
+    return {
+      nextState: new Errored(reason),
+      nextData: task.data,
+    };
   }
 }
 
@@ -68,9 +75,12 @@ export class Idle extends TaskState {
   public readonly editable = true;
   public readonly removable = true;
 
-  public async start(task: Task): Promise<TaskState> {
+  public async start(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }> {
     if (isOverflow()) {
-      return Promise.resolve(new Queueing(this));
+      return {
+        nextState: new Queueing(this),
+        nextData: task.data,
+      };
     }
 
     try {
@@ -82,23 +92,41 @@ export class Idle extends TaskState {
         params: task.data.params,
       });
 
-      return new Running();
+      return {
+        nextState: new Running(),
+        nextData: {
+          ...task.data,
+          durations: [...task.data.durations, [dayjs(), undefined]],
+        },
+      };
     } catch (err) {
-      return new Errored(err as TauriError);
+      return {
+        nextState: new Errored(err as TauriError),
+        nextData: task.data,
+      };
     }
   }
 
-  public async pause(): Promise<TaskState> {
-    return new Idle();
+  public async pause(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }> {
+    return {
+      nextState: new Idle(),
+      nextData: task.data,
+    };
   }
 
-  public async stop(): Promise<TaskState> {
-    return new Stopped();
+  public async stop(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }> {
+    return {
+      nextState: new Stopped(),
+      nextData: task.data,
+    };
   }
 
-  public async finish(): Promise<TaskState> {
+  public async finish(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }> {
     console.warn("Attempting to finish a idle task");
-    return this;
+    return {
+      nextState: this,
+      nextData: task.data,
+    };
   }
 }
 
@@ -120,21 +148,24 @@ export class Queueing extends TaskState {
     this.previousState = previousState;
   }
 
-  public async start(task: Task): Promise<TaskState> {
+  public async start(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }> {
     return this.previousState.start(task);
   }
 
-  public async pause(): Promise<TaskState> {
-    return this.previousState.pause();
+  public async pause(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }> {
+    return this.previousState.pause(task);
   }
 
-  public async stop(task: Task): Promise<TaskState> {
+  public async stop(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }> {
     return this.previousState.stop(task);
   }
 
-  public async finish(): Promise<TaskState> {
+  public async finish(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }> {
     console.warn("Attempting to finish a queueing task");
-    return this;
+    return {
+      nextState: this,
+      nextData: task.data,
+    };
   }
 }
 
@@ -156,31 +187,67 @@ export class Running extends TaskState {
     this.lastMessage = lastMessage;
   }
 
-  public async start(): Promise<TaskState> {
+  public async start(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }> {
     console.warn("Attempting to start a running task");
-    return this;
+    return {
+      nextState: this,
+      nextData: task.data,
+    };
   }
 
-  public async pause(task: Task): Promise<TaskState> {
+  public async pause(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }> {
     try {
       await pauseTask(task.id);
-      return new Pausing(this.lastMessage);
+      return {
+        nextState: new Pausing(this.lastMessage),
+        nextData: {
+          ...task.data,
+          durations: task.data.durations.map((duration, index, arr) => {
+            if (index < arr.length - 1) {
+              return duration;
+            } else {
+              return [duration[0], dayjs()];
+            }
+          }),
+        },
+      };
     } catch (err) {
-      return new Errored(err as TauriError);
+      return {
+        nextState: new Errored(err as TauriError),
+        nextData: task.data,
+      };
     }
   }
 
-  public async stop(task: Task): Promise<TaskState> {
+  public async stop(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }> {
     try {
       await stopTask(task.id);
-      return new Stopped();
+      return {
+        nextState: new Stopped(),
+        nextData: {
+          ...task.data,
+          durations: task.data.durations.map((duration, index, arr) => {
+            if (index < arr.length - 1) {
+              return duration;
+            } else {
+              return [duration[0], dayjs()];
+            }
+          }),
+        },
+      };
     } catch (err) {
-      return new Errored(err as TauriError);
+      return {
+        nextState: new Errored(err as TauriError),
+        nextData: task.data,
+      };
     }
   }
 
-  public async finish(): Promise<TaskState> {
-    return new Finished();
+  public async finish(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }> {
+    return {
+      nextState: new Finished(),
+      nextData: task.data,
+    };
   }
 }
 
@@ -202,36 +269,60 @@ export class Pausing extends TaskState {
     this.lastMessage = lastMessage;
   }
 
-  public async start(task: Task): Promise<TaskState> {
+  public async start(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }> {
     if (isOverflow()) {
-      return new Queueing(this);
+      return {
+        nextState: new Queueing(this),
+        nextData: task.data,
+      };
     }
 
     try {
       await resumeTask(task.id);
-      return new Running(this.lastMessage);
+      return {
+        nextState: new Running(this.lastMessage),
+        nextData: {
+          ...task.data,
+          durations: [...task.data.durations, [dayjs(), undefined]],
+        },
+      };
     } catch (err) {
-      return new Errored(err as TauriError);
+      return {
+        nextState: new Errored(err as TauriError),
+        nextData: task.data,
+      };
     }
   }
 
-  public async pause(): Promise<TaskState> {
+  public async pause(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }> {
     console.warn("Attempting to pause a pausing task");
-    return this;
+    return {
+      nextState: this,
+      nextData: task.data,
+    };
   }
 
-  public async stop(task: Task): Promise<TaskState> {
+  public async stop(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }> {
     try {
       await stopTask(task.id);
-      return new Stopped();
+      return {
+        nextState: new Stopped(),
+        nextData: task.data,
+      };
     } catch (err) {
-      return new Errored(err as TauriError);
+      return {
+        nextState: new Errored(err as TauriError),
+        nextData: task.data,
+      };
     }
   }
 
-  public async finish(): Promise<TaskState> {
+  public async finish(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }> {
     console.warn("Attempting to finish a pausing task");
-    return this;
+    return {
+      nextState: this,
+      nextData: task.data,
+    };
   }
 }
 
@@ -246,24 +337,36 @@ export class Stopped extends TaskState {
   public readonly editable = false;
   public readonly removable = true;
 
-  public async start(): Promise<TaskState> {
+  public async start(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }> {
     console.warn("Attempting to start a stopped task");
-    return this;
+    return {
+      nextState: this,
+      nextData: task.data,
+    };
   }
 
-  public async pause(): Promise<TaskState> {
+  public async pause(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }> {
     console.warn("Attempting to pause a stopped task");
-    return this;
+    return {
+      nextState: this,
+      nextData: task.data,
+    };
   }
 
-  public async stop(): Promise<TaskState> {
+  public async stop(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }> {
     console.warn("Attempting to stop a stopped task");
-    return this;
+    return {
+      nextState: this,
+      nextData: task.data,
+    };
   }
 
-  public async finish(): Promise<TaskState> {
+  public async finish(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }> {
     console.warn("Attempting to finish a stopped task");
-    return this;
+    return {
+      nextState: this,
+      nextData: task.data,
+    };
   }
 }
 
@@ -285,24 +388,36 @@ export class Errored extends TaskState {
     this.reason = reason;
   }
 
-  public async start(): Promise<TaskState> {
+  public async start(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }> {
     console.warn("Attempting to start a errored task");
-    return this;
+    return {
+      nextState: this,
+      nextData: task.data,
+    };
   }
 
-  public async pause(): Promise<TaskState> {
+  public async pause(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }> {
     console.warn("Attempting to pause a errored task");
-    return this;
+    return {
+      nextState: this,
+      nextData: task.data,
+    };
   }
 
-  public async stop(): Promise<TaskState> {
+  public async stop(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }> {
     console.warn("Attempting to stop a errored task");
-    return this;
+    return {
+      nextState: this,
+      nextData: task.data,
+    };
   }
 
-  public async finish(): Promise<TaskState> {
+  public async finish(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }> {
     console.warn("Attempting to finish a errored task");
-    return this;
+    return {
+      nextState: this,
+      nextData: task.data,
+    };
   }
 }
 
@@ -317,23 +432,35 @@ export class Finished extends TaskState {
   public readonly editable = false;
   public readonly removable = true;
 
-  public async start(): Promise<TaskState> {
+  public async start(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }> {
     console.warn("Attempting to start a finished task");
-    return this;
+    return {
+      nextState: this,
+      nextData: task.data,
+    };
   }
 
-  public async pause(): Promise<TaskState> {
+  public async pause(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }> {
     console.warn("Attempting to pause a finished task");
-    return this;
+    return {
+      nextState: this,
+      nextData: task.data,
+    };
   }
 
-  public async stop(): Promise<TaskState> {
+  public async stop(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }> {
     console.warn("Attempting to stop a finished task");
-    return this;
+    return {
+      nextState: this,
+      nextData: task.data,
+    };
   }
 
-  public async finish(): Promise<TaskState> {
+  public async finish(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }> {
     console.warn("Attempting to finish a finished task");
-    return this;
+    return {
+      nextState: this,
+      nextData: task.data,
+    };
   }
 }

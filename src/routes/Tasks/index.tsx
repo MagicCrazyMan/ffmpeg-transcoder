@@ -76,6 +76,7 @@ export default function QueuePage() {
         rowKey="id"
         columns={tableCols}
         data={tasks}
+        rowClassName={() => "h-12"}
         scroll={{ x: "1200px", y: "calc(100vh - 112px)" }}
       ></Table>
 

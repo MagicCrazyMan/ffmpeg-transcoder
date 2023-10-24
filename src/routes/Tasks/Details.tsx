@@ -13,7 +13,7 @@ const Commanding = () => (
   <Typography.Text style={{ color: "rgb(var(--primary-5))" }}>Commanding</Typography.Text>
 );
 
-const Idle = () => <Typography.Text>Idle</Typography.Text>;
+const Idle = () => <></>;
 
 const Queueing = () => (
   <Typography.Text style={{ color: "rgb(var(--warning-6))" }}>In Queue</Typography.Text>

@@ -1,5 +1,4 @@
 import { EventCallback, listen } from "@tauri-apps/api/event";
-import dayjs from "dayjs";
 import { v4 } from "uuid";
 import { create } from "zustand";
 import { Task, TaskData, TaskParams } from "../libs/task";
@@ -99,32 +98,25 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
 
     let nextState: TaskState;
     let nextData: Partial<TaskData>;
-    let nextTask: Task | undefined;
-    if (action === "start") {
-      nextState = await task.state.start(task);
-
-      if (nextState.code === TaskStateCode.Running) {
-        nextData = {
-          durations: [...task.data.durations, [dayjs(), undefined]],
-        };
+    switch (action) {
+      case "start": {
+        const next = await task.state.start(task);
+        nextState = next.nextState;
+        nextData = next.nextData;
+        break;
       }
-    } else {
-      if (action === "pause") {
-        nextState = await task.state.pause(task);
-      } else {
-        nextState = await task.state.stop(task);
+      case "pause": {
+        const next = await task.state.pause(task);
+        nextState = next.nextState;
+        nextData = next.nextData;
+        break;
       }
-
-      nextData = {
-        durations: task.data.durations.map((duration, index, array) => {
-          if (index < array.length - 1) {
-            return duration;
-          } else {
-            return [duration[0], dayjs()];
-          }
-        }),
-      };
-      nextTask = get().tasks.find((task) => task.state.code === TaskStateCode.Queueing);
+      case "stop": {
+        const next = await task.state.stop(task);
+        nextState = next.nextState;
+        nextData = next.nextData;
+        break;
+      }
     }
 
     set(({ tasks }) => ({
@@ -146,7 +138,16 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
     }));
 
     // starts next task if some tasks in queueing
-    if (nextTask) await toState(nextTask.id, "start");
+    switch (action) {
+      case "start":
+        break;
+      case "pause":
+      case "stop": {
+        const nextTask = get().tasks.find((task) => task.state.code === TaskStateCode.Queueing);
+        if (nextTask) await toState(nextTask.id, "start");
+        break;
+      }
+    }
   };
 
   return {
