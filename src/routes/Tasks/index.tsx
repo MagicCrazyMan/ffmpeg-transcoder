@@ -55,7 +55,7 @@ export default function QueuePage() {
     {
       title: "Operations",
       fixed: "right",
-      width: "13rem",
+      width: "14rem",
       align: "center",
       render: (_, task) => <RowOperations task={task} onModify={onModify} />,
     },

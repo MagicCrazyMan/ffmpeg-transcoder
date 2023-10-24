@@ -212,6 +212,7 @@ const Footer = ({
       updateTask(task.id, {
         data: {
           ...task.data,
+          params,
           metadata: [],
           durations: [],
         },
