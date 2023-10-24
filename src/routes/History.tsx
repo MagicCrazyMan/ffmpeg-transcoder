@@ -31,7 +31,7 @@ const FilesList = ({ args }: { args: TaskArgsItem[] }) => {
 export default function HistoryPage() {
   const navigate = useNavigate();
   const { addTasks } = useTaskStore();
-  const { storage, removeHistoryTask } = useHistoryStore();
+  const { storage, removeHistoryTasks } = useHistoryStore();
 
   const [selectedRows, setSelectedRows] = useState<HistoryTask[]>([]);
 
@@ -39,6 +39,11 @@ export default function HistoryPage() {
     const args = tasks.map(({ args }) => args);
     addTasks(...args);
     navigate("/tasks");
+  };
+
+  const handleRemoveTasks = (tasks: HistoryTask[]) => {
+    const ids = tasks.map(({ id }) => id);
+    removeHistoryTasks(...ids);
   };
 
   const tableCols: TableColumnProps<HistoryTask>[] = [
@@ -79,7 +84,7 @@ export default function HistoryPage() {
               type="primary"
               status="danger"
               icon={<IconDelete />}
-              onClick={() => removeHistoryTask(task.id)}
+              onClick={() => handleRemoveTasks([task])}
             />
           </Space>
         );
@@ -89,19 +94,34 @@ export default function HistoryPage() {
 
   return (
     <div className="p-4">
-      {/* Add Preset */}
-      <Tooltip content="Add All Selected Tasks">
-        <Button
-          shape="circle"
-          type="primary"
-          className="mb-4"
-          icon={<IconPlus />}
-          disabled={selectedRows.length === 0}
-          onClick={() => {
-            handleAddTasks(selectedRows);
-          }}
-        ></Button>
-      </Tooltip>
+      <Space className="mb-4">
+        {/* Add All Selected Tasks */}
+        <Tooltip content="Add All Selected Tasks">
+          <Button
+            shape="circle"
+            type="primary"
+            icon={<IconPlus />}
+            disabled={selectedRows.length === 0}
+            onClick={() => {
+              handleAddTasks(selectedRows);
+            }}
+          ></Button>
+        </Tooltip>
+
+        {/* Delete All Selected Tasks */}
+        <Tooltip content="Delete All Selected Tasks">
+          <Button
+            shape="circle"
+            type="primary"
+            status="danger"
+            icon={<IconDelete />}
+            disabled={selectedRows.length === 0}
+            onClick={() => {
+              handleRemoveTasks(selectedRows);
+            }}
+          ></Button>
+        </Tooltip>
+      </Space>
 
       {/* History Tasks Table */}
       <Table

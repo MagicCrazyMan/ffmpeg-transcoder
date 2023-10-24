@@ -16,7 +16,7 @@ export type HistoryState = {
    * Removes history task by id
    * @param id History task id
    */
-  removeHistoryTask: (id: string) => void;
+  removeHistoryTasks: (...ids: string[]) => void;
 };
 
 type HistoryStorage = {
@@ -76,11 +76,12 @@ export const useHistoryStore = create<HistoryState>((set, _get, api) => {
         },
       }));
     },
-    removeHistoryTask(id: string) {
+    removeHistoryTasks(...id: string[]) {
+      const idsSet = new Set(id);
       set(({ storage }) => ({
         storage: {
           ...storage,
-          tasks: storage.tasks.filter((task) => task.id !== id),
+          tasks: storage.tasks.filter((task) => !idsSet.has(task.id)),
         },
       }));
     },
