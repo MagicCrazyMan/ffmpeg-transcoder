@@ -4,9 +4,9 @@ import { open } from "@tauri-apps/api/dialog";
 import { join, sep } from "@tauri-apps/api/path";
 import { useCallback, useMemo, useState } from "react";
 import { v4 } from "uuid";
-import { PresetType } from "../../libs/preset";
+import { Preset, PresetType } from "../../libs/preset";
 import { TaskArgs, TaskArgsSource } from "../../libs/task";
-import { ModifyingTaskArgsItem, toTaskArgs } from "../../libs/task/modifying";
+import { ModifyingTaskArgsItem, replaceExtension, toTaskArgs } from "../../libs/task/modifying";
 import { useAppStore } from "../../store/app";
 import { usePresetStore } from "../../store/preset";
 import { useTaskStore } from "../../store/task";
@@ -73,7 +73,7 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
   const { configuration, openDialogFilters } = useAppStore();
   const { storage } = usePresetStore();
 
-  const [tasks, setTasks] = useState<SimpleTaskArgs[]>([]);
+  const [records, setRecords] = useState<SimpleTaskArgs[]>([]);
 
   /**
    * Add input files vis Tauri
@@ -109,7 +109,7 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
         } as SimpleTaskArgs;
       });
       const records = await Promise.all(promises);
-      setTasks((state) => [...state, ...records]);
+      setRecords((state) => [...state, ...records]);
     }
   };
 
@@ -117,7 +117,7 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
    * On select output files vis Tauri
    */
   const onOutputFileChange = useCallback((id: string, path: string) => {
-    setTasks((state) =>
+    setRecords((state) =>
       state.map((task) => {
         if (task.id === id) {
           return {
@@ -135,39 +135,68 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
   }, []);
 
   /**
-   * On change input or output args
+   * On args source change of input or output args
    */
-  const onChange = useCallback(
-    (id: string, values: Partial<ModifyingTaskArgsItem>, type: "input" | "output") => {
-      setTasks((state) =>
+  const onSelectChange = useCallback(
+    (
+      { id }: ModifyingTaskArgsItem,
+      selection: TaskArgsSource.Auto | TaskArgsSource.Custom | Preset,
+      type: "input" | "output"
+    ) => {
+      setRecords((state) =>
         state.map((task) => {
-          if (task[type].id !== id) {
-            return task;
+          if (task[type].id === id) {
+            if (selection === TaskArgsSource.Auto || selection === TaskArgsSource.Custom) {
+              return {
+                ...task,
+                [type]: {
+                  ...task[type],
+                  selection,
+                },
+              };
+            } else {
+              // tries replacing extension if preset selected
+              const args = task[type];
+              return {
+                ...task,
+                [type]: {
+                  ...args,
+                  selection: selection.id,
+                  path: args.path ? replaceExtension(args.path, selection) : args.path,
+                },
+              };
+            }
           } else {
-            return {
-              ...task,
-              [type]: {
-                ...task[type],
-                ...values,
-              },
-            };
+            return task;
           }
         })
       );
     },
-    [setTasks]
+    [setRecords]
   );
-  const onChangeInputs = useCallback(
-    (id: string, values: Partial<ModifyingTaskArgsItem>) => {
-      onChange(id, values, "input");
+
+  /**
+   * On change custom args of input or output args
+   */
+  const onCustomChange = useCallback(
+    ({ id }: ModifyingTaskArgsItem, custom: string, type: "input" | "output") => {
+      setRecords((state) =>
+        state.map((task) => {
+          if (task[type].id === id) {
+            return {
+              ...task,
+              [type]: {
+                ...task[type],
+                custom,
+              },
+            };
+          } else {
+            return task;
+          }
+        })
+      );
     },
-    [onChange]
-  );
-  const onChangeOutputs = useCallback(
-    (id: string, values: Partial<ModifyingTaskArgsItem>) => {
-      onChange(id, values, "output");
-    },
-    [onChange]
+    [setRecords]
   );
 
   /**
@@ -175,7 +204,7 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
    */
   const onApplyAll = useCallback(
     ({ id, selection, custom }: ModifyingTaskArgsItem, type: "input" | "output") => {
-      setTasks((state) =>
+      setRecords((state) =>
         state.map((task) => {
           if (task[type].id === id) {
             return task;
@@ -185,19 +214,7 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
         })
       );
     },
-    [setTasks]
-  );
-  const onApplyAllInputs = useCallback(
-    (args: ModifyingTaskArgsItem) => {
-      onApplyAll(args, "input");
-    },
-    [onApplyAll]
-  );
-  const onApplyAllOutputs = useCallback(
-    (args: ModifyingTaskArgsItem) => {
-      onApplyAll(args, "output");
-    },
-    [onApplyAll]
+    [setRecords]
   );
 
   /**
@@ -205,15 +222,15 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
    */
   const onConvertCustom = useCallback(
     ({ id, selection }: ModifyingTaskArgsItem, type: "input" | "output") => {
-      setTasks((state) =>
-        state.map((task) => {
-          if (task[type].id !== id) {
-            return task;
+      setRecords((state) =>
+        state.map((record) => {
+          if (record[type].id !== id) {
+            return record;
           } else {
             return {
-              ...task,
+              ...record,
               [type]: {
-                ...task[type],
+                ...record[type],
                 selection: TaskArgsSource.Custom,
                 custom: storage.presets.find((preset) => preset.id === selection)?.args.join(" "),
               },
@@ -222,19 +239,7 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
         })
       );
     },
-    [storage.presets, setTasks]
-  );
-  const onConvertCustomInputs = useCallback(
-    (args: ModifyingTaskArgsItem) => {
-      onConvertCustom(args, "input");
-    },
-    [onConvertCustom]
-  );
-  const onConvertCustomOutputs = useCallback(
-    (args: ModifyingTaskArgsItem) => {
-      onConvertCustom(args, "output");
-    },
-    [onConvertCustom]
+    [storage.presets, setRecords]
   );
 
   /**
@@ -242,9 +247,9 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
    */
   const onRemove = useCallback(
     (id: string) => {
-      setTasks((state) => state.filter((record) => record.id !== id));
+      setRecords((state) => state.filter((record) => record.id !== id));
     },
-    [setTasks]
+    [setRecords]
   );
 
   const columns: TableColumnProps<SimpleTaskArgs>[] = useMemo(
@@ -260,9 +265,18 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
           <CodecModifier
             presetType={PresetType.Decode}
             record={task.input}
-            onChange={onChangeInputs}
-            onApplyAll={onApplyAllInputs}
-            onConvertCustom={onConvertCustomInputs}
+            onSelectChange={(record, selection) => {
+              onSelectChange(record, selection, "input");
+            }}
+            onCustomChange={(record, custom) => {
+              onCustomChange(record, custom, "input");
+            }}
+            onApplyAll={(args) => {
+              onApplyAll(args, "input");
+            }}
+            onConvertCustom={(args) => {
+              onConvertCustom(args, "input");
+            }}
           />
         ),
       },
@@ -282,9 +296,18 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
           <CodecModifier
             presetType={PresetType.Encode}
             record={task.output}
-            onChange={onChangeOutputs}
-            onApplyAll={onApplyAllOutputs}
-            onConvertCustom={onConvertCustomOutputs}
+            onSelectChange={(record, selection) => {
+              onSelectChange(record, selection, "output");
+            }}
+            onCustomChange={(record, custom) => {
+              onCustomChange(record, custom, "output");
+            }}
+            onApplyAll={(args) => {
+              onApplyAll(args, "output");
+            }}
+            onConvertCustom={(args) => {
+              onConvertCustom(args, "output");
+            }}
           />
         ),
       },
@@ -304,16 +327,7 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
         ),
       },
     ],
-    [
-      onRemove,
-      onOutputFileChange,
-      onChangeInputs,
-      onChangeOutputs,
-      onApplyAllInputs,
-      onApplyAllOutputs,
-      onConvertCustomInputs,
-      onConvertCustomOutputs,
-    ]
+    [onSelectChange, onCustomChange, onApplyAll, onConvertCustom, onOutputFileChange, onRemove]
   );
 
   return (
@@ -326,9 +340,9 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
         maxHeight: "80%",
       }}
       visible={visible}
-      footer={<Footer records={tasks} onVisibleChange={onVisibleChange} />}
+      footer={<Footer records={records} onVisibleChange={onVisibleChange} />}
       afterClose={() => {
-        setTasks([]);
+        setRecords([]);
       }}
     >
       {/* Buttons */}
@@ -346,7 +360,7 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
         rowKey="id"
         pagination={false}
         columns={columns}
-        data={tasks}
+        data={records}
         scroll={{ y: "calc(80vh - 190px)" }}
       ></Table>
     </Modal>

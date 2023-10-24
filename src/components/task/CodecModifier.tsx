@@ -10,6 +10,9 @@ const DecodePresetOptions: ReactNode[] = [];
 const EncodePresetOptions: ReactNode[] = [];
 
 const updatePresetOptions = (presets: Preset[]) => {
+  DecodePresetOptions.length = 0;
+  EncodePresetOptions.length = 0;
+
   presets.forEach((preset) => {
     const node = (
       <Select.Option key={preset.id} value={preset.id}>
@@ -35,19 +38,26 @@ usePresetStore.subscribe((state, prevState) => {
 
 export type CodecModifierProps = {
   record: ModifyingTaskArgsItem;
-  onChange: (id: string, values: Partial<ModifyingTaskArgsItem>) => void;
   presetType: PresetType.Decode | PresetType.Encode;
-  onApplyAll?: (args: ModifyingTaskArgsItem) => void;
-  onConvertCustom?: (args: ModifyingTaskArgsItem) => void;
+  onSelectChange: (
+    args: ModifyingTaskArgsItem,
+    selection: TaskArgsSource.Auto | TaskArgsSource.Custom | Preset
+  ) => void;
+  onCustomChange: (args: ModifyingTaskArgsItem, custom: string) => void;
+  onApplyAll: (args: ModifyingTaskArgsItem) => void;
+  onConvertCustom: (args: ModifyingTaskArgsItem) => void;
 };
 
 export default function CodecModifier({
   record,
   presetType,
-  onChange,
+  onSelectChange,
+  onCustomChange,
   onApplyAll,
   onConvertCustom,
 }: CodecModifierProps) {
+  const { storage } = usePresetStore();
+
   return (
     <div className="flex flex-col gap-0.5">
       <div className="flex gap-2">
@@ -57,7 +67,14 @@ export default function CodecModifier({
           size="mini"
           className="flex-1"
           value={record.selection}
-          onChange={(selection) => onChange(record.id, { selection })}
+          onChange={(selection: TaskArgsSource.Auto | TaskArgsSource.Custom | string) => {
+            if (selection === TaskArgsSource.Auto || selection === TaskArgsSource.Custom) {
+              onSelectChange(record, selection);
+            } else {
+              const preset = storage.presets.find((preset) => preset.id === selection)!;
+              onSelectChange(record, preset);
+            }
+          }}
         >
           <Select.Option value={TaskArgsSource.Auto}>Auto</Select.Option>
           <Select.Option value={TaskArgsSource.Custom}>Custom</Select.Option>
@@ -79,9 +96,7 @@ export default function CodecModifier({
         ) : null}
 
         {/* Convert To Custom Button */}
-        {onConvertCustom &&
-        record.selection !== TaskArgsSource.Auto &&
-        record.selection !== TaskArgsSource.Custom ? (
+        {record.selection !== TaskArgsSource.Auto && record.selection !== TaskArgsSource.Custom ? (
           <Tooltip content="Convert To Custom">
             <Button
               shape="circle"
@@ -102,7 +117,7 @@ export default function CodecModifier({
           autoFocus
           allowClear
           value={record.custom}
-          onChange={(custom) => onChange(record.id, { custom })}
+          onChange={(custom) => onCustomChange(record, custom)}
         ></Input.TextArea>
       ) : null}
     </div>

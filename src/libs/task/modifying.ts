@@ -30,7 +30,7 @@ export type ModifyingTaskArgsItem = {
  * @param args {@link ModifyingTaskArgsItem}
  * @returns a {@link TaskArgsItem}
  */
-export function toTaskArgs({ selection, path, custom }: ModifyingTaskArgsItem): TaskArgsItem {
+export const toTaskArgs = ({ selection, path, custom }: ModifyingTaskArgsItem): TaskArgsItem => {
   let source: TaskArgsSource, args: string[] | Preset | undefined;
   if (selection === TaskArgsSource.Auto) {
     source = TaskArgsSource.Auto;
@@ -56,7 +56,7 @@ export function toTaskArgs({ selection, path, custom }: ModifyingTaskArgsItem): 
     source,
     args,
   } as TaskArgsItem;
-}
+};
 
 /**
  * Converts {@link TaskArgsItem} or {@link ModifyingTaskArgsItem}.
@@ -64,7 +64,7 @@ export function toTaskArgs({ selection, path, custom }: ModifyingTaskArgsItem): 
  * @param args {@link TaskArgsItem}
  * @returns a {@link ModifyingTaskArgsItem}
  */
-export function fromTaskArgs({ path, source, args }: TaskArgsItem): ModifyingTaskArgsItem {
+export const fromTaskArgs = ({ path, source, args }: TaskArgsItem): ModifyingTaskArgsItem => {
   switch (source) {
     case TaskArgsSource.Auto:
       return {
@@ -99,4 +99,29 @@ export function fromTaskArgs({ path, source, args }: TaskArgsItem): ModifyingTas
       }
     }
   }
-}
+};
+
+/**
+ * Tries to replace extension of a path by preset:
+ *
+ * - If a path is empty or preset does not specify an extension, returns path;
+ * - If a path has no extension, returns a new path with an additional extension
+ * - If a path has extension, returns a new path with a replacement extension
+ *
+ * @param path Path
+ * @param preset Preset
+ * @returns Path
+ */
+export const replaceExtension = (path: string, preset: Preset) => {
+  if (!path || !preset.extension) return path;
+
+  const splits = path.split(".");
+  if (splits.length === 0) {
+    return path;
+  } else if (splits.length === 1) {
+    return `${path}.${preset.extension}`;
+  } else {
+    splits.pop();
+    return `${splits.join(".")}.${preset.extension}`;
+  }
+};

@@ -54,13 +54,7 @@ export default function OutputFileModifier({
       </Tooltip>
 
       {/* File Name */}
-      <Typography.Text
-        editable={{
-          onChange,
-        }}
-        className="flex-1"
-        style={{ margin: "0" }}
-      >
+      <Typography.Text editable={{ onChange }} className="flex-1" style={{ margin: "0" }}>
         {args?.path ?? "NULL"}
       </Typography.Text>
     </div>

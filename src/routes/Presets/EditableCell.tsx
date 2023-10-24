@@ -52,7 +52,7 @@ const EditingRemarkCell = ({ submit }: { submit: () => void }) => {
       labelCol={{ span: 0 }}
       wrapperCol={{ span: 24 }}
     >
-      <Input autoFocus onPressEnter={submit} />
+      <Input.TextArea autoFocus autoSize onPressEnter={submit} />
     </Form.Item>
   );
 };
@@ -110,7 +110,7 @@ const EditingArgumentsCell = ({ submit, preset }: { submit: () => void; preset: 
       labelCol={{ span: 0 }}
       wrapperCol={{ span: 24 }}
     >
-      <Input.TextArea allowClear autoFocus={!preset.id} onPressEnter={submit} />
+      <Input.TextArea allowClear autoSize autoFocus={!preset.id} onPressEnter={submit} />
     </Form.Item>
   );
 };

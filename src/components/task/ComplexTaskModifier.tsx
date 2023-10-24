@@ -3,9 +3,14 @@ import { IconDelete } from "@arco-design/web-react/icon";
 import { open, save } from "@tauri-apps/api/dialog";
 import { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
 import { v4 } from "uuid";
-import { PresetType } from "../../libs/preset";
+import { Preset, PresetType } from "../../libs/preset";
 import { Task, TaskArgsSource } from "../../libs/task";
-import { ModifyingTaskArgsItem, fromTaskArgs, toTaskArgs } from "../../libs/task/modifying";
+import {
+  ModifyingTaskArgsItem,
+  fromTaskArgs,
+  replaceExtension,
+  toTaskArgs,
+} from "../../libs/task/modifying";
 import { useAppStore } from "../../store/app";
 import { usePresetStore } from "../../store/preset";
 import { useTaskStore } from "../../store/task";
@@ -30,20 +35,53 @@ const UniverseTable = ({
   const presets = usePresetStore((state) => state.storage.presets);
 
   const filesTitle = useMemo(() => (type === "input" ? "Input Files" : "Output Files"), [type]);
-  const argsTitle = useMemo(() => (type === "input" ? "Decode Arguments" : "Encode Arguments"), [type]);
+  const argsTitle = useMemo(
+    () => (type === "input" ? "Decode Arguments" : "Encode Arguments"),
+    [type]
+  );
   const presetType = useMemo(
     () => (type === "input" ? PresetType.Decode : PresetType.Encode),
     [type]
   );
 
-  const onChange = useCallback(
-    (id: string, values: Partial<ModifyingTaskArgsItem>) => {
+  const onSelectChange = useCallback(
+    (
+      { id }: ModifyingTaskArgsItem,
+      selection: TaskArgsSource.Auto | TaskArgsSource.Custom | Preset
+    ) => {
+      setRecords((state) =>
+        state.map((record) => {
+          if (record.id === id) {
+            if (selection === TaskArgsSource.Auto || selection === TaskArgsSource.Custom) {
+              return {
+                ...record,
+                selection,
+              };
+            } else {
+              // tries replacing extension if preset selected
+              return {
+                ...record,
+                selection: selection.id,
+                path: record.path ? replaceExtension(record.path, selection) : record.path,
+              };
+            }
+          } else {
+            return record;
+          }
+        })
+      );
+    },
+    [setRecords]
+  );
+
+  const onCustomChange = useCallback(
+    ({ id }: ModifyingTaskArgsItem, custom: string) => {
       setRecords((state) =>
         state.map((record) => {
           if (record.id === id) {
             return {
               ...record,
-              ...values,
+              custom,
             };
           } else {
             return record;
@@ -138,7 +176,8 @@ const UniverseTable = ({
           <CodecModifier
             presetType={presetType}
             record={record}
-            onChange={onChange}
+            onSelectChange={onSelectChange}
+            onCustomChange={onCustomChange}
             onApplyAll={onApplyAll}
             onConvertCustom={onConvertCustom}
           />
@@ -166,7 +205,8 @@ const UniverseTable = ({
       type,
       onOutputFileChange,
       presetType,
-      onChange,
+      onSelectChange,
+      onCustomChange,
       onApplyAll,
       onConvertCustom,
       onRemove,
