@@ -83,10 +83,10 @@ export default function QueuePage() {
     <div className="p-4">
       <Table
         stripe
+        virtualized
         size="mini"
         rowKey="id"
         pagination={false}
-        scroll={{ x: "1200px", y: "calc(100vh - 112px)" }}
         columns={tableCols}
         data={storage.tasks}
       ></Table>
