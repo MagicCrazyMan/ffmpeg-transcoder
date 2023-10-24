@@ -1,6 +1,7 @@
-import { Button, Space, Table, TableColumnProps } from "@arco-design/web-react";
+import { Button, Space, Table, TableColumnProps, Tooltip } from "@arco-design/web-react";
 import { IconDelete, IconPlus } from "@arco-design/web-react/icon";
 import dayjs from "dayjs";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { HistoryTask } from "../libs/history";
 import { TaskInputParams, TaskOutputParams } from "../libs/task";
@@ -25,12 +26,20 @@ const FilesList = ({ params }: { params: TaskInputParams[] | TaskOutputParams[] 
 };
 
 /**
- * Page managing tasks queue.
+ * Page listing history tasks
  */
-export default function QueuePage() {
+export default function HistoryPage() {
   const navigate = useNavigate();
   const { addTasks } = useTaskStore();
   const { storage, removeHistoryTask } = useHistoryStore();
+
+  const [selectedRows, setSelectedRows] = useState<HistoryTask[]>([]);
+
+  const handleAddTasks = (tasks: HistoryTask[]) => {
+    const params = tasks.map(({ params }) => params);
+    addTasks(...params);
+    navigate("/tasks");
+  };
 
   const tableCols: TableColumnProps<HistoryTask>[] = [
     {
@@ -59,8 +68,7 @@ export default function QueuePage() {
               type="primary"
               icon={<IconPlus />}
               onClick={() => {
-                addTasks(task.params);
-                navigate("/tasks");
+                handleAddTasks([task]);
               }}
             />
 
@@ -81,12 +89,32 @@ export default function QueuePage() {
 
   return (
     <div className="p-4">
+      {/* Add Preset */}
+      <Tooltip content="Add All Selected Tasks">
+        <Button
+          shape="circle"
+          type="primary"
+          className="mb-4"
+          icon={<IconPlus />}
+          disabled={selectedRows.length === 0}
+          onClick={() => {
+            handleAddTasks(selectedRows);
+          }}
+        ></Button>
+      </Tooltip>
+
+      {/* History Tasks Table */}
       <Table
         stripe
         virtualized
         size="mini"
         rowKey="id"
         pagination={false}
+        rowSelection={{
+          onChange(_, rows) {
+            setSelectedRows(rows);
+          },
+        }}
         columns={tableCols}
         data={storage.tasks}
       ></Table>
