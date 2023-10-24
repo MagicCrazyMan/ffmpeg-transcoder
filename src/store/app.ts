@@ -1,4 +1,5 @@
 import { DialogFilter } from "@tauri-apps/api/dialog";
+import { listen } from "@tauri-apps/api/event";
 import { OsType, type as getOsType } from "@tauri-apps/api/os";
 import { cloneDeep } from "lodash";
 import { create } from "zustand";
@@ -331,4 +332,16 @@ export const useAppStore = create<AppState>((set, _get, api) => {
       set({ systemParticulars });
     },
   };
+});
+
+/**
+ * Listens system theme change and update app theme
+ */
+listen("tauri://theme-changed", (event) => {
+  const { configuration } = useAppStore.getState();
+  if (configuration.theme === Theme.FollowSystem) {
+    const systemTheme = (event.payload as "Light" | "Dark") === "Light" ? Theme.Light : Theme.Dark;
+    useAppStore.setState({ currentTheme: systemTheme });
+    setArcoTheme(systemTheme);
+  }
 });
