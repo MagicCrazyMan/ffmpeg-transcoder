@@ -1,4 +1,4 @@
-use std::process::Output;
+use std::{ffi::OsStr, process::Output};
 
 use tokio::process::Command;
 
@@ -15,9 +15,30 @@ macro_rules! with_default_args {
     };
 }
 
+pub fn create_process<I, S>(program: &str, args: I) -> Command
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<OsStr>,
+{
+    let mut command = Command::new(program);
+
+    #[cfg(windows)]
+    {
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    };
+
+    command.args(args);
+    command
+}
+
 /// Invokes ffmpeg in child process and returns output result after process end.
-pub async fn invoke_ffmpeg(ffmpeg: &str, args: &[&str]) -> Result<Output, Error> {
-    let output = Command::new(ffmpeg).args(args).output().await;
+pub async fn invoke_ffmpeg<I, S>(ffmpeg: &str, args: I) -> Result<Output, Error>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<OsStr>,
+{
+    let output = create_process(ffmpeg, args).output().await;
 
     match output {
         Ok(output) => Ok(output),
@@ -29,8 +50,12 @@ pub async fn invoke_ffmpeg(ffmpeg: &str, args: &[&str]) -> Result<Output, Error>
 }
 
 /// Invokes ffprobe in child process and returns output result after process end.
-pub async fn invoke_ffprobe(ffprobe: &str, args: &[&str]) -> Result<Output, Error> {
-    let output = Command::new(ffprobe).args(args).output().await;
+pub async fn invoke_ffprobe<I, S>(ffprobe: &str, args: I) -> Result<Output, Error>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<OsStr>,
+{
+    let output = create_process(ffprobe, args).output().await;
 
     match output {
         Ok(output) => Ok(output),

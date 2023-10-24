@@ -7,14 +7,14 @@ use tauri::Manager;
 use tokio::{
     fs,
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
-    process::{Child, ChildStderr, ChildStdout, Command},
+    process::{Child, ChildStderr, ChildStdout},
     sync::Mutex,
     task::JoinHandle,
 };
 use tokio_util::sync::CancellationToken;
 
 use crate::handlers::{
-    commands::process::invoke_ffprobe_json_metadata,
+    commands::process::{create_process, invoke_ffprobe_json_metadata},
     error::Error,
     tasks::message::{TaskMessage, TaskRunningMessage, TASK_MESSAGE_EVENT},
 };
@@ -146,16 +146,8 @@ impl TaskState for Idle {
 
         // startup ffmpeg subprocess
         let args = task.data.params.to_args();
-        let mut command = Command::new(&task.data.ffmpeg_program);
-
-        #[cfg(windows)]
-        {
-            const CREATE_NO_WINDOW: u32 = 0x08000000;
-            command.creation_flags(CREATE_NO_WINDOW);
-        };
-
+        let mut command = create_process(&task.data.ffmpeg_program, &args);
         let process = command
-            .args(&args)
             .stdin(Stdio::piped())
             .stderr(Stdio::piped())
             .stdout(Stdio::piped())
