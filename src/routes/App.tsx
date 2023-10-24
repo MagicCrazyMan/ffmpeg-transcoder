@@ -185,7 +185,7 @@ export default function App() {
       })
       .catch((err) => {
         console.error(err);
-        navigate("settings");
+        navigate("/settings");
       })
       .finally(() => {
         setLoading(false);
