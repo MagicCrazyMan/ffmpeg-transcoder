@@ -8,7 +8,7 @@ use tauri::Manager;
 use tokio::sync::Mutex;
 
 use crate::handlers::{
-    commands::task::TaskParams,
+    commands::task::TaskArgs,
     tasks::message::{TaskMessage, TASK_MESSAGE_EVENT},
 };
 
@@ -19,7 +19,7 @@ pub struct TaskData {
     pub id: String,
     pub ffmpeg_program: String,
     pub ffprobe_program: String,
-    pub params: TaskParams,
+    pub args: TaskArgs,
     pub app_handle: tauri::AppHandle,
 }
 
@@ -38,7 +38,7 @@ impl Task {
         app_handle: tauri::AppHandle,
         ffmpeg_program: String,
         ffprobe_program: String,
-        params: TaskParams,
+        args: TaskArgs,
         store: Weak<Mutex<HashMap<String, Task>>>,
     ) -> Self {
         Self {
@@ -46,7 +46,7 @@ impl Task {
                 id,
                 ffmpeg_program,
                 ffprobe_program,
-                params,
+                args,
                 app_handle,
             }),
             state: Arc::new(Mutex::new(Some(Box::new(Idle)))),

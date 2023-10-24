@@ -85,6 +85,10 @@
         "width": 1024,
         "height": 720
       }
-    ]
+    ],
+    "systemTray": {
+      "iconPath": "icons/icon.ico",
+      "iconAsTemplate": true
+    }
   }
 }

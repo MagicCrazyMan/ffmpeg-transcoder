@@ -4,7 +4,7 @@ import dayjs from "dayjs";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { HistoryTask } from "../libs/history";
-import { TaskInputParams, TaskOutputParams } from "../libs/task";
+import { TaskArgsItem } from "../libs/task";
 import { useHistoryStore } from "../store/history";
 import { useTaskStore } from "../store/task";
 
@@ -12,11 +12,11 @@ const FileItem = ({ path }: { path?: string }) => {
   return <span className="flex-1">{path ?? "NULL"}</span>;
 };
 
-const FilesList = ({ params }: { params: TaskInputParams[] | TaskOutputParams[] }) => {
-  if (params.length === 1) {
-    return <FileItem path={params[0].path} />;
+const FilesList = ({ args }: { args: TaskArgsItem[] }) => {
+  if (args.length === 1) {
+    return <FileItem path={args[0].path} />;
   } else {
-    const paths = params.map((param, index) => (
+    const paths = args.map((param, index) => (
       <li key={index}>
         <FileItem path={param.path} />
       </li>
@@ -36,19 +36,19 @@ export default function HistoryPage() {
   const [selectedRows, setSelectedRows] = useState<HistoryTask[]>([]);
 
   const handleAddTasks = (tasks: HistoryTask[]) => {
-    const params = tasks.map(({ params }) => params);
-    addTasks(...params);
+    const args = tasks.map(({ args }) => args);
+    addTasks(...args);
     navigate("/tasks");
   };
 
   const tableCols: TableColumnProps<HistoryTask>[] = [
     {
       title: "Inputs",
-      render: (_, task) => <FilesList params={task.params.inputs} />,
+      render: (_, task) => <FilesList args={task.args.inputs} />,
     },
     {
       title: "Outputs",
-      render: (_, task) => <FilesList params={task.params.outputs} />,
+      render: (_, task) => <FilesList args={task.args.outputs} />,
     },
     {
       title: "Creation Time",

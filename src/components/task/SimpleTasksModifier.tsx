@@ -4,14 +4,13 @@ import { open } from "@tauri-apps/api/dialog";
 import { join, sep } from "@tauri-apps/api/path";
 import { useCallback, useMemo, useState } from "react";
 import { v4 } from "uuid";
-import { TaskParamsModifyingValue } from ".";
 import { PresetType } from "../../libs/preset";
-import { TaskInputParams, TaskOutputParams, TaskParams, TaskParamsSource } from "../../libs/task";
+import { TaskArgs, TaskArgsSource } from "../../libs/task";
+import { ModifyingTaskArgsItem, toTaskArgs } from "../../libs/task/modifying";
 import { useAppStore } from "../../store/app";
 import { usePresetStore } from "../../store/preset";
 import { useTaskStore } from "../../store/task";
-import { toTaskParams } from "../../utils";
-import CodecModifier, { TaskParamsCodecValue } from "./CodecModifier";
+import CodecModifier from "./CodecModifier";
 import OutputFileModifier from "./OutputFileModifier";
 
 export type SimpleTasksAddingProps = {
@@ -19,22 +18,20 @@ export type SimpleTasksAddingProps = {
   onVisibleChange: (visible: boolean) => void;
 };
 
-type SimpleTaskParams = {
+type SimpleTaskArgs = {
   id: string;
-  input: TaskParamsModifyingValue;
-  output: TaskParamsModifyingValue;
+  input: ModifyingTaskArgsItem;
+  output: ModifyingTaskArgsItem;
 };
 
 const Footer = ({
   records,
   onVisibleChange,
 }: {
-  records: SimpleTaskParams[];
+  records: SimpleTaskArgs[];
   onVisibleChange: (visible: boolean) => void;
 }) => {
   const { addTasks } = useTaskStore();
-  const presets = usePresetStore((state) => state.storage.presets);
-
   const modified = useMemo(() => records.length !== 0, [records]);
 
   const onCancel = () => onVisibleChange(false);
@@ -43,9 +40,9 @@ const Footer = ({
       ...records.map(
         (record) =>
           ({
-            inputs: [toTaskParams(record.input, presets) as TaskInputParams],
-            outputs: [toTaskParams(record.output, presets) as TaskOutputParams],
-          }) as TaskParams
+            inputs: [toTaskArgs(record.input)],
+            outputs: [toTaskArgs(record.output)],
+          }) as TaskArgs
       )
     );
     onVisibleChange(false);
@@ -76,7 +73,7 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
   const { configuration, openDialogFilters } = useAppStore();
   const { storage } = usePresetStore();
 
-  const [tasks, setTasks] = useState<SimpleTaskParams[]>([]);
+  const [tasks, setTasks] = useState<SimpleTaskArgs[]>([]);
 
   /**
    * Add input files vis Tauri
@@ -102,14 +99,14 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
           input: {
             id: v4(),
             path: file,
-            selection: storage.defaultDecode ?? TaskParamsSource.Auto,
+            selection: storage.defaultDecode ?? TaskArgsSource.Auto,
           },
           output: {
             id: v4(),
             path: defaultOutputPath,
-            selection: storage.defaultEncode ?? TaskParamsSource.Auto,
+            selection: storage.defaultEncode ?? TaskArgsSource.Auto,
           },
-        } as SimpleTaskParams;
+        } as SimpleTaskArgs;
       });
       const records = await Promise.all(promises);
       setTasks((state) => [...state, ...records]);
@@ -138,10 +135,10 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
   }, []);
 
   /**
-   * On change input or output params
+   * On change input or output args
    */
   const onChange = useCallback(
-    (id: string, values: Partial<TaskParamsCodecValue>, type: "input" | "output") => {
+    (id: string, values: Partial<ModifyingTaskArgsItem>, type: "input" | "output") => {
       setTasks((state) =>
         state.map((task) => {
           if (task[type].id !== id) {
@@ -161,23 +158,23 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
     [setTasks]
   );
   const onChangeInputs = useCallback(
-    (id: string, values: Partial<TaskParamsCodecValue>) => {
+    (id: string, values: Partial<ModifyingTaskArgsItem>) => {
       onChange(id, values, "input");
     },
     [onChange]
   );
   const onChangeOutputs = useCallback(
-    (id: string, values: Partial<TaskParamsCodecValue>) => {
+    (id: string, values: Partial<ModifyingTaskArgsItem>) => {
       onChange(id, values, "output");
     },
     [onChange]
   );
 
   /**
-   * On apply one input or output params to all
+   * On apply one input or output args to all
    */
   const onApplyAll = useCallback(
-    ({ id, selection, custom }: TaskParamsCodecValue, type: "input" | "output") => {
+    ({ id, selection, custom }: ModifyingTaskArgsItem, type: "input" | "output") => {
       setTasks((state) =>
         state.map((task) => {
           if (task[type].id === id) {
@@ -191,23 +188,23 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
     [setTasks]
   );
   const onApplyAllInputs = useCallback(
-    (params: TaskParamsCodecValue) => {
-      onApplyAll(params, "input");
+    (args: ModifyingTaskArgsItem) => {
+      onApplyAll(args, "input");
     },
     [onApplyAll]
   );
   const onApplyAllOutputs = useCallback(
-    (params: TaskParamsCodecValue) => {
-      onApplyAll(params, "output");
+    (args: ModifyingTaskArgsItem) => {
+      onApplyAll(args, "output");
     },
     [onApplyAll]
   );
 
   /**
-   * On apply one input or output params as custom
+   * On apply one input or output args as custom
    */
   const onConvertCustom = useCallback(
-    ({ id, selection }: TaskParamsCodecValue, type: "input" | "output") => {
+    ({ id, selection }: ModifyingTaskArgsItem, type: "input" | "output") => {
       setTasks((state) =>
         state.map((task) => {
           if (task[type].id !== id) {
@@ -217,8 +214,8 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
               ...task,
               [type]: {
                 ...task[type],
-                selection: TaskParamsSource.Custom,
-                custom: storage.presets.find((preset) => preset.id === selection)?.params.join(" "),
+                selection: TaskArgsSource.Custom,
+                custom: storage.presets.find((preset) => preset.id === selection)?.args.join(" "),
               },
             };
           }
@@ -228,14 +225,14 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
     [storage.presets, setTasks]
   );
   const onConvertCustomInputs = useCallback(
-    (params: TaskParamsCodecValue) => {
-      onConvertCustom(params, "input");
+    (args: ModifyingTaskArgsItem) => {
+      onConvertCustom(args, "input");
     },
     [onConvertCustom]
   );
   const onConvertCustomOutputs = useCallback(
-    (params: TaskParamsCodecValue) => {
-      onConvertCustom(params, "output");
+    (args: ModifyingTaskArgsItem) => {
+      onConvertCustom(args, "output");
     },
     [onConvertCustom]
   );
@@ -250,14 +247,14 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
     [setTasks]
   );
 
-  const columns: TableColumnProps<SimpleTaskParams>[] = useMemo(
+  const columns: TableColumnProps<SimpleTaskArgs>[] = useMemo(
     () => [
       {
         title: "Input File",
         render: (_col, task) => task.input.path ?? "NULL",
       },
       {
-        title: "Decode Params",
+        title: "Decode Arguments",
         width: "20%",
         render: (_col, task) => (
           <CodecModifier
@@ -273,13 +270,13 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
         title: "Output File",
         render: (_col, task) => (
           <OutputFileModifier
-            params={task.output}
+            args={task.output}
             onChange={(path) => onOutputFileChange(task.id, path)}
           />
         ),
       },
       {
-        title: "Encode Params",
+        title: "Encode Arguments",
         width: "20%",
         render: (_col, task) => (
           <CodecModifier

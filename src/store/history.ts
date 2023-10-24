@@ -67,10 +67,10 @@ export const useHistoryStore = create<HistoryState>((set, _get, api) => {
           ...storage,
           tasks: [
             ...storage.tasks,
-            ...tasks.map(({ creationTime, id, params }) => ({
+            ...tasks.map(({ creationTime, id, args }) => ({
               id,
               creationTime,
-              params: cloneDeep(params),
+              args: cloneDeep(args),
             })),
           ],
         },

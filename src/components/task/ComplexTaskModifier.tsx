@@ -3,14 +3,13 @@ import { IconDelete } from "@arco-design/web-react/icon";
 import { open, save } from "@tauri-apps/api/dialog";
 import { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
 import { v4 } from "uuid";
-import { TaskParamsModifyingValue } from ".";
 import { PresetType } from "../../libs/preset";
-import { Task, TaskInputParams, TaskOutputParams, TaskParamsSource } from "../../libs/task";
+import { Task, TaskArgsSource } from "../../libs/task";
+import { ModifyingTaskArgsItem, fromTaskArgs, toTaskArgs } from "../../libs/task/modifying";
 import { useAppStore } from "../../store/app";
 import { usePresetStore } from "../../store/preset";
 import { useTaskStore } from "../../store/task";
-import { fromTaskParams, toTaskParams } from "../../utils";
-import CodecModifier, { TaskParamsCodecValue } from "./CodecModifier";
+import CodecModifier from "./CodecModifier";
 import OutputFileModifier from "./OutputFileModifier";
 
 export type ComplexTaskModifierProps = {
@@ -25,20 +24,20 @@ const UniverseTable = ({
   setRecords,
 }: {
   type: "input" | "output";
-  records: TaskParamsModifyingValue[];
-  setRecords: Dispatch<SetStateAction<TaskParamsModifyingValue[]>>;
+  records: ModifyingTaskArgsItem[];
+  setRecords: Dispatch<SetStateAction<ModifyingTaskArgsItem[]>>;
 }) => {
   const presets = usePresetStore((state) => state.storage.presets);
 
   const filesTitle = useMemo(() => (type === "input" ? "Input Files" : "Output Files"), [type]);
-  const paramsTitle = useMemo(() => (type === "input" ? "Decode Params" : "Encode Params"), [type]);
+  const argsTitle = useMemo(() => (type === "input" ? "Decode Arguments" : "Encode Arguments"), [type]);
   const presetType = useMemo(
     () => (type === "input" ? PresetType.Decode : PresetType.Encode),
     [type]
   );
 
   const onChange = useCallback(
-    (id: string, values: Partial<TaskParamsCodecValue>) => {
+    (id: string, values: Partial<ModifyingTaskArgsItem>) => {
       setRecords((state) =>
         state.map((record) => {
           if (record.id === id) {
@@ -56,7 +55,7 @@ const UniverseTable = ({
   );
 
   const onApplyAll = useCallback(
-    ({ id, selection, custom }: TaskParamsCodecValue) => {
+    ({ id, selection, custom }: ModifyingTaskArgsItem) => {
       setRecords((state) =>
         state.map((record) => {
           if (record.id === id) {
@@ -71,14 +70,14 @@ const UniverseTable = ({
   );
 
   const onConvertCustom = useCallback(
-    ({ id, selection }: TaskParamsCodecValue) => {
+    ({ id, selection }: ModifyingTaskArgsItem) => {
       setRecords((state) =>
         state.map((record) => {
           if (record.id === id) {
             return {
               ...record,
-              selection: TaskParamsSource.Custom,
-              custom: presets.find((preset) => preset.id === selection)?.params.join(" "),
+              selection: TaskArgsSource.Custom,
+              custom: presets.find((preset) => preset.id === selection)?.args.join(" "),
             };
           } else {
             return record;
@@ -97,7 +96,7 @@ const UniverseTable = ({
   );
 
   const onOutputFileChange = useCallback(
-    (id: string, path: string) => {
+    (id: string, path?: string) => {
       setRecords((state) =>
         state.map((record) => {
           if (record.id === id) {
@@ -114,7 +113,7 @@ const UniverseTable = ({
     [setRecords]
   );
 
-  const columns: TableColumnProps<TaskParamsModifyingValue>[] = useMemo(
+  const columns: TableColumnProps<ModifyingTaskArgsItem>[] = useMemo(
     () => [
       {
         title: filesTitle,
@@ -125,7 +124,7 @@ const UniverseTable = ({
           } else {
             return (
               <OutputFileModifier
-                params={record}
+                args={record}
                 onChange={(path) => onOutputFileChange(record.id, path)}
               />
             );
@@ -133,7 +132,7 @@ const UniverseTable = ({
         },
       },
       {
-        title: paramsTitle,
+        title: argsTitle,
         ellipsis: true,
         render: (_col, record) => (
           <CodecModifier
@@ -163,7 +162,7 @@ const UniverseTable = ({
     ],
     [
       filesTitle,
-      paramsTitle,
+      argsTitle,
       type,
       onOutputFileChange,
       presetType,
@@ -195,30 +194,29 @@ const Footer = ({
 }: {
   task?: Task;
   modified: boolean;
-  inputs: TaskParamsModifyingValue[];
-  outputs: TaskParamsModifyingValue[];
+  inputs: ModifyingTaskArgsItem[];
+  outputs: ModifyingTaskArgsItem[];
   onVisibleChange: (visible: boolean) => void;
 }) => {
   const { addTasks, updateTask } = useTaskStore();
-  const presets = usePresetStore((state) => state.storage.presets);
 
   const onCancel = () => onVisibleChange(false);
   const onSubmit = () => {
-    const params = {
-      inputs: inputs.map((input) => toTaskParams(input, presets) as TaskInputParams),
-      outputs: outputs.map((output) => toTaskParams(output, presets) as TaskOutputParams),
+    const args = {
+      inputs: inputs.map((input) => toTaskArgs(input)),
+      outputs: outputs.map((output) => toTaskArgs(output)),
     };
     if (task) {
       updateTask(task.id, {
         data: {
           ...task.data,
-          params,
+          args,
           metadata: [],
           durations: [],
         },
       });
     } else {
-      addTasks(params);
+      addTasks(args);
     }
     onVisibleChange(false);
   };
@@ -245,54 +243,38 @@ const Footer = ({
 };
 
 export default function ComplexTaskModifier({
+  task,
   visible,
   onVisibleChange,
-  task,
 }: ComplexTaskModifierProps) {
   const { configuration, openDialogFilters, saveDialogFilters } = useAppStore();
   const { storage } = usePresetStore();
 
-  const [inputs, setInputs] = useState<TaskParamsModifyingValue[]>([]);
-  const [outputs, setOutputs] = useState<TaskParamsModifyingValue[]>([]);
+  const [inputs, setInputs] = useState<ModifyingTaskArgsItem[]>([]);
+  const [outputs, setOutputs] = useState<ModifyingTaskArgsItem[]>([]);
   const [modified, setModified] = useState(false);
 
-  const wrappedSetInputs = useCallback(
-    (s: SetStateAction<TaskParamsModifyingValue[]>) => {
-      setInputs(s);
-      setModified(true);
-    },
-    [setInputs, setModified]
-  );
-  const wrappedSetOutputs = useCallback(
-    (s: SetStateAction<TaskParamsModifyingValue[]>) => {
-      setOutputs(s);
-      setModified(true);
-    },
-    [setOutputs, setModified]
-  );
+  /**
+   * Sets as modified when inputs or outputs change
+   */
+  useEffect(() => {
+    setModified(true);
+  }, [inputs, outputs]);
 
   /**
    * Updates inputs, outputs and modified state when task change
    */
   useEffect(() => {
     if (task) {
-      setInputs(
-        task.data.params.inputs.map(
-          (input) => fromTaskParams(input, storage.presets) as TaskParamsModifyingValue
-        )
-      );
-      setOutputs(
-        task.data.params.outputs.map(
-          (output) => fromTaskParams(output, storage.presets) as TaskParamsModifyingValue
-        )
-      );
+      setInputs(task.data.args.inputs.map((input) => fromTaskArgs(input)));
+      setOutputs(task.data.args.outputs.map((output) => fromTaskArgs(output)));
       setModified(false);
     } else {
       setInputs([]);
       setOutputs([]);
       setModified(false);
     }
-  }, [task, storage.presets]);
+  }, [task]);
 
   /**
    * Reset to unmodified if inputs and outputs both fallback to empty when adding new task
@@ -315,12 +297,12 @@ export default function ComplexTaskModifier({
     })) as string[] | null;
 
     if (files) {
-      const inputs: TaskParamsModifyingValue[] = files.map((file) => ({
+      const inputs: ModifyingTaskArgsItem[] = files.map((file) => ({
         id: v4(),
         path: file,
-        selection: storage.defaultDecode ?? TaskParamsSource.Auto,
+        selection: storage.defaultDecode ?? TaskArgsSource.Auto,
       }));
-      wrappedSetInputs((state) => [...state, ...inputs]);
+      setInputs((state) => [...state, ...inputs]);
     }
   };
 
@@ -335,12 +317,12 @@ export default function ComplexTaskModifier({
     });
 
     if (file) {
-      const output: TaskParamsModifyingValue = {
+      const output: ModifyingTaskArgsItem = {
         id: v4(),
         path: file,
-        selection: storage.defaultEncode ?? TaskParamsSource.Auto,
+        selection: storage.defaultEncode ?? TaskArgsSource.Auto,
       };
-      wrappedSetOutputs((state) => [...state, { ...output }]);
+      setOutputs((state) => [...state, { ...output }]);
     }
   };
 
@@ -348,12 +330,12 @@ export default function ComplexTaskModifier({
    * Add NULL output
    */
   const addNullOutput = () => {
-    const output: TaskParamsModifyingValue = {
+    const output: ModifyingTaskArgsItem = {
       id: v4(),
-      selection: storage.defaultEncode ?? TaskParamsSource.Auto,
+      selection: storage.defaultEncode ?? TaskArgsSource.Auto,
     };
 
-    wrappedSetOutputs((state) => [...state, { ...output }]);
+    setOutputs((state) => [...state, { ...output }]);
   };
 
   return (
@@ -402,11 +384,11 @@ export default function ComplexTaskModifier({
 
       {/* Input Files Table */}
       <div className="mb-4">
-        <UniverseTable type="input" records={inputs} setRecords={wrappedSetInputs}></UniverseTable>
+        <UniverseTable type="input" records={inputs} setRecords={setInputs}></UniverseTable>
       </div>
 
       {/* Output Files Table */}
-      <UniverseTable type="output" records={outputs} setRecords={wrappedSetOutputs}></UniverseTable>
+      <UniverseTable type="output" records={outputs} setRecords={setOutputs}></UniverseTable>
     </Modal>
   );
 }

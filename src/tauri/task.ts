@@ -2,53 +2,44 @@
 import { invoke } from "@tauri-apps/api";
 import { Metadata } from "../libs/metadata";
 import { Preset } from "../libs/preset";
-import { TaskInputParams, TaskOutputParams, TaskParams, TaskParamsSource } from "../libs/task";
+import { TaskArgs, TaskArgsItem, TaskArgsSource } from "../libs/task";
 import type {
   ConfigurationNotLoadedError,
-  FFprobeRuntimeError,
   FFmpegNotFoundError,
   FFmpegUnavailableError,
   FFprobeNotFoundError,
+  FFprobeRuntimeError,
   FFprobeUnavailableError,
+  TaskExistingError,
   TaskNotFoundError,
-  TaskExistingError
 } from "./error";
 
-type NormalizedTaskParams = {
-  inputs: NormalizedTaskInputParams[];
-  outputs: NormalizedTaskOutputParams[];
+type NormalizedTaskArgs = {
+  inputs: NormalizedTaskArgsItem[];
+  outputs: NormalizedTaskArgsItem[];
 };
 
-type NormalizedTaskInputParams = {
-  path: string;
-  params: string[];
-};
-
-type NormalizedTaskOutputParams = {
+type NormalizedTaskArgsItem = {
   path?: string;
-  params: string[];
+  args: string[];
 };
 
-const normalizeTaskParams = ({
-  source,
-  path,
-  params,
-}: TaskInputParams | TaskOutputParams): NormalizedTaskInputParams | NormalizedTaskOutputParams => {
+const normalizeTaskArgs = ({ source, path, args }: TaskArgsItem): NormalizedTaskArgsItem => {
   switch (source) {
-    case TaskParamsSource.Auto:
+    case TaskArgsSource.Auto:
       return {
         path,
-        params: [],
+        args: [],
       };
-    case TaskParamsSource.Custom:
+    case TaskArgsSource.Custom:
       return {
         path,
-        params: params as string[],
+        args: args as string[],
       };
-    case TaskParamsSource.FromPreset: {
+    case TaskArgsSource.FromPreset: {
       return {
         path,
-        params: (params as Preset).params,
+        args: (args as Preset).args,
       };
     }
   }
@@ -67,15 +58,15 @@ const normalizeTaskParams = ({
  * - {@link FFmpegUnavailableError} if ffmpeg program unavailable
  *
  * @param id Task id
- * @param params Task params
+ * @param args Task args
  */
-export const startTask = async (id: string, params: TaskParams) => {
+export const startTask = async (id: string, args: TaskArgs) => {
   return await invoke<void>("start_task", {
     id,
-    params: {
-      inputs: params.inputs.map((input) => normalizeTaskParams(input)),
-      outputs: params.outputs.map((input) => normalizeTaskParams(input)),
-    } as NormalizedTaskParams,
+    args: {
+      inputs: args.inputs.map((input) => normalizeTaskArgs(input)),
+      outputs: args.outputs.map((input) => normalizeTaskArgs(input)),
+    } as NormalizedTaskArgs,
   });
 };
 

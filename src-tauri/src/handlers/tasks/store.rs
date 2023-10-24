@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use tokio::sync::Mutex;
 
-use crate::handlers::{commands::task::TaskParams, error::Error};
+use crate::handlers::{commands::task::TaskArgs, error::Error};
 
 use super::task::Task;
 
@@ -47,7 +47,7 @@ impl TaskStore {
     pub async fn start(
         &self,
         id: String,
-        params: TaskParams,
+        args: TaskArgs,
         app_handle: tauri::AppHandle,
         ffmpeg_program: String,
         ffprobe_program: String,
@@ -62,7 +62,7 @@ impl TaskStore {
             app_handle,
             ffmpeg_program,
             ffprobe_program,
-            params,
+            args,
             Arc::downgrade(&self.store),
         );
         store.insert(id, task.clone());

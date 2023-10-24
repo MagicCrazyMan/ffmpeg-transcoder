@@ -1,11 +1,10 @@
 import { assignIn, cloneDeep } from "lodash";
 import { v4 } from "uuid";
 import { create } from "zustand";
-import { TaskParamsModifyingValue } from "../components/task";
-import { TaskParamsCodecValue } from "../components/task/CodecModifier";
+import { TaskArgsSource } from "../libs/task";
+import { ModifyingTaskArgsItem } from "../libs/task/modifying";
 import { Search, SearchDirectory, SearchFile, searchDirectory } from "../tauri/fs";
 import { usePresetStore } from "./preset";
-import { TaskParamsSource } from "../libs/task";
 
 export type SearchStoreState = {
   /**
@@ -141,24 +140,24 @@ export type SearchStoreState = {
   selectedRowKeysSet: Set<string>;
   setSelectedRowKeys: (selectedRowKeys: string[]) => void;
   /**
-   * A hash map maps inputId of search file node to an editable task params
+   * A hash map maps inputId of search file node to an editable task args
    */
-  inputParamsMap: Map<string, TaskParamsModifyingValue>;
-  setInputParamsMap: (
-    inputParamsMap:
-      | Map<string, TaskParamsModifyingValue>
-      | ((state: Map<string, TaskParamsModifyingValue>) => Map<string, TaskParamsModifyingValue>)
+  inputArgsMap: Map<string, ModifyingTaskArgsItem>;
+  setInputArgsMap: (
+    inputArgsMap:
+      | Map<string, ModifyingTaskArgsItem>
+      | ((state: Map<string, ModifyingTaskArgsItem>) => Map<string, ModifyingTaskArgsItem>)
   ) => void;
   /**
-   * A hash map maps outputId of search file node to an editable task params.
+   * A hash map maps outputId of search file node to an editable task args
    *
-   * If `path` of output params is falsy, `inputDir` + `relative` will be used as path.
+   * If `path` of output args is falsy, `inputDir` + `relative` will be used as path.
    */
-  outputParamsMap: Map<string, TaskParamsModifyingValue>;
-  setOutputParamsMap: (
-    outputParamsMap:
-      | Map<string, TaskParamsModifyingValue>
-      | ((state: Map<string, TaskParamsModifyingValue>) => Map<string, TaskParamsModifyingValue>)
+  outputArgsMap: Map<string, ModifyingTaskArgsItem>;
+  setOutputArgsMap: (
+    outputArgsMap:
+      | Map<string, ModifyingTaskArgsItem>
+      | ((state: Map<string, ModifyingTaskArgsItem>) => Map<string, ModifyingTaskArgsItem>)
   ) => void;
 };
 
@@ -360,31 +359,31 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
     });
   };
 
-  const setInputParamsMap = (
-    inputParamsMap:
-      | Map<string, TaskParamsCodecValue>
-      | ((state: Map<string, TaskParamsCodecValue>) => Map<string, TaskParamsCodecValue>)
+  const setInputArgsMap = (
+    inputArgsMap:
+      | Map<string, ModifyingTaskArgsItem>
+      | ((state: Map<string, ModifyingTaskArgsItem>) => Map<string, ModifyingTaskArgsItem>)
   ) => {
-    if (typeof inputParamsMap === "function") {
+    if (typeof inputArgsMap === "function") {
       set((state) => ({
-        inputParamsMap: inputParamsMap(state.inputParamsMap),
+        inputArgsMap: inputArgsMap(state.inputArgsMap),
       }));
     } else {
-      set({ inputParamsMap });
+      set({ inputArgsMap: inputArgsMap });
     }
   };
 
-  const setOutputParamsMap = (
-    outputParamsMap:
-      | Map<string, TaskParamsCodecValue>
-      | ((state: Map<string, TaskParamsCodecValue>) => Map<string, TaskParamsCodecValue>)
+  const setOutputArgsMap = (
+    outputArgsMap:
+      | Map<string, ModifyingTaskArgsItem>
+      | ((state: Map<string, ModifyingTaskArgsItem>) => Map<string, ModifyingTaskArgsItem>)
   ) => {
-    if (typeof outputParamsMap === "function") {
+    if (typeof outputArgsMap === "function") {
       set((state) => ({
-        outputParamsMap: outputParamsMap(state.outputParamsMap),
+        outputArgsMap: outputArgsMap(state.outputArgsMap),
       }));
     } else {
-      set({ outputParamsMap });
+      set({ outputArgsMap: outputArgsMap });
     }
   };
 
@@ -433,8 +432,8 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
           expendedRowKeys: filesCount + directoriesCount <= 100 ? expendedRowKeys : [],
           selectedRowKeys: [],
           selectedRowKeysSet: new Set(),
-          inputParamsMap: new Map(),
-          outputParamsMap: new Map(),
+          inputArgsMap: new Map(),
+          outputArgsMap: new Map(),
         });
       } else {
         set({
@@ -445,28 +444,28 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
           expendedRowKeys: [],
           selectedRowKeys: [],
           selectedRowKeysSet: new Set(),
-          inputParamsMap: new Map(),
-          outputParamsMap: new Map(),
+          inputArgsMap: new Map(),
+          outputArgsMap: new Map(),
         });
       }
     }
   });
 
   /**
-   * Cleans params only when search directory
+   * Cleans args only when search directory
    */
   api.subscribe((state, prevState) => {
     if (state.search !== prevState.search) {
       set({
-        inputParamsMap: new Map(),
-        outputParamsMap: new Map(),
+        inputArgsMap: new Map(),
+        outputArgsMap: new Map(),
       });
     }
   });
 
   /**
-   * Updates task params when selected row keys change.
-   * Creates new params if one never selected before,
+   * Updates task args when selected row keys change.
+   * Creates new args if one never selected before,
    * but not deletes when unselecting.
    */
   api.subscribe((state, prevState) => {
@@ -474,29 +473,29 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
       if (state.selectedRowKeys.length === 0) return;
 
       const { storage } = usePresetStore.getState();
-      const inputParamsMap = new Map(state.inputParamsMap);
-      const outputParamsMap = new Map(state.outputParamsMap);
+      const inputArgsMap = new Map(state.inputArgsMap);
+      const outputArgsMap = new Map(state.outputArgsMap);
 
       state.selectedRowKeys.forEach((key) => {
         const node = state.nodeMap.get(key);
         if (!node || node.type !== "File") return;
 
-        if (!state.inputParamsMap.has(node.inputId)) {
-          inputParamsMap.set(node.inputId, {
+        if (!state.inputArgsMap.has(node.inputId)) {
+          inputArgsMap.set(node.inputId, {
             id: node.inputId,
-            selection: storage.defaultDecode ?? TaskParamsSource.Auto,
+            selection: storage.defaultDecode ?? TaskArgsSource.Auto,
           });
         }
 
-        if (!state.outputParamsMap.has(node.outputId)) {
-          outputParamsMap.set(node.outputId, {
+        if (!state.outputArgsMap.has(node.outputId)) {
+          outputArgsMap.set(node.outputId, {
             id: node.outputId,
-            selection: storage.defaultEncode ?? TaskParamsSource.Auto,
+            selection: storage.defaultEncode ?? TaskArgsSource.Auto,
           });
         }
       });
 
-      set({ inputParamsMap, outputParamsMap });
+      set({ inputArgsMap: inputArgsMap, outputArgsMap: outputArgsMap });
     }
   });
 
@@ -544,10 +543,10 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
     selectedRowKeys: [],
     selectedRowKeysSet: new Set(),
     setSelectedRowKeys,
-    inputParamsMap: new Map(),
-    setInputParamsMap,
-    outputParamsMap: new Map(),
-    setOutputParamsMap,
+    inputArgsMap: new Map(),
+    setInputArgsMap,
+    outputArgsMap: new Map(),
+    setOutputArgsMap,
   };
 });
 

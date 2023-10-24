@@ -88,20 +88,20 @@ const EditingTypeCell = () => {
 };
 
 /**
- * Params field and its editing cell
+ * Arguments field and its editing cell
  */
-const ParamsCell = ({ preset }: { preset: PresetInTable }) => {
-  const tags = preset.params.map((param, index) => <Tag key={`${param}_${index}`}>{param}</Tag>);
+const ArgumentsCell = ({ preset }: { preset: PresetInTable }) => {
+  const tags = preset.args.map((param, index) => <Tag key={`${param}_${index}`}>{param}</Tag>);
   return (
     <Space wrap size="mini">
       {tags}
     </Space>
   );
 };
-const EditingParamsCell = ({ submit, preset }: { submit: () => void; preset: PresetInTable }) => {
+const EditingArgumentsCell = ({ submit, preset }: { submit: () => void; preset: PresetInTable }) => {
   return (
     <Form.Item
-      field="params"
+      field="args"
       formatter={(value: string | undefined) =>
         (value as unknown as string[] | undefined)?.join(" ")
       }
@@ -165,7 +165,7 @@ export default function EditableCell(props: CellProps) {
             ...rowData,
             ...partial,
             // remove all empty values
-            params: partial.params ? partial.params.filter((param) => !!param) : rowData.params,
+            args: partial.args ? partial.args.filter((param) => !!param) : rowData.args,
           });
         }
 
@@ -215,8 +215,8 @@ export default function EditableCell(props: CellProps) {
       case "type":
         cell = <EditingTypeCell />;
         break;
-      case "params":
-        cell = <EditingParamsCell submit={submit} preset={rowData} />;
+      case "args":
+        cell = <EditingArgumentsCell submit={submit} preset={rowData} />;
         break;
       case "extension":
         cell = <EditingExtensionCell submit={submit} preset={rowData} />;
@@ -236,8 +236,8 @@ export default function EditableCell(props: CellProps) {
       case "type":
         cell = <TypeCell preset={rowData} />;
         break;
-      case "params":
-        cell = <ParamsCell preset={rowData} />;
+      case "args":
+        cell = <ArgumentsCell preset={rowData} />;
         break;
       case "extension":
         cell = <ExtensionCell preset={rowData} />;

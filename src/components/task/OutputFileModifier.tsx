@@ -2,16 +2,16 @@ import { Button, Tooltip, Typography } from "@arco-design/web-react";
 import { IconFolder } from "@arco-design/web-react/icon";
 import { save } from "@tauri-apps/api/dialog";
 import { useCallback } from "react";
-import { TaskParamsModifyingValue } from ".";
-import { TaskParamsSource } from "../../libs/task";
+import { TaskArgsSource } from "../../libs/task";
 import { useAppStore } from "../../store/app";
 import { usePresetStore } from "../../store/preset";
+import { ModifyingTaskArgsItem } from "../../libs/task/modifying";
 
 export default function OutputFileModifier({
-  params,
+  args,
   onChange,
 }: {
-  params: TaskParamsModifyingValue;
+  args: ModifyingTaskArgsItem;
   onChange: (file: string) => void;
 }) {
   const { configuration, saveDialogFilters } = useAppStore();
@@ -22,8 +22,8 @@ export default function OutputFileModifier({
    */
   const onSelectOutputFile = useCallback(async () => {
     const preset =
-      params.selection !== TaskParamsSource.Auto && params.selection !== TaskParamsSource.Custom
-        ? storage.presets.find((preset) => preset.id === params.selection)
+      args.selection !== TaskArgsSource.Auto && args.selection !== TaskArgsSource.Custom
+        ? storage.presets.find((preset) => preset.id === args.selection)
         : undefined;
 
     const file = await save({
@@ -37,7 +37,7 @@ export default function OutputFileModifier({
     if (file) {
       onChange(file);
     }
-  }, [configuration.saveDirectory, onChange, params.selection, saveDialogFilters, storage.presets]);
+  }, [configuration.saveDirectory, onChange, args.selection, saveDialogFilters, storage.presets]);
 
   return (
     <div className="flex gap-2 items-center">
@@ -61,7 +61,7 @@ export default function OutputFileModifier({
         className="flex-1"
         style={{ margin: "0" }}
       >
-        {params?.path ?? "NULL"}
+        {args?.path ?? "NULL"}
       </Typography.Text>
     </div>
   );

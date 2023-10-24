@@ -84,12 +84,12 @@ export class Idle extends TaskState {
     }
 
     try {
-      await startTask(task.id, task.data.params);
+      await startTask(task.id, task.data.args);
 
       useHistoryStore.getState().addHistoryTasks({
         id: v4(),
         creationTime: task.data.creationTime,
-        params: task.data.params,
+        args: task.data.args,
       });
 
       return {

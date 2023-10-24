@@ -56,7 +56,7 @@ impl Idle {
     async fn find_max_duration(task: &Task) -> Result<f64, Error> {
         // find maximum duration from all inputs
         let mut total_duration = 0.0;
-        for input in task.data.params.inputs.iter() {
+        for input in task.data.args.inputs.iter() {
             let raw = invoke_ffprobe_json_metadata(&task.data.ffprobe_program, &input.path).await?;
             let obj: Map<String, Value> = match serde_json::from_str(&raw) {
                 Ok(obj) => obj,
@@ -102,7 +102,7 @@ impl Idle {
 
     /// Creates parent directories for all output paths.
     async fn mkdirs(task: &Task) -> Result<(), std::io::Error> {
-        for output in task.data.params.outputs.iter() {
+        for output in task.data.args.outputs.iter() {
             let parent = output.path.as_ref().and_then(|path| {
                 PathBuf::from(path)
                     .parent()
@@ -145,7 +145,7 @@ impl TaskState for Idle {
         };
 
         // startup ffmpeg subprocess
-        let args = task.data.params.to_args();
+        let args = task.data.args.to_cli_args();
         let mut command = create_process(&task.data.ffmpeg_program, &args);
         let process = command
             .stdin(Stdio::piped())

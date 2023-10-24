@@ -7,10 +7,10 @@ import {
   IconRight,
 } from "@arco-design/web-react/icon";
 import { sep } from "@tauri-apps/api/path";
-import { TaskParamsModifyingValue } from "../../components/task";
 import CodecModifier from "../../components/task/CodecModifier";
 import { PresetType } from "../../libs/preset";
-import { TaskParamsSource } from "../../libs/task";
+import { TaskArgsSource } from "../../libs/task";
+import { ModifyingTaskArgsItem } from "../../libs/task/modifying";
 import { usePresetStore } from "../../store/preset";
 import { SearchEntryNode, useSearchStore } from "../../store/search";
 
@@ -44,10 +44,10 @@ export default function SearchFileTable() {
     selectedRowKeys,
     selectedRowKeysSet,
     setSelectedRowKeys,
-    inputParamsMap,
-    setInputParamsMap,
-    outputParamsMap,
-    setOutputParamsMap,
+    inputArgsMap,
+    setInputArgsMap,
+    outputArgsMap,
+    setOutputArgsMap,
   } = useSearchStore();
   const presets = usePresetStore((state) => state.storage.presets);
 
@@ -61,19 +61,19 @@ export default function SearchFileTable() {
       ? [...item.relative, item.name].join(sep)
       : [dir, ...item.relative, item.name].join(sep);
   };
-  const paramsRender = (type: "input" | "output", item: SearchEntryNode) => {
+  const argsRender = (type: "input" | "output", item: SearchEntryNode) => {
     if (item.type !== "File") return;
     if (!selectedRowKeysSet.has(item.absolute)) return;
 
     const id = type === "input" ? item.inputId : item.outputId;
-    const map = type === "input" ? inputParamsMap : outputParamsMap;
-    const params = map.get(id);
-    if (!params) return;
+    const map = type === "input" ? inputArgsMap : outputArgsMap;
+    const args = map.get(id);
+    if (!args) return;
 
     const presetType = type === "input" ? PresetType.Decode : PresetType.Encode;
-    const setter = type === "input" ? setInputParamsMap : setOutputParamsMap;
+    const setter = type === "input" ? setInputArgsMap : setOutputArgsMap;
 
-    const onChange = (id: string, partial: Partial<TaskParamsModifyingValue>) =>
+    const onChange = (id: string, partial: Partial<ModifyingTaskArgsItem>) =>
       setter((state) => {
         const map = new Map(state);
         map.set(id, {
@@ -83,9 +83,9 @@ export default function SearchFileTable() {
         return map;
       });
 
-    const onApplyAll = (record: TaskParamsModifyingValue) => {
+    const onApplyAll = (record: ModifyingTaskArgsItem) => {
       setter((state) => {
-        const map = new Map<string, TaskParamsModifyingValue>();
+        const map = new Map<string, ModifyingTaskArgsItem>();
 
         const entries = state.entries();
         for (let next = entries.next(); !next.done; next = entries.next()) {
@@ -101,9 +101,9 @@ export default function SearchFileTable() {
       });
     };
 
-    const onConvertCustom = (record: TaskParamsModifyingValue) => {
+    const onConvertCustom = (record: ModifyingTaskArgsItem) => {
       setter((state) => {
-        const map = new Map<string, TaskParamsModifyingValue>();
+        const map = new Map<string, ModifyingTaskArgsItem>();
 
         const entries = state.entries();
         for (let next = entries.next(); !next.done; next = entries.next()) {
@@ -111,8 +111,8 @@ export default function SearchFileTable() {
           if (id === record.id) {
             map.set(id, {
               ...value,
-              selection: TaskParamsSource.Custom,
-              custom: presets.find((preset) => preset.id === record.selection)?.params.join(" "),
+              selection: TaskArgsSource.Custom,
+              custom: presets.find((preset) => preset.id === record.selection)?.args.join(" "),
             });
           } else {
             map.set(id, value);
@@ -125,7 +125,7 @@ export default function SearchFileTable() {
     return (
       <CodecModifier
         presetType={presetType}
-        record={params}
+        record={args}
         onChange={onChange}
         onApplyAll={onApplyAll}
         onConvertCustom={onConvertCustom}
@@ -139,16 +139,16 @@ export default function SearchFileTable() {
       render: (_col, item) => pathRender("input", item),
     },
     {
-      title: "Input Params",
-      render: (_col, item) => paramsRender("input", item),
+      title: "Input Arguments",
+      render: (_col, item) => argsRender("input", item),
     },
     {
       title: "Output Files",
       render: (_col, item) => pathRender("output", item),
     },
     {
-      title: "Output Params",
-      render: (_col, item) => paramsRender("output", item),
+      title: "Output Arguments",
+      render: (_col, item) => argsRender("output", item),
     },
   ];
 

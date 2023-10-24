@@ -1,12 +1,10 @@
 import { Button, Input, Select, Tooltip } from "@arco-design/web-react";
 import { IconCopy, IconFilter } from "@arco-design/web-react/icon";
 import { ReactNode } from "react";
-import { TaskParamsModifyingValue } from ".";
 import { Preset, PresetType } from "../../libs/preset";
-import { TaskParamsSource } from "../../libs/task";
+import { TaskArgsSource } from "../../libs/task";
+import { ModifyingTaskArgsItem } from "../../libs/task/modifying";
 import { usePresetStore } from "../../store/preset";
-
-export type TaskParamsCodecValue = Omit<TaskParamsModifyingValue, "path">;
 
 const DecodePresetOptions: ReactNode[] = [];
 const EncodePresetOptions: ReactNode[] = [];
@@ -36,36 +34,33 @@ usePresetStore.subscribe((state, prevState) => {
 });
 
 export type CodecModifierProps = {
-  record: TaskParamsCodecValue;
-  onChange: (id: string, values: Partial<TaskParamsCodecValue>) => void;
+  record: ModifyingTaskArgsItem;
+  onChange: (id: string, values: Partial<ModifyingTaskArgsItem>) => void;
   presetType: PresetType.Decode | PresetType.Encode;
-  onApplyAll?: (record: TaskParamsCodecValue) => void;
-  onConvertCustom?: (record: TaskParamsCodecValue) => void;
-  className?: string;
+  onApplyAll?: (args: ModifyingTaskArgsItem) => void;
+  onConvertCustom?: (args: ModifyingTaskArgsItem) => void;
 };
 
 export default function CodecModifier({
   record,
+  presetType,
   onChange,
   onApplyAll,
   onConvertCustom,
-  presetType,
-  className,
 }: CodecModifierProps) {
   return (
-    <div className={`flex flex-col gap-0.5 ${className ?? ""}`}>
+    <div className="flex flex-col gap-0.5">
       <div className="flex gap-2">
-        {/* Params Source Selector */}
+        {/* Arguments Source Selector */}
         <Select
           autoWidth
           size="mini"
           className="flex-1"
-          style={{ gridArea: "select" }}
           value={record.selection}
-          onChange={(value) => onChange(record.id, { selection: value })}
+          onChange={(selection) => onChange(record.id, { selection })}
         >
-          <Select.Option value={TaskParamsSource.Auto}>Auto</Select.Option>
-          <Select.Option value={TaskParamsSource.Custom}>Custom</Select.Option>
+          <Select.Option value={TaskArgsSource.Auto}>Auto</Select.Option>
+          <Select.Option value={TaskArgsSource.Custom}>Custom</Select.Option>
           {presetType === PresetType.Decode ? DecodePresetOptions : EncodePresetOptions}
         </Select>
 
@@ -77,7 +72,6 @@ export default function CodecModifier({
               size="mini"
               type="primary"
               className="flex-shrink-0"
-              style={{ gridArea: "apply" }}
               icon={<IconCopy />}
               onClick={() => onApplyAll(record)}
             ></Button>
@@ -86,8 +80,8 @@ export default function CodecModifier({
 
         {/* Convert To Custom Button */}
         {onConvertCustom &&
-        record.selection !== TaskParamsSource.Auto &&
-        record.selection !== TaskParamsSource.Custom ? (
+        record.selection !== TaskArgsSource.Auto &&
+        record.selection !== TaskArgsSource.Custom ? (
           <Tooltip content="Convert To Custom">
             <Button
               shape="circle"
@@ -95,7 +89,6 @@ export default function CodecModifier({
               status="warning"
               type="primary"
               className="flex-shrink-0"
-              style={{ gridArea: "custom" }}
               icon={<IconFilter />}
               onClick={() => onConvertCustom(record)}
             ></Button>
@@ -103,14 +96,13 @@ export default function CodecModifier({
         ) : null}
       </div>
 
-      {/* Custom Params Input */}
-      {record.selection === TaskParamsSource.Custom ? (
+      {/* Custom Arguments Input */}
+      {record.selection === TaskArgsSource.Custom ? (
         <Input.TextArea
           autoFocus
           allowClear
-          style={{ gridArea: "input" }}
           value={record.custom}
-          onChange={(value) => onChange(record.id, { custom: value })}
+          onChange={(custom) => onChange(record.id, { custom })}
         ></Input.TextArea>
       ) : null}
     </div>

@@ -8,7 +8,7 @@ export type Preset = {
   id: string;
   type: PresetType;
   name: string;
-  params: string[];
+  args: string[];
   remark?: string;
   extension?: string;
 };

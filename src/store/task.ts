@@ -1,7 +1,7 @@
 import { EventCallback, listen } from "@tauri-apps/api/event";
 import { v4 } from "uuid";
 import { create } from "zustand";
-import { Task, TaskData, TaskParams } from "../libs/task";
+import { Task, TaskData, TaskArgs } from "../libs/task";
 import { TASK_MESSAGE_EVENT, TaskMessage } from "../libs/task/message";
 import {
   Errored,
@@ -18,10 +18,10 @@ export type TaskStoreState = {
    */
   tasks: Task[];
   /**
-   * Adds a new task from specified task params.
-   * @param params Task params
+   * Adds a new task from specified task args
+   * @param args Task args
    */
-  addTasks: (...params: TaskParams[]) => void;
+  addTasks: (...args: TaskArgs[]) => void;
   /**
    * Updates state of a task by id.
    * @param id Task id
@@ -152,15 +152,15 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
 
   return {
     tasks: [],
-    addTasks(...params: TaskParams[]) {
+    addTasks(...args: TaskArgs[]) {
       set((state) => ({
         tasks: [
           ...state.tasks,
-          ...params.map((params) => {
+          ...args.map((args) => {
             return {
               id: v4(),
               data: {
-                params,
+                args: args,
                 durations: [],
                 creationTime: new Date().toISOString(),
                 commanding: false,
@@ -212,7 +212,7 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
                 data: {
                   commanding: false,
                   creationTime: new Date().toISOString(),
-                  params: task.data.params,
+                  args: task.data.args,
                   durations: [],
                 },
               } as Task;

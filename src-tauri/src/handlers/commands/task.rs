@@ -7,27 +7,27 @@ use super::process::invoke_ffprobe_json_metadata;
 
 /// A structure receiving ffmpeg command line arguments.
 #[derive(Debug, serde::Deserialize)]
-pub struct TaskParams {
-    pub inputs: Vec<TaskInputParams>,
-    pub outputs: Vec<TaskOutputParams>,
+pub struct TaskArgs {
+    pub inputs: Vec<TaskInputArgs>,
+    pub outputs: Vec<TaskOutputArgs>,
 }
 
-impl TaskParams {
+impl TaskArgs {
     /// Converts to ffmpeg command line arguments.
-    pub fn to_args(&self) -> Vec<String> {
+    pub fn to_cli_args(&self) -> Vec<String> {
         let prepend_args = with_default_args!("-progress", "-", "-nostats")
             .iter()
             .map(|str| *str);
         let input_args = self.inputs.iter().flat_map(|input| {
             input
-                .params
+                .args
                 .iter()
                 .map(|param| param.as_str())
                 .chain(["-i", input.path.as_str()])
         });
         let output_args = self.outputs.iter().flat_map(|output| {
             output
-                .params
+                .args
                 .iter()
                 .map(|param| param.as_str())
                 .chain(match &output.path {
@@ -49,19 +49,19 @@ impl TaskParams {
 }
 
 #[derive(Debug, serde::Deserialize)]
-pub struct TaskInputParams {
+pub struct TaskInputArgs {
     pub path: String,
     #[serde(default = "Vec::new")]
-    pub params: Vec<String>,
+    pub args: Vec<String>,
 }
 
 #[derive(Debug, serde::Deserialize)]
-pub struct TaskOutputParams {
+pub struct TaskOutputArgs {
     /// Output path could be None in some situation,
     /// such as exports to null.
     pub path: Option<String>,
     #[serde(default = "Vec::new")]
-    pub params: Vec<String>,
+    pub args: Vec<String>,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -76,7 +76,7 @@ pub async fn start_task(
     config: tauri::State<'_, AppConfig>,
     task_store: tauri::State<'_, TaskStore>,
     id: String,
-    params: TaskParams,
+    args: TaskArgs,
 ) -> Result<(), Error> {
     let config = config.lock().await;
     let Some(config) = config.as_ref() else {
@@ -86,7 +86,7 @@ pub async fn start_task(
     task_store
         .start(
             id,
-            params,
+            args,
             app_handle,
             config.ffmpeg().to_string(),
             config.ffprobe().to_string(),

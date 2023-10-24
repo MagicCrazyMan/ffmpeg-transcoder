@@ -1,11 +1,10 @@
 import { Button } from "@arco-design/web-react";
 import { sep } from "@tauri-apps/api/path";
 import { useNavigate } from "react-router-dom";
-import { TaskInputParams, TaskOutputParams, TaskParams } from "../../libs/task";
-import { usePresetStore } from "../../store/preset";
+import { TaskArgs } from "../../libs/task";
+import { toTaskArgs } from "../../libs/task/modifying";
 import { useSearchStore } from "../../store/search";
 import { useTaskStore } from "../../store/task";
-import { toTaskParams } from "../../utils";
 import Directories from "./Directories";
 import ExtensionFilter from "./ExtensionFilter";
 import RegularFilters from "./RegularFilters";
@@ -18,56 +17,43 @@ import "./index.less";
  */
 export default function SearchPage() {
   const navigate = useNavigate();
-  const {
-    outputDir,
-    nodeMap,
-    inputParamsMap,
-    outputParamsMap,
-    selectedRowKeys,
-    setSelectedRowKeys,
-  } = useSearchStore();
+  const { outputDir, nodeMap, inputArgsMap, outputArgsMap, selectedRowKeys, setSelectedRowKeys } =
+    useSearchStore();
   const { addTasks } = useTaskStore();
-  const presets = usePresetStore((state) => state.storage.presets);
 
   const onAddTasks = () => {
-    const taskParams = selectedRowKeys.reduce((taskParams, key) => {
+    const tasArgs = selectedRowKeys.reduce((taskArgs, key) => {
       const fileNode = nodeMap.get(key);
-      if (!fileNode || fileNode.type !== "File") return taskParams;
+      if (!fileNode || fileNode.type !== "File") return taskArgs;
 
-      const inputParams = inputParamsMap.get(fileNode.inputId);
-      if (!inputParams) return taskParams;
-      const outputParams = outputParamsMap.get(fileNode.outputId);
-      if (!outputParams) return taskParams;
+      const inputArgs = inputArgsMap.get(fileNode.inputId);
+      if (!inputArgs) return taskArgs;
+      const outputArgs = outputArgsMap.get(fileNode.outputId);
+      if (!outputArgs) return taskArgs;
 
-      taskParams.push({
+      taskArgs.push({
         inputs: [
-          toTaskParams(
-            {
-              ...inputParams,
-              path: fileNode.absolute,
-            },
-            presets
-          ) as TaskInputParams,
+          toTaskArgs({
+            ...inputArgs,
+            path: fileNode.absolute,
+          }),
         ],
         outputs: [
-          toTaskParams(
-            {
-              ...outputParams,
-              path: [
-                outputDir,
-                ...fileNode.relative,
-                `${fileNode.stem ?? ""}${fileNode.extension ? `.${fileNode.extension}` : ""}`,
-              ].join(sep),
-            },
-            presets
-          ) as TaskOutputParams,
+          toTaskArgs({
+            ...outputArgs,
+            path: [
+              outputDir,
+              ...fileNode.relative,
+              `${fileNode.stem ?? ""}${fileNode.extension ? `.${fileNode.extension}` : ""}`,
+            ].join(sep),
+          }),
         ],
       });
 
-      return taskParams;
-    }, [] as TaskParams[]);
+      return taskArgs;
+    }, [] as TaskArgs[]);
 
-    addTasks(...taskParams);
+    addTasks(...tasArgs);
     setSelectedRowKeys([]);
     navigate("/tasks");
   };

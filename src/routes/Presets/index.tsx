@@ -33,7 +33,7 @@ export const PresetContext = createContext<{
 } | null>(null);
 
 /**
- * A page managing user-defined decode and encode params presets.
+ * A page managing user-defined decode and encode args presets.
  */
 export default function PresetsPage() {
   const { storage, addPreset, updatePreset } = usePresetStore();
@@ -103,8 +103,8 @@ export default function PresetsPage() {
         onCell,
       },
       {
-        title: "Params",
-        dataIndex: "params",
+        title: "Arguments",
+        dataIndex: "args",
         editable: true,
         onCell,
       },
@@ -157,7 +157,7 @@ export default function PresetsPage() {
               e.stopPropagation(); // stop propagation to prevent form validation
               setAddingPreset({
                 type: PresetType.Universal,
-                params: [],
+                args: [],
               });
             }}
           ></Button>

@@ -77,17 +77,17 @@ const FileItem = ({
  * Inputs & Outputs files list component
  */
 export default function FilesList({ task, type }: { task: Task; type: "input" | "output" }) {
-  const params = useMemo(
-    () => (type === "input" ? task.data.params.inputs : task.data.params.outputs),
+  const args = useMemo(
+    () => (type === "input" ? task.data.args.inputs : task.data.args.outputs),
     [task, type]
   );
 
-  if (params.length === 1) {
-    return <FileItem path={params[0].path} task={task} type={type} />;
+  if (args.length === 1) {
+    return <FileItem path={args[0].path} task={task} type={type} />;
   } else {
-    const paths = params.map((param, index) => (
+    const paths = args.map((arg, index) => (
       <li key={index}>
-        <FileItem path={param.path} task={task} type={type} />
+        <FileItem path={arg.path} task={task} type={type} />
       </li>
     ));
     return <ul className="list-disc list-inside">{paths}</ul>;

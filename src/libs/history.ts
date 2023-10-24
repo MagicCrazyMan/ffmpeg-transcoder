@@ -1,3 +1,3 @@
 import { TaskData } from "./task";
 
-export type HistoryTask = Pick<TaskData, "params" | "creationTime"> & { id: string };
+export type HistoryTask = Pick<TaskData, "args" | "creationTime"> & { id: string };
