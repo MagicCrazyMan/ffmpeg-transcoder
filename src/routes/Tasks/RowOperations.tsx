@@ -38,8 +38,6 @@ const PauseButton = ({ task }: { task: Task }) => {
   const pause = useCallback(
     (e: Event) => {
       e.stopPropagation();
-      console.log(task.id);
-
       pauseTask(task.id);
     },
     [task, pauseTask]

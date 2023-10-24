@@ -18,7 +18,6 @@ import { pageRoutes } from "../router";
 import { useAppStore } from "../store/app";
 import { useTaskStore } from "../store/task";
 import { loadConfiguration } from "../tauri/system";
-import { listen } from "@tauri-apps/api/event";
 
 /**
  * Sidebar menu
@@ -134,27 +133,6 @@ const SidebarUtilities = () => {
  */
 const MainPage = () => {
   const [collapsed, setCollapse] = useState(true);
-
-  // listen close request
-  useEffect(() => {
-    const unlisten = listen("tauri://close-requested", (event) => {
-      console.log(event);
-    });
-
-    return () => {
-      unlisten.then((unlisten) => unlisten());
-    };
-  }, []);
-
-  useEffect(() => {
-    const unlisten = listen("tauri://file-drop", (event) => {
-      console.log(event);
-    });
-
-    return () => {
-      unlisten.then((unlisten) => unlisten());
-    };
-  }, []);
 
   return (
     <Layout className="h-full">
