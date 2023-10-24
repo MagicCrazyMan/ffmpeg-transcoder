@@ -1,5 +1,5 @@
 use crate::{
-    handlers::{config::AppConfig, error::Error, task::store::TaskStore},
+    handlers::{config::AppConfig, error::Error, tasks::store::TaskStore},
     with_default_args,
 };
 

@@ -9,31 +9,31 @@ use tokio::sync::Mutex;
 
 use crate::handlers::{
     commands::task::TaskParams,
-    task::message::{TaskMessage, TASK_MESSAGE_EVENT},
+    tasks::message::{TaskMessage, TASK_MESSAGE_EVENT},
 };
 
 use super::state_machine::{Idle, TaskState};
 
 /// Task data.
-pub(super) struct TaskData {
-    pub(super) id: String,
-    pub(super) ffmpeg_program: String,
-    pub(super) ffprobe_program: String,
-    pub(super) params: TaskParams,
-    pub(super) app_handle: tauri::AppHandle,
+pub struct TaskData {
+    pub id: String,
+    pub ffmpeg_program: String,
+    pub ffprobe_program: String,
+    pub params: TaskParams,
+    pub app_handle: tauri::AppHandle,
 }
 
 /// Task Item.
 #[derive(Clone)]
 pub struct Task {
-    pub(super) data: Arc<TaskData>,
-    pub(super) state: Arc<Mutex<Option<Box<dyn TaskState>>>>,
-    pub(super) store: Weak<Mutex<HashMap<String, Task>>>,
+    pub data: Arc<TaskData>,
+    pub state: Arc<Mutex<Option<Box<dyn TaskState>>>>,
+    pub store: Weak<Mutex<HashMap<String, Task>>>,
 }
 
 impl Task {
     /// Creates a new task item.
-    pub(super) fn new(
+    pub fn new(
         id: String,
         app_handle: tauri::AppHandle,
         ffmpeg_program: String,
@@ -93,35 +93,35 @@ impl Task {
         }
     }
 
-    pub(super) async fn start(&self) {
+    pub async fn start(&self) {
         self.to_start().await;
         info!("[{}] task started", self.data.id);
     }
 
-    pub(super) async fn pause(&self) {
+    pub async fn pause(&self) {
         self.to_pause().await;
         info!("[{}] task started", self.data.id);
     }
 
-    pub(super) async fn resume(&self) {
+    pub async fn resume(&self) {
         self.to_resume().await;
         info!("[{}] task started", self.data.id);
     }
 
-    pub(super) async fn stop(&self) {
+    pub async fn stop(&self) {
         self.to_stop().await;
         self.remove().await;
         info!("[{}] task stopped", self.data.id);
     }
 
-    pub(super) async fn finish(&self) {
+    pub async fn finish(&self) {
         self.to_finish().await;
         self.remove().await;
         self.send_message(TaskMessage::finished(self.data.id.clone()));
         info!("[{}] task finished", self.data.id);
     }
 
-    pub(super) async fn error(&self, reason: String) {
+    pub async fn error(&self, reason: String) {
         let mut state = self.state.lock().await;
         *state = Some(
             state

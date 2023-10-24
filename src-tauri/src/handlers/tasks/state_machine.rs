@@ -16,13 +16,13 @@ use tokio_util::sync::CancellationToken;
 use crate::handlers::{
     commands::process::invoke_ffprobe_json_metadata,
     error::Error,
-    task::message::{TaskMessage, TaskRunningMessage, TASK_MESSAGE_EVENT},
+    tasks::message::{TaskMessage, TaskRunningMessage, TASK_MESSAGE_EVENT},
 };
 
 use super::task::Task;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum TaskStateCode {
+pub enum TaskStateCode {
     Idle,
     Running,
     Pausing,
@@ -32,7 +32,7 @@ pub(super) enum TaskStateCode {
 }
 
 #[async_trait]
-pub(super) trait TaskState: Send {
+pub trait TaskState: Send {
     fn code(&self) -> TaskStateCode;
 
     fn message(&self) -> Option<&str>;
@@ -50,7 +50,7 @@ pub(super) trait TaskState: Send {
     async fn error(self: Box<Self>, task: Task, reason: String) -> Box<dyn TaskState>;
 }
 
-pub(super) struct Idle;
+pub struct Idle;
 
 impl Idle {
     async fn find_max_duration(task: &Task) -> Result<f64, Error> {
@@ -227,7 +227,7 @@ impl TaskState for Idle {
     }
 }
 
-pub(super) struct Running {
+pub struct Running {
     total_duration: f64,
     process: Arc<Mutex<Child>>,
     watchdog_cancellations: (CancellationToken, CancellationToken),
@@ -329,7 +329,7 @@ impl TaskState for Running {
     }
 }
 
-pub(super) struct Pausing {
+pub struct Pausing {
     total_duration: f64,
     process: Arc<Mutex<Child>>,
 }
@@ -421,7 +421,7 @@ impl TaskState for Pausing {
     }
 }
 
-pub(super) struct Stopped;
+pub struct Stopped;
 
 #[async_trait]
 impl TaskState for Stopped {
@@ -466,8 +466,8 @@ impl TaskState for Stopped {
     }
 }
 
-pub(super) struct Errored {
-    pub(super) reason: String,
+pub struct Errored {
+    pub reason: String,
 }
 
 impl Errored {
@@ -528,7 +528,7 @@ impl TaskState for Errored {
     }
 }
 
-pub(super) struct Finished;
+pub struct Finished;
 
 #[async_trait]
 impl TaskState for Finished {

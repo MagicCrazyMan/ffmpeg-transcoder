@@ -3,7 +3,7 @@
 
 use std::{path::PathBuf, sync::Arc};
 
-use handlers::{config::Config, task::store::TaskStore};
+use handlers::{config::Config, tasks::store::TaskStore};
 use log::{error, LevelFilter};
 use tauri::Manager;
 use tauri_plugin_log::{LogTarget, RotationStrategy};
