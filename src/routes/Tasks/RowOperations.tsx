@@ -39,7 +39,7 @@ const PauseButton = ({ task }: { task: Task }) => {
     (e: Event) => {
       e.stopPropagation();
       console.log(task.id);
-      
+
       pauseTask(task.id);
     },
     [task, pauseTask]

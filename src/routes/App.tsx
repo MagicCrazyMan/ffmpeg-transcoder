@@ -1,11 +1,22 @@
-import { Button, ConfigProvider, Dropdown, Icon, Layout, Menu, Spin } from "@arco-design/web-react";
+import {
+  Badge,
+  Button,
+  ConfigProvider,
+  Dropdown,
+  Icon,
+  Layout,
+  Menu,
+  Spin,
+} from "@arco-design/web-react";
 import enUS from "@arco-design/web-react/es/locale/en-US";
 import { IconMoonFill, IconSunFill, IconThunderbolt } from "@arco-design/web-react/icon";
 import { useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Theme } from "../libs/config";
+import { TaskStateCode } from "../libs/task/state_machine";
 import { pageRoutes } from "../router";
 import { useAppStore } from "../store/app";
+import { useTaskStore } from "../store/task";
 import { loadConfiguration } from "../tauri/system";
 
 /**
@@ -85,11 +96,32 @@ const ThemeSwitcher = () => {
 };
 
 /**
+ * Tasks statistic
+ */
+const TaskStatistic = () => {
+  const { tasks } = useTaskStore();
+  const count = useMemo(
+    () =>
+      tasks.filter(
+        (task) =>
+          task.state.code !== TaskStateCode.Errored &&
+          task.state.code !== TaskStateCode.Finished &&
+          task.state.code !== TaskStateCode.Stopped
+      ).length,
+    [tasks]
+  );
+  return <Badge count={count}></Badge>;
+};
+
+/**
  * Sidebar utilities in icon button style
  */
 const SidebarUtilities = () => {
   return (
-    <div className="p-2">
+    <div className="p-2 gap-2 flex flex-col items-start justify-center">
+      {/* Tasks Statistic */}
+      <TaskStatistic />
+
       {/* Theme Switcher */}
       <ThemeSwitcher />
     </div>

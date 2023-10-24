@@ -327,7 +327,6 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
       style={{
         width: "90%",
         maxHeight: "80%",
-        overflowY: "auto",
       }}
       visible={visible}
       footer={<Footer records={tasks} onVisibleChange={onVisibleChange} />}
@@ -351,6 +350,7 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
         pagination={false}
         columns={columns}
         data={tasks}
+        scroll={{ y: "calc(80vh - 190px)" }}
       ></Table>
     </Modal>
   );
