@@ -20,7 +20,8 @@ import {
   IconQuote,
 } from "@arco-design/web-react/icon";
 import { useMemo } from "react";
-import { RegularFilter, useSearchStore } from "../../store/search";
+import { RegularFilter } from "../../libs/search/regular_filter";
+import { useSearchStore } from "../../store/search";
 
 /**
  * Regular filter item
@@ -138,16 +139,14 @@ const RegularFilterItem = ({ filter }: { filter: RegularFilter }) => {
  * Regular filters
  */
 export default function RegularFilter() {
-  const { regularFilters, toggleRegularFilter, addRegularFilter } = useSearchStore(
-    (state) => state
-  );
+  const { storage, toggleRegularFilter, addRegularFilter } = useSearchStore((state) => state);
 
   const items = useMemo(
     () =>
-      regularFilters.filters.map((filter) => (
+      storage.regularFilters.filters.map((filter) => (
         <RegularFilterItem key={filter.id} filter={filter}></RegularFilterItem>
       )),
-    [regularFilters]
+    [storage.regularFilters]
   );
 
   return (
@@ -161,7 +160,7 @@ export default function RegularFilter() {
         <Switch
           checkedText={<IconCheck />}
           uncheckedText={<IconClose />}
-          checked={regularFilters.enabled}
+          checked={storage.regularFilters.enabled}
           onChange={toggleRegularFilter}
         />
 

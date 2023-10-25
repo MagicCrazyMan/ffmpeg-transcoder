@@ -1,19 +1,36 @@
-import { Button, Form, FormInstance, Grid, Input, InputNumber } from "@arco-design/web-react";
+import { Button, Form, FormInstance, Input, InputNumber, RulesProps } from "@arco-design/web-react";
 import { IconFolder } from "@arco-design/web-react/icon";
 import { open } from "@tauri-apps/api/dialog";
-import { sep } from "@tauri-apps/api/path";
 import { useMemo, useRef } from "react";
 import { useAppStore } from "../../store/app";
 import { useSearchStore } from "../../store/search";
 import { DirectoryNotFoundError, toMessage } from "../../tauri/error";
 import { verifyDirectory } from "../../tauri/system";
 
+const inputDirectoryRules: RulesProps[] = [
+  {
+    validator(value: string | undefined, callback) {
+      if (!value) {
+        return Promise.resolve(callback());
+      } else {
+        return verifyDirectory(value)
+          .then(() => {
+            callback();
+          })
+          .catch((err: DirectoryNotFoundError) => {
+            callback(toMessage(err));
+          });
+      }
+    },
+  },
+];
+
 /**
  * Input and Output directories input
  */
 export default function Directories() {
   const {
-    maxDepth,
+    storage,
     setMaxDepth,
     isSearching,
     inputDir,
@@ -29,10 +46,10 @@ export default function Directories() {
     () =>
       ({
         inputDir: inputDir ?? "",
-        depth: maxDepth,
+        depth: storage.maxDepth,
         outputDir: outputDir ?? saveDirectory ?? "",
       }) as { inputDir: string; outputDir: string },
-    [inputDir, maxDepth, outputDir, saveDirectory]
+    [inputDir, outputDir, saveDirectory, storage.maxDepth]
   );
 
   const selectDirectory = async (type: "inputDir" | "outputDir") => {
@@ -52,12 +69,8 @@ export default function Directories() {
     formRef.current
       ?.validate()
       .then((values) => {
-        setInputDirectory(
-          values.inputDir.endsWith(sep) ? values.inputDir.slice(0, -1) : values.inputDir
-        );
-        setOutputDirectory(
-          values.outputDir.endsWith(sep) ? values.outputDir.slice(0, -1) : values.outputDir
-        );
+        setInputDirectory(values.inputDir);
+        setOutputDirectory(values.outputDir);
         setMaxDepth(values.depth);
       })
       .catch(() => {
@@ -74,67 +87,45 @@ export default function Directories() {
       initialValues={initialValues}
       onChange={onChange}
     >
-      <Grid.Row gutter={8}>
-        <Grid.Col span={18}>
-          {/* Input Directory */}
-          <Form.Item
-            field="inputDir"
-            rules={[
-              {
-                validator(value: string | undefined, callback) {
-                  if (!value) {
-                    return Promise.resolve(callback());
-                  } else {
-                    return verifyDirectory(value)
-                      .then(() => {
-                        callback();
-                      })
-                      .catch((err: DirectoryNotFoundError) => {
-                        callback(toMessage(err));
-                      });
-                  }
-                },
-              },
-            ]}
-          >
-            <Input
-              allowClear
-              placeholder="Input Directory"
-              beforeStyle={{ padding: "0" }}
-              disabled={isSearching}
-              value={inputDir}
-              onChange={setInputDirectory}
-              addBefore={
-                <Button
-                  type="text"
-                  icon={<IconFolder />}
-                  disabled={isSearching}
-                  onClick={() => selectDirectory("inputDir")}
-                ></Button>
-              }
-            ></Input>
-          </Form.Item>
-        </Grid.Col>
+      <div className="flex gap-4">
+        {/* Input Directory */}
+        <Form.Item field="inputDir" rules={inputDirectoryRules}>
+          <Input
+            allowClear
+            placeholder="Input Directory"
+            beforeStyle={{ padding: "0" }}
+            disabled={isSearching}
+            value={inputDir}
+            onChange={setInputDirectory}
+            addBefore={
+              <Button
+                type="text"
+                icon={<IconFolder />}
+                disabled={isSearching}
+                onClick={() => selectDirectory("inputDir")}
+              ></Button>
+            }
+          ></Input>
+        </Form.Item>
 
-        <Grid.Col span={6}>
-          {/* Depth Input */}
-          <Form.Item
-            field="depth"
-            labelCol={{ span: 8 }}
-            wrapperCol={{ span: 16 }}
-            label="Max Depth"
-          >
-            <InputNumber
-              size="mini"
-              min={0}
-              step={1}
-              disabled={isSearching}
-              value={maxDepth}
-              onChange={setMaxDepth}
-            />
-          </Form.Item>
-        </Grid.Col>
-      </Grid.Row>
+        {/* Depth Input */}
+        <Form.Item
+          className="basis-60 flex-shrink-0"
+          field="depth"
+          labelCol={{ span: 8 }}
+          wrapperCol={{ span: 16 }}
+          label="Max Depth"
+        >
+          <InputNumber
+            size="mini"
+            min={0}
+            step={1}
+            disabled={isSearching}
+            value={storage.maxDepth}
+            onChange={setMaxDepth}
+          />
+        </Form.Item>
+      </div>
 
       {/* Output Directory */}
       <Form.Item

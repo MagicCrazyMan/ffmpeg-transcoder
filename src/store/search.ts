@@ -1,16 +1,19 @@
-import { assignIn, cloneDeep } from "lodash";
 import { v4 } from "uuid";
 import { create } from "zustand";
+import { SearchDirectory } from "../libs/search";
+import { ExtensionFilterState } from "../libs/search/extension_filter";
+import { RegularFilter } from "../libs/search/regular_filter";
+import { SearchDirectoryNode, SearchEntryNode, SearchFileNode } from "../libs/search/table_tree";
 import { TaskArgsSource } from "../libs/task";
 import { ModifyingTaskArgsItem } from "../libs/task/modifying";
-import { Search, SearchDirectory, SearchFile, searchDirectory } from "../tauri/fs";
+import { searchDirectory } from "../tauri/fs";
 import { usePresetStore } from "./preset";
 
 export type SearchStoreState = {
   /**
-   * Prints relative path in table
+   * Data that persist inside local storage.
    */
-  printRelativePath: boolean;
+  storage: SearchStorage;
   /**
    * Sets should prints relative path or absolute path in table
    * @param enabled `true` for printing relative path; `false` for printing absolute path
@@ -20,10 +23,6 @@ export type SearchStoreState = {
    * Input directory for searching
    */
   inputDir?: string;
-  /**
-   * Max depth should walk in during searching
-   */
-  maxDepth: number;
   /**
    * Sets max depth for searching.
    * @param maxDepth Max depth
@@ -48,25 +47,11 @@ export type SearchStoreState = {
   /**
    * Search result
    */
-  search?: Search;
+  search?: SearchDirectory;
   /**
    * Is file loading
    */
   isSearching: boolean;
-  /**
-   * Extension filters
-   */
-  extensionFilters: {
-    /**
-     * Extension filter status
-     */
-    state: ExtensionFilterState;
-    /**
-     * Extension list.
-     * Extensions are all in lowercase.
-     */
-    extensions: string[];
-  };
   /**
    * Sets extension filters state
    */
@@ -75,19 +60,6 @@ export type SearchStoreState = {
    * Sets extension filters extension list
    */
   setExtensionList: (extensions: string[]) => void;
-  /**
-   * Regular filters
-   */
-  regularFilters: {
-    /**
-     * Globally enable or disable regular filters
-     */
-    enabled: boolean;
-    /**
-     * Regular filters
-     */
-    filters: RegularFilter[];
-  };
   /**
    * Toggles a regular filter enable or disable
    */
@@ -137,7 +109,8 @@ export type SearchStoreState = {
    * Selected row keys in table
    */
   selectedRows: SearchFileNode[];
-  setSelectedRows: (selectedRows: SearchFileNode[]) => void;
+  selectedRowKeysSet: Set<string>;
+  setSelectedRows: (selectedRowKeys: string[], selectedRows: SearchFileNode[]) => void;
   /**
    * A hash map maps inputId of search file node to an editable task args
    */
@@ -160,78 +133,33 @@ export type SearchStoreState = {
   ) => void;
 };
 
-export type SearchEntryNode = SearchDirectoryNode | SearchFileNode;
-
-export type SearchDirectoryNode = Omit<SearchDirectory, "children"> & {
-  children: SearchEntryNode[];
-  parent: SearchDirectoryNode | null;
-};
-
-export type SearchFileNode = SearchFile & {
-  parent: SearchDirectoryNode;
-  inputId: string;
-  outputId: string;
-};
-
-/**
- * Extension filter status
- */
-export enum ExtensionFilterState {
-  Disabled = 0,
-  Whitelist = 1,
-  Blacklist = 2,
-}
-
-/**
- * Regular filter
- */
-export type RegularFilter = {
-  /**
-   * Regular filter id
-   */
-  id: string;
-  /**
-   * Regular filter value
-   */
-  value?: string;
-  /**
-   * Enabled
-   */
-  enabled: boolean;
-  /**
-   * Filters as blacklist
-   */
-  blacklist: boolean;
-  /**
-   * Uses as regex
-   */
-  regex: boolean;
-  /**
-   * Apply on directory name
-   */
-  directory: boolean;
-  /**
-   * Apply on file name
-   */
-  file: boolean;
-};
-
-type SearchStorage = Pick<
-  SearchStoreState,
-  "printRelativePath" | "extensionFilters" | "regularFilters" | "maxDepth"
->;
-
-const DEFAULT_SEARCH_STORAGE: SearchStorage = {
-  printRelativePath: true,
-  maxDepth: 5,
+type SearchStorage = {
+  printRelativePath: boolean;
   extensionFilters: {
-    state: ExtensionFilterState.Disabled,
-    extensions: [],
-  },
+    /**
+     * Extension filter status
+     */
+    state: ExtensionFilterState;
+    /**
+     * Extension list.
+     * Extensions are all in lowercase.
+     */
+    extensions: string[];
+  };
   regularFilters: {
-    enabled: false,
-    filters: [],
-  },
+    /**
+     * Globally enable or disable regular filters
+     */
+    enabled: boolean;
+    /**
+     * Regular filters
+     */
+    filters: RegularFilter[];
+  };
+  /**
+   * Max depth should walk in during searching
+   */
+  maxDepth: number;
 };
 
 const SEARCH_LOCALSTORAGE_KEY = "search";
@@ -250,25 +178,48 @@ const storeSearchStorage = (searchStorage: SearchStorage) => {
  * @return Search storage
  */
 const loadSearchStorage = (): SearchStorage => {
+  const defaultStorage: SearchStorage = {
+    printRelativePath: true,
+    maxDepth: 5,
+    extensionFilters: {
+      state: ExtensionFilterState.Disabled,
+      extensions: [],
+    },
+    regularFilters: {
+      enabled: false,
+      filters: [],
+    },
+  };
+
   const raw = localStorage.getItem(SEARCH_LOCALSTORAGE_KEY);
-  return raw
-    ? assignIn(cloneDeep(DEFAULT_SEARCH_STORAGE), JSON.parse(raw))
-    : cloneDeep(DEFAULT_SEARCH_STORAGE);
+  return raw ? { ...defaultStorage, ...JSON.parse(raw) } : defaultStorage;
 };
 
 export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
-  const { printRelativePath, maxDepth, extensionFilters, regularFilters } = loadSearchStorage();
+  const storage = loadSearchStorage();
 
   /**
    * Searches entries via Tauri when input directory change
    */
   api.subscribe((state, prevState) => {
-    if (state.inputDir !== prevState.inputDir || state.maxDepth !== prevState.maxDepth) {
-      set({ search: undefined });
+    if (
+      state.inputDir !== prevState.inputDir ||
+      state.storage.maxDepth !== prevState.storage.maxDepth
+    ) {
+      set({
+        search: undefined,
+        nodeMap: undefined,
+        inputArgsMap: new Map(),
+        outputArgsMap: new Map(),
+        expendedRowKeys: [],
+        selectedRows: [],
+        selectedRowKeysSet: new Set(),
+      });
 
       if (state.inputDir) {
         set({ isSearching: true });
-        searchDirectory(state.inputDir, state.maxDepth)
+
+        searchDirectory(state.inputDir, state.storage.maxDepth)
           .then((search) => {
             set({ search });
           })
@@ -285,14 +236,14 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
   api.subscribe((state, prevState) => {
     if (
       state.search !== prevState.search ||
-      state.extensionFilters !== prevState.extensionFilters ||
-      state.regularFilters !== prevState.regularFilters
+      state.storage.extensionFilters !== prevState.storage.extensionFilters ||
+      state.storage.regularFilters !== prevState.storage.regularFilters
     ) {
       if (state.search) {
         const { filesCount, directoriesCount, root, nodeMap, expendedRowKeys } = createRoot(
-          state.search.entry,
-          state.extensionFilters,
-          state.regularFilters
+          state.search,
+          state.storage.extensionFilters,
+          state.storage.regularFilters
         );
 
         set({
@@ -302,34 +253,8 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
           nodeMap,
           // only expend keys when entries count smaller than or equals 100
           expendedRowKeys: filesCount + directoriesCount <= 100 ? expendedRowKeys : [],
-          selectedRows: [],
-          inputArgsMap: new Map(),
-          outputArgsMap: new Map(),
-        });
-      } else {
-        set({
-          root: undefined,
-          filesCount: 0,
-          directoriesCount: 0,
-          nodeMap: new Map(),
-          expendedRowKeys: [],
-          selectedRows: [],
-          inputArgsMap: new Map(),
-          outputArgsMap: new Map(),
         });
       }
-    }
-  });
-
-  /**
-   * Cleans args only when search directory
-   */
-  api.subscribe((state, prevState) => {
-    if (state.search !== prevState.search) {
-      set({
-        inputArgsMap: new Map(),
-        outputArgsMap: new Map(),
-      });
     }
   });
 
@@ -346,35 +271,27 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
 
     // creates for selected
     state.selectedRows.forEach((node) => {
-      if (!state.inputArgsMap.has(node.inputId)) {
-        inputArgsMap.set(node.inputId, {
-          id: node.inputId,
+      if (!state.inputArgsMap.has(node.absolute)) {
+        inputArgsMap.set(node.absolute, {
+          id: node.absolute,
           selection: defaultDecode ?? TaskArgsSource.Auto,
           path: state.inputDir ? state.inputDir + node.relative : undefined,
         });
       }
 
-      if (!state.outputArgsMap.has(node.outputId)) {
-        outputArgsMap.set(node.outputId, {
-          id: node.outputId,
+      if (!state.outputArgsMap.has(node.absolute)) {
+        outputArgsMap.set(node.absolute, {
+          id: node.absolute,
           selection: defaultEncode ?? TaskArgsSource.Auto,
           path: state.outputDir ? state.outputDir + node.relative : undefined,
         });
       }
     });
 
-    // remove for deselected
-    const selectedIds = new Set(
-      state.selectedRows.flatMap(({ inputId, outputId }) => [inputId, outputId])
-    );
-    Array.from(state.inputArgsMap.keys()).forEach((id) => {
-      if (!selectedIds.has(id)) inputArgsMap.delete(id);
+    set({
+      inputArgsMap,
+      outputArgsMap,
     });
-    Array.from(state.outputArgsMap.keys()).forEach((id) => {
-      if (!selectedIds.has(id)) outputArgsMap.delete(id);
-    });
-
-    set({ inputArgsMap, outputArgsMap });
   });
 
   /**
@@ -413,29 +330,18 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
    * Stores search storage when fields change
    */
   api.subscribe((state, prevState) => {
-    if (
-      state.printRelativePath !== prevState.printRelativePath ||
-      state.maxDepth !== prevState.maxDepth ||
-      state.extensionFilters !== prevState.extensionFilters ||
-      state.regularFilters !== prevState.regularFilters
-    ) {
-      storeSearchStorage({
-        printRelativePath: state.printRelativePath,
-        maxDepth: state.maxDepth,
-        extensionFilters: state.extensionFilters,
-        regularFilters: state.regularFilters,
-      });
+    if (state.storage !== prevState.storage) {
+      storeSearchStorage(state.storage);
     }
   });
 
   return {
-    printRelativePath,
+    storage,
     setPrintRelativePath(printRelativePath) {
-      set({ printRelativePath });
+      set(({ storage }) => ({ storage: { ...storage, printRelativePath } }));
     },
-    maxDepth,
     setMaxDepth(maxDepth) {
-      set({ maxDepth });
+      set(({ storage }) => ({ storage: { ...storage, maxDepth } }));
     },
     isSearching: false,
     setInputDirectory(inputDir) {
@@ -444,10 +350,9 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
     setOutputDirectory(outputDir) {
       set({ outputDir });
     },
-    extensionFilters,
     setExtensionFilterState(state) {
-      set((s) => ({
-        extensionFilters: { ...s.extensionFilters, state },
+      set(({ storage }) => ({
+        storage: { ...storage, extensionFilters: { ...storage.extensionFilters, state } },
       }));
     },
     setExtensionList(extensions) {
@@ -455,60 +360,71 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
         new Set(extensions.map((extension) => extension.toLocaleLowerCase()))
       );
 
-      set((state) => ({
-        extensionFilters: { ...state.extensionFilters, extensions: lowerAndDedup },
+      set(({ storage }) => ({
+        storage: {
+          ...storage,
+          extensionFilters: { ...storage.extensionFilters, extensions: lowerAndDedup },
+        },
       }));
     },
-    regularFilters,
     toggleRegularFilter() {
-      set((state) => ({
-        regularFilters: {
-          ...state.regularFilters,
-          enabled: !state.regularFilters.enabled,
+      set(({ storage }) => ({
+        storage: {
+          ...storage,
+          regularFilters: { ...storage.regularFilters, enabled: !storage.regularFilters.enabled },
         },
       }));
     },
     addRegularFilter(initialValue) {
-      set((state) => ({
-        regularFilters: {
-          ...state.regularFilters,
-          filters: [
-            ...state.regularFilters.filters,
-            {
-              enabled: true,
-              blacklist: true,
-              regex: false,
-              directory: true,
-              file: true,
-              ...initialValue,
-              id: v4(),
-            },
-          ],
+      set(({ storage }) => ({
+        storage: {
+          ...storage,
+          regularFilters: {
+            ...storage.regularFilters,
+            filters: [
+              ...storage.regularFilters.filters,
+              {
+                enabled: true,
+                blacklist: true,
+                regex: false,
+                directory: true,
+                file: true,
+                ...initialValue,
+                id: v4(),
+              },
+            ],
+          },
         },
       }));
     },
     removeRegularFilter(id) {
-      set((state) => ({
-        regularFilters: {
-          ...state.regularFilters,
-          filters: state.regularFilters.filters.filter((filter) => filter.id !== id),
+      set(({ storage }) => ({
+        storage: {
+          ...storage,
+          regularFilters: {
+            ...storage.regularFilters,
+            filters: storage.regularFilters.filters.filter((filter) => filter.id !== id),
+          },
         },
       }));
     },
     updateRegularFilter(id, partial) {
-      set((state) => ({
-        regularFilters: {
-          ...state.regularFilters,
-          filters: state.regularFilters.filters.map((filter) => {
-            if (filter.id === id) {
-              return {
-                ...filter,
-                ...partial,
-              };
-            } else {
-              return filter;
-            }
-          }),
+      set(({ storage }) => ({
+        storage: {
+          ...storage,
+          regularFilters: {
+            ...storage.regularFilters,
+            filters: storage.regularFilters.filters.map((filter) => {
+              if (filter.id === id) {
+                return {
+                  ...filter,
+                  ...partial,
+                };
+              } else {
+                return filter;
+              }
+            }),
+          },
         },
       }));
     },
@@ -521,9 +437,9 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
       set({ expendedRowKeys });
     },
     selectedRows: [],
-    selectedRowsSet: new Set(),
-    setSelectedRows(selectedRows) {
-      set({ selectedRows });
+    selectedRowKeysSet: new Set(),
+    setSelectedRows(selectedRowKeys, selectedRows) {
+      set({ selectedRows, selectedRowKeysSet: new Set(selectedRowKeys) });
     },
     inputArgsMap: new Map(),
     setInputArgsMap(inputArgsMap) {
@@ -550,8 +466,8 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
 
 const createRoot = (
   entry: SearchDirectory,
-  extensionFilters: SearchStoreState["extensionFilters"],
-  regularFilters: SearchStoreState["regularFilters"]
+  extensionFilters: SearchStorage["extensionFilters"],
+  regularFilters: SearchStorage["regularFilters"]
 ) => {
   let filesCount = 0;
   let directoriesCount = 0;
@@ -580,6 +496,7 @@ const createRoot = (
             if (!regularFilter.enabled) continue;
             if (!regularFilter.file && child.type === "File") continue;
             if (!regularFilter.directory && child.type === "Directory") continue;
+            if (!child.name) continue;
 
             let included: boolean;
             if (regularFilter.regex) {
@@ -631,19 +548,13 @@ const createRoot = (
 
         directoriesCount++;
       } else {
-        const inputId = v4();
-        const outputId = v4();
         const fileNode: SearchFileNode = {
           ...child,
-          inputId,
-          outputId,
           parent: directoryNode,
         };
 
         directoryNode.children.push(fileNode);
         nodeMap.set(fileNode.absolute, fileNode);
-        nodeMap.set(inputId, fileNode);
-        nodeMap.set(outputId, fileNode);
 
         filesCount++;
       }

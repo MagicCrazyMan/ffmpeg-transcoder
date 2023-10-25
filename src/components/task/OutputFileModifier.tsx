@@ -1,4 +1,4 @@
-import { Button, Tooltip, Typography } from "@arco-design/web-react";
+import { Button, Input } from "@arco-design/web-react";
 import { IconFolder } from "@arco-design/web-react/icon";
 import { save } from "@tauri-apps/api/dialog";
 import { useCallback } from "react";
@@ -12,7 +12,7 @@ export default function OutputFileModifier({
   onChange,
 }: {
   args: ModifyingTaskArgsItem;
-  onChange: (file: string) => void;
+  onChange: (file?: string) => void;
 }) {
   const { configuration, saveDialogFilters } = useAppStore();
   const { storage } = usePresetStore();
@@ -42,22 +42,18 @@ export default function OutputFileModifier({
 
   return (
     <div className="flex gap-2 items-center">
-      {/* Select Output File Button */}
-      <Tooltip content="Select Output File">
-        <Button
-          shape="circle"
-          size="mini"
-          type="text"
-          className="flex-shrink-0"
-          icon={<IconFolder />}
-          onClick={onSelectOutputFile}
-        />
-      </Tooltip>
-
       {/* File Name */}
-      <Typography.Text editable={{ onChange }} className="flex-1" style={{ margin: "0" }}>
-        {args?.path ?? "NULL"}
-      </Typography.Text>
+      <Input
+        size="mini"
+        style={{ margin: "0" }}
+        beforeStyle={{ padding: "0" }}
+        addBefore={
+          <Button size="mini" type="text" icon={<IconFolder />} onClick={onSelectOutputFile} />
+        }
+        status={args?.path ? undefined : "warning"}
+        value={args?.path ?? "NULL"}
+        onChange={(value) => (value ? onChange(value) : onChange(undefined))}
+      />
     </div>
   );
 }

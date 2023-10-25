@@ -10,10 +10,11 @@ import { sep } from "@tauri-apps/api/path";
 import { useMemo } from "react";
 import CodecModifier from "../../components/task/CodecModifier";
 import { Preset, PresetType } from "../../libs/preset";
+import { SearchEntryNode, SearchFileNode } from "../../libs/search/table_tree";
 import { TaskArgsSource } from "../../libs/task";
 import { ModifyingTaskArgsItem, replaceExtension } from "../../libs/task/modifying";
 import { usePresetStore } from "../../store/preset";
-import { SearchEntryNode, SearchFileNode, useSearchStore } from "../../store/search";
+import { useSearchStore } from "../../store/search";
 
 /**
  * Statistic of files, directories and selection
@@ -39,20 +40,23 @@ const Statistic = () => {
  * Output cell
  */
 const OutputCell = ({ node }: { node: SearchEntryNode }) => {
-  const { printRelativePath, outputDir, outputArgsMap, setOutputArgsMap, selectedRows } =
+  const { storage, outputDir, outputArgsMap, setOutputArgsMap, selectedRows, selectedRowKeysSet } =
     useSearchStore();
 
   if (!outputDir) return;
   if (node.type !== "File") return;
+  console.log(selectedRowKeysSet.has(node.absolute));
 
-  const args = outputArgsMap.get(node.outputId);
+  if (!selectedRowKeysSet.has(node.absolute)) return;
+
+  const args = outputArgsMap.get(node.absolute);
   if (!args) return;
 
   /**
    * Detects whether any output files having the same name
    */
   const hasSame = selectedRows.some((row) => {
-    const outputArgs = outputArgsMap.get(row.outputId);
+    const outputArgs = outputArgsMap.get(row.absolute);
     if (!outputArgs || !outputArgs.path) return false;
     if (args === outputArgs) return false;
     return outputArgs.path === args.path;
@@ -64,7 +68,7 @@ const OutputCell = ({ node }: { node: SearchEntryNode }) => {
   const onChange = (value: string) => {
     let path: string | undefined;
 
-    if (printRelativePath) {
+    if (storage.printRelativePath) {
       value = value.startsWith(sep) ? value : sep + value;
       path = outputDir + value;
     } else {
@@ -95,7 +99,7 @@ const OutputCell = ({ node }: { node: SearchEntryNode }) => {
       <Input
         size="mini"
         status={hasSame ? "error" : undefined}
-        value={printRelativePath ? args.path.replace(outputDir, "") : args.path}
+        value={storage.printRelativePath ? args.path.replace(outputDir, "") : args.path}
         onChange={onChange}
       />
     );
@@ -108,27 +112,27 @@ const OutputCell = ({ node }: { node: SearchEntryNode }) => {
  * Codec cell
  */
 const CodecCell = ({ type, node }: { type: "input" | "output"; node: SearchEntryNode }) => {
-  const { inputArgsMap, setInputArgsMap, outputArgsMap, setOutputArgsMap } = useSearchStore();
+  const { inputArgsMap, setInputArgsMap, outputArgsMap, setOutputArgsMap, selectedRowKeysSet } =
+    useSearchStore();
   const presets = usePresetStore((state) => state.storage.presets);
 
   if (node.type !== "File") return;
+  if (!selectedRowKeysSet.has(node.absolute)) return;
 
-  const { id, map, presetType, setter } =
+  const { map, presetType, setter } =
     type === "input"
       ? {
-          id: node.inputId,
           map: inputArgsMap,
           presetType: PresetType.Decode,
           setter: setInputArgsMap,
         }
       : {
-          id: node.outputId,
           map: outputArgsMap,
           presetType: PresetType.Encode,
           setter: setOutputArgsMap,
         };
 
-  const args = map.get(id);
+  const args = map.get(node.absolute);
   if (!args) return;
 
   const onSelectChange = (
@@ -229,8 +233,8 @@ const CodecCell = ({ type, node }: { type: "input" | "output"; node: SearchEntry
 
 export default function SearchFileTable() {
   const {
+    storage,
     inputDir,
-    printRelativePath,
     setPrintRelativePath,
     isSearching,
     root,
@@ -245,7 +249,8 @@ export default function SearchFileTable() {
   const tableCols: TableColumnProps<SearchEntryNode>[] = [
     {
       title: "Input Files",
-      render: (_col, node) => (printRelativePath ? node.relative : inputDir + node.relative),
+      render: (_col, node) =>
+        storage.printRelativePath ? node.relative : inputDir + node.relative,
     },
     {
       title: "Input Arguments",
@@ -269,7 +274,7 @@ export default function SearchFileTable() {
           className="mb-2"
           checkedText="RELATIVE"
           uncheckedText="ABSOLUTE"
-          checked={printRelativePath}
+          checked={storage.printRelativePath}
           onChange={setPrintRelativePath}
         />
 
@@ -310,8 +315,8 @@ export default function SearchFileTable() {
               return undefined;
             }
           },
-          onChange(_, rows) {
-            setSelectedRows(rows as SearchFileNode[]);
+          onChange(keys, rows) {
+            setSelectedRows(keys as string[], rows as SearchFileNode[]);
           },
         }}
         data={root?.children}

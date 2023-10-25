@@ -10,7 +10,7 @@ pub enum SearchEntry {
         /// On Windows os, extended length path is used.
         absolute: String,
         relative: String,
-        name: String,
+        name: Option<String>,
         children: Vec<SearchEntry>,
         #[serde(skip_serializing)]
         path: PathBuf,
@@ -29,10 +29,7 @@ pub enum SearchEntry {
 
 impl SearchEntry {
     fn from_path(path: PathBuf, search_dir: &str) -> Option<Self> {
-        let (Some(name), Ok(absolute)) = (
-            path.file_name().map(|s| s.to_string_lossy().to_string()),
-            path.canonicalize().map(|s| s.to_string_lossy().to_string()),
-        ) else {
+        let Ok(absolute) = path.canonicalize().map(|s| s.to_string_lossy().to_string()) else {
             return None;
         };
 
@@ -43,6 +40,8 @@ impl SearchEntry {
         };
 
         if path.is_dir() {
+            let name = path.file_name().map(|s| s.to_string_lossy().to_string());
+
             Some(SearchEntry::Directory {
                 relative: absolute[relative_slice].to_string(),
                 absolute,
@@ -51,6 +50,10 @@ impl SearchEntry {
                 path,
             })
         } else if path.is_file() {
+            let Some(name) = path.file_name().map(|s| s.to_string_lossy().to_string()) else {
+                return None;
+            };
+
             Some(SearchEntry::File {
                 relative: absolute[relative_slice].to_string(),
                 absolute,
@@ -73,21 +76,13 @@ impl SearchEntry {
     }
 }
 
-#[derive(serde::Serialize)]
-pub struct Search {
-    search_dir: String,
-    files_count: usize,
-    directories_count: usize,
-    entry: SearchEntry,
-}
-
 /// A command finds all files(in relative path) from a directory recursively
 /// and returns a flatten files list will be returned.
 ///
 /// `mex_depth` tells how depth should recursively search in, default for `5`.
 /// For performance considering, always provides a small value.
 #[tauri::command]
-pub async fn search_directory(dir: String, max_depth: Option<usize>) -> Result<Search, Error> {
+pub async fn search_directory(dir: String, max_depth: Option<usize>) -> Result<SearchEntry, Error> {
     let max_depth = max_depth.unwrap_or(5);
 
     let search_dir = PathBuf::from(&dir);
@@ -108,8 +103,6 @@ pub async fn search_directory(dir: String, max_depth: Option<usize>) -> Result<S
     };
 
     let root_ptr: *mut SearchEntry = &mut root;
-    let mut files_count = 0;
-    let mut directories_count = 0;
     let mut directories = VecDeque::from([(root_ptr, 0)]);
     while let Some((current_dir_ptr, depth)) = directories.pop_front() {
         let current_dir = unsafe { &mut *current_dir_ptr };
@@ -127,12 +120,6 @@ pub async fn search_directory(dir: String, max_depth: Option<usize>) -> Result<S
             .and_then(|e| e.ok())
             .and_then(|e| SearchEntry::from_path(e.path(), &search_dir_absolute))
         {
-            if next_entry.is_dir() {
-                directories_count += 1;
-            } else {
-                files_count += 1;
-            }
-
             children.push(next_entry);
         }
 
@@ -147,10 +134,5 @@ pub async fn search_directory(dir: String, max_depth: Option<usize>) -> Result<S
         }
     }
 
-    Ok(Search {
-        files_count,
-        directories_count,
-        search_dir: search_dir_absolute,
-        entry: root,
-    })
+    Ok(root)
 }

@@ -1,13 +1,12 @@
 import { Divider, InputTag, Radio } from "@arco-design/web-react";
-import { ExtensionFilterState, useSearchStore } from "../../store/search";
+import { ExtensionFilterState } from "../../libs/search/extension_filter";
+import { useSearchStore } from "../../store/search";
 
 /**
  * Extension filter
  */
 export default function ExtensionFilter() {
-  const { extensionFilters, setExtensionFilterState, setExtensionList } = useSearchStore(
-    (state) => state
-  );
+  const { storage, setExtensionFilterState, setExtensionList } = useSearchStore((state) => state);
 
   return (
     <div>
@@ -20,7 +19,7 @@ export default function ExtensionFilter() {
         className="mb-4"
         size="mini"
         type="button"
-        value={extensionFilters.state}
+        value={storage.extensionFilters.state}
         onChange={setExtensionFilterState}
       >
         <Radio value={ExtensionFilterState.Whitelist}>Whitelist</Radio>
@@ -34,7 +33,7 @@ export default function ExtensionFilter() {
         saveOnBlur
         size="mini"
         placeholder="Extensions"
-        value={extensionFilters.extensions}
+        value={storage.extensionFilters.extensions}
         onChange={setExtensionList}
       ></InputTag>
     </div>

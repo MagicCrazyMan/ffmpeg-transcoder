@@ -17,31 +17,35 @@ import "./index.less";
  */
 export default function SearchPage() {
   const navigate = useNavigate();
-  const { inputArgsMap, outputArgsMap, selectedRows, setSelectedRows } = useSearchStore();
+  const { nodeMap, inputArgsMap, outputArgsMap, selectedRows, setSelectedRows } = useSearchStore();
   const { addTasks } = useTaskStore();
 
   const addable = useMemo(() => {
-    if (selectedRows.length === 0) return false;
+    // filter paths which not shown
+    const visibleSelectedRows = selectedRows.filter((row) => nodeMap.has(row.absolute));
+    if (visibleSelectedRows.length === 0) return false;
 
-    const pathsSet = selectedRows.reduce((paths, node) => {
-      const outputArgs = outputArgsMap.get(node.outputId);
-      if (!outputArgs || !outputArgs.path) return paths;
+    const pathsSet = visibleSelectedRows.reduce((paths, node) => {
+      const inputArgs = inputArgsMap.get(node.absolute);
+      if (!inputArgs?.path) return paths;
+      const outputArgs = outputArgsMap.get(node.absolute);
+      if (!outputArgs?.path) return paths;
 
-      paths.add(outputArgs.path)
+      paths.add(outputArgs.path);
       return paths;
     }, new Set());
 
-    return pathsSet.size === selectedRows.length;
-  }, [outputArgsMap, selectedRows]);
+    return pathsSet.size === visibleSelectedRows.length;
+  }, [inputArgsMap, nodeMap, outputArgsMap, selectedRows]);
 
   /**
    * Add Tasks
    */
   const onAddTasks = () => {
     const taskArgs = selectedRows.reduce((taskArgs, node) => {
-      const inputArgs = inputArgsMap.get(node.inputId);
+      const inputArgs = inputArgsMap.get(node.absolute);
       if (!inputArgs) return taskArgs;
-      const outputArgs = outputArgsMap.get(node.outputId);
+      const outputArgs = outputArgsMap.get(node.absolute);
       if (!outputArgs) return taskArgs;
 
       taskArgs.push({
@@ -53,7 +57,7 @@ export default function SearchPage() {
     }, [] as TaskArgs[]);
 
     addTasks(...taskArgs);
-    setSelectedRows([]);
+    setSelectedRows([], []);
     navigate("/tasks");
   };
 

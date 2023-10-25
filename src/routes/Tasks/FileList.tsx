@@ -1,4 +1,4 @@
-import { Button, Space } from "@arco-design/web-react";
+import { Button, Space, Typography } from "@arco-design/web-react";
 import { IconFolder, IconPlayArrow } from "@arco-design/web-react/icon";
 import { OsType } from "@tauri-apps/api/os";
 import { Command, open } from "@tauri-apps/api/shell";
@@ -68,7 +68,13 @@ const FileItem = ({
       ) : null}
 
       {/* File Name */}
-      <div className="flex-1">{path ?? "NULL"}</div>
+      {path ? (
+        <Typography.Text className="flex-1">{path}</Typography.Text>
+      ) : (
+        <Typography.Text type="warning" className="flex-1">
+          NULL
+        </Typography.Text>
+      )}
     </Space>
   );
 };

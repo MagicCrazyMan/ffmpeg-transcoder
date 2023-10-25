@@ -1,31 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { invoke } from "@tauri-apps/api";
+import { SearchDirectory } from "../libs/search";
 import type { DirectoryNotFoundError } from "./error";
-
-export type Search = {
-  search_dir: string;
-  search_dir_components: string[];
-  entry: SearchDirectory;
-};
-
-export type SearchEntry = SearchDirectory | SearchFile;
-
-export type SearchDirectory = {
-  type: "Directory";
-  absolute: string;
-  relative: string;
-  name: string;
-  children: SearchEntry[];
-};
-
-export type SearchFile = {
-  type: "File";
-  absolute: string;
-  relative: string;
-  name: string;
-  stem?: string;
-  extension?: string;
-};
 
 /**
  * Finds all files in a directory recursively via Tauri.
@@ -39,4 +15,4 @@ export type SearchFile = {
  * @returns Search result
  */
 export const searchDirectory = async (dir: string, maxDepth?: number) =>
-  await invoke<Search>("search_directory", { dir, maxDepth });
+  await invoke<SearchDirectory>("search_directory", { dir, maxDepth });

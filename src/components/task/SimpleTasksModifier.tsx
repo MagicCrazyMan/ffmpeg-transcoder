@@ -116,7 +116,7 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
   /**
    * On select output files vis Tauri
    */
-  const onOutputFileChange = useCallback((id: string, path: string) => {
+  const onOutputFileChange = useCallback((id: string, path?: string) => {
     setRecords((state) =>
       state.map((task) => {
         if (task.id === id) {
