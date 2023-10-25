@@ -305,13 +305,6 @@ export default function ComplexTaskModifier({
   const [modified, setModified] = useState(false);
 
   /**
-   * Sets as modified when inputs or outputs change
-   */
-  useEffect(() => {
-    setModified(true);
-  }, [inputs, outputs]);
-
-  /**
    * Updates inputs, outputs and modified state when task change
    */
   useEffect(() => {
@@ -391,7 +384,8 @@ export default function ComplexTaskModifier({
   return (
     <Modal
       simple
-      maskClosable={false}
+      escToExit={!modified}
+      maskClosable={!modified}
       getChildrenPopupContainer={() => document.body}
       style={{
         width: "60%",
@@ -412,6 +406,9 @@ export default function ComplexTaskModifier({
         setInputs([]);
         setOutputs([]);
         setModified(false);
+      }}
+      onCancel={() => {
+        onVisibleChange(false);
       }}
     >
       {/* Buttons */}
@@ -434,11 +431,25 @@ export default function ComplexTaskModifier({
 
       {/* Input Files Table */}
       <div className="mb-4">
-        <UniverseTable type="input" records={inputs} setRecords={setInputs}></UniverseTable>
+        <UniverseTable
+          type="input"
+          records={inputs}
+          setRecords={(v) => {
+            setInputs(v);
+            setModified(true);
+          }}
+        ></UniverseTable>
       </div>
 
       {/* Output Files Table */}
-      <UniverseTable type="output" records={outputs} setRecords={setOutputs}></UniverseTable>
+      <UniverseTable
+        type="output"
+        records={outputs}
+        setRecords={(v) => {
+          setOutputs(v);
+          setModified(true);
+        }}
+      ></UniverseTable>
     </Modal>
   );
 }

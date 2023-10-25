@@ -25,14 +25,15 @@ type SimpleTaskArgs = {
 };
 
 const Footer = ({
+  modified,
   records,
   onVisibleChange,
 }: {
+  modified: boolean;
   records: SimpleTaskArgs[];
   onVisibleChange: (visible: boolean) => void;
 }) => {
   const { addTasks } = useTaskStore();
-  const modified = useMemo(() => records.length !== 0, [records]);
 
   const onCancel = () => onVisibleChange(false);
   const onSubmit = () => {
@@ -74,6 +75,8 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
   const { defaultDecode, defaultEncode } = usePresetStore();
 
   const [records, setRecords] = useState<SimpleTaskArgs[]>([]);
+
+  const modified = useMemo(() => records.length !== 0, [records]);
 
   /**
    * Add input files vis Tauri
@@ -155,7 +158,7 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
                 },
               };
             } else {
-              // tries replacing extension if preset selected
+              // tries replacing extension if a preset selected
               return {
                 ...task,
                 [type]: {
@@ -351,16 +354,20 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
   return (
     <Modal
       simple
-      maskClosable={false}
+      escToExit={!modified}
+      maskClosable={!modified}
       getChildrenPopupContainer={() => document.body}
       style={{
         width: "90%",
         maxHeight: "80%",
       }}
       visible={visible}
-      footer={<Footer records={records} onVisibleChange={onVisibleChange} />}
+      footer={<Footer modified={modified} records={records} onVisibleChange={onVisibleChange} />}
       afterClose={() => {
         setRecords([]);
+      }}
+      onCancel={() => {
+        onVisibleChange(false);
       }}
     >
       {/* Buttons */}
