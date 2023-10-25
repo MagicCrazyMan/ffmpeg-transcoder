@@ -32,8 +32,6 @@ const UniverseTable = ({
   records: ModifyingTaskArgsItem[];
   setRecords: Dispatch<SetStateAction<ModifyingTaskArgsItem[]>>;
 }) => {
-  const presets = usePresetStore((state) => state.storage.presets);
-
   const filesTitle = useMemo(() => (type === "input" ? "Input Files" : "Output Files"), [type]);
   const argsTitle = useMemo(
     () => (type === "input" ? "Decode Arguments" : "Encode Arguments"),
@@ -61,7 +59,7 @@ const UniverseTable = ({
               // tries replacing extension if preset selected
               return {
                 ...record,
-                selection: selection.id,
+                selection,
                 path: record.path ? replaceExtension(record.path, selection) : record.path,
               };
             }
@@ -99,7 +97,16 @@ const UniverseTable = ({
           if (record.id === id) {
             return record;
           } else {
-            return { ...record, selection, custom };
+            if (selection === TaskArgsSource.Auto || selection === TaskArgsSource.Custom) {
+              return { ...record, selection, custom };
+            } else {
+              return {
+                ...record,
+                selection,
+                custom,
+                path: record.path ? replaceExtension(record.path, selection) : record.path,
+              };
+            }
           }
         })
       );
@@ -108,14 +115,17 @@ const UniverseTable = ({
   );
 
   const onConvertCustom = useCallback(
-    ({ id, selection }: ModifyingTaskArgsItem) => {
+    ({ id, selection, custom }: ModifyingTaskArgsItem) => {
       setRecords((state) =>
         state.map((record) => {
           if (record.id === id) {
             return {
               ...record,
               selection: TaskArgsSource.Custom,
-              custom: presets.find((preset) => preset.id === selection)?.args.join(" "),
+              custom:
+                selection === TaskArgsSource.Auto || selection === TaskArgsSource.Custom
+                  ? custom
+                  : selection.args.join(" "),
             };
           } else {
             return record;
@@ -123,7 +133,7 @@ const UniverseTable = ({
         })
       );
     },
-    [presets, setRecords]
+    [setRecords]
   );
 
   const onRemove = useCallback(
@@ -288,7 +298,7 @@ export default function ComplexTaskModifier({
   onVisibleChange,
 }: ComplexTaskModifierProps) {
   const { configuration, openDialogFilters, saveDialogFilters } = useAppStore();
-  const { storage } = usePresetStore();
+  const { defaultDecode, defaultEncode } = usePresetStore();
 
   const [inputs, setInputs] = useState<ModifyingTaskArgsItem[]>([]);
   const [outputs, setOutputs] = useState<ModifyingTaskArgsItem[]>([]);
@@ -340,7 +350,7 @@ export default function ComplexTaskModifier({
       const inputs: ModifyingTaskArgsItem[] = files.map((file) => ({
         id: v4(),
         path: file,
-        selection: storage.defaultDecode ?? TaskArgsSource.Auto,
+        selection: defaultDecode ?? TaskArgsSource.Auto,
       }));
       setInputs((state) => [...state, ...inputs]);
     }
@@ -360,7 +370,7 @@ export default function ComplexTaskModifier({
       const output: ModifyingTaskArgsItem = {
         id: v4(),
         path: file,
-        selection: storage.defaultEncode ?? TaskArgsSource.Auto,
+        selection: defaultEncode ?? TaskArgsSource.Auto,
       };
       setOutputs((state) => [...state, { ...output }]);
     }
@@ -372,7 +382,7 @@ export default function ComplexTaskModifier({
   const addNullOutput = () => {
     const output: ModifyingTaskArgsItem = {
       id: v4(),
-      selection: storage.defaultEncode ?? TaskArgsSource.Auto,
+      selection: defaultEncode ?? TaskArgsSource.Auto,
     };
 
     setOutputs((state) => [...state, { ...output }]);

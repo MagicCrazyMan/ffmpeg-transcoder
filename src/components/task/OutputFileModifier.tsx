@@ -3,9 +3,9 @@ import { IconFolder } from "@arco-design/web-react/icon";
 import { save } from "@tauri-apps/api/dialog";
 import { useCallback } from "react";
 import { TaskArgsSource } from "../../libs/task";
+import { ModifyingTaskArgsItem } from "../../libs/task/modifying";
 import { useAppStore } from "../../store/app";
 import { usePresetStore } from "../../store/preset";
-import { ModifyingTaskArgsItem } from "../../libs/task/modifying";
 
 export default function OutputFileModifier({
   args,
@@ -21,10 +21,11 @@ export default function OutputFileModifier({
    * On select output files vis Tauri
    */
   const onSelectOutputFile = useCallback(async () => {
+    const { selection } = args;
     const preset =
-      args.selection !== TaskArgsSource.Auto && args.selection !== TaskArgsSource.Custom
-        ? storage.presets.find((preset) => preset.id === args.selection)
-        : undefined;
+      selection === TaskArgsSource.Auto || selection === TaskArgsSource.Custom
+        ? undefined
+        : storage.presets.find((preset) => preset.id === selection.id);
 
     const file = await save({
       title: "Select Output File",
@@ -37,7 +38,7 @@ export default function OutputFileModifier({
     if (file) {
       onChange(file);
     }
-  }, [configuration.saveDirectory, onChange, args.selection, saveDialogFilters, storage.presets]);
+  }, [args, storage.presets, configuration.saveDirectory, saveDialogFilters, onChange]);
 
   return (
     <div className="flex gap-2 items-center">

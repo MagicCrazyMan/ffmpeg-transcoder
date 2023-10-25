@@ -136,9 +136,8 @@ export type SearchStoreState = {
   /**
    * Selected row keys in table
    */
-  selectedRowKeys: string[];
-  selectedRowKeysSet: Set<string>;
-  setSelectedRowKeys: (selectedRowKeys: string[]) => void;
+  selectedRows: SearchFileNode[];
+  setSelectedRows: (selectedRows: SearchFileNode[]) => void;
   /**
    * A hash map maps inputId of search file node to an editable task args
    */
@@ -151,7 +150,7 @@ export type SearchStoreState = {
   /**
    * A hash map maps outputId of search file node to an editable task args
    *
-   * If `path` of output args is falsy, `inputDir` + `relative` will be used as path.
+   * If `path` of output args is falsy, `outputDir` + `relative` will be used as path.
    */
   outputArgsMap: Map<string, ModifyingTaskArgsItem>;
   setOutputArgsMap: (
@@ -260,133 +259,6 @@ const loadSearchStorage = (): SearchStorage => {
 export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
   const { printRelativePath, maxDepth, extensionFilters, regularFilters } = loadSearchStorage();
 
-  const setPrintRelativePath = (printRelativePath: boolean) => {
-    set({ printRelativePath });
-  };
-
-  const setMaxDepth = (maxDepth: number) => {
-    set({ maxDepth });
-  };
-
-  const setInputDirectory = (inputDir?: string) => {
-    set({ inputDir });
-  };
-
-  const setOutputDirectory = (outputDir?: string) => {
-    set({ outputDir });
-  };
-
-  const setExtensionFilterState = (state: ExtensionFilterState) => {
-    set((s) => ({
-      extensionFilters: { ...s.extensionFilters, state },
-    }));
-  };
-
-  const setExtensionList = (extensions: string[]) => {
-    const lowerAndDedup = Array.from(
-      new Set(extensions.map((extension) => extension.toLocaleLowerCase()))
-    );
-
-    set((state) => ({
-      extensionFilters: { ...state.extensionFilters, extensions: lowerAndDedup },
-    }));
-  };
-
-  const toggleRegularFilter = () => {
-    set((state) => ({
-      regularFilters: {
-        ...state.regularFilters,
-        enabled: !state.regularFilters.enabled,
-      },
-    }));
-  };
-
-  const addRegularFilter = (initialValue?: Partial<RegularFilter>) => {
-    set((state) => ({
-      regularFilters: {
-        ...state.regularFilters,
-        filters: [
-          ...state.regularFilters.filters,
-          {
-            enabled: true,
-            blacklist: true,
-            regex: false,
-            directory: true,
-            file: true,
-            ...initialValue,
-            id: v4(),
-          },
-        ],
-      },
-    }));
-  };
-
-  const removeRegularFilter = (id: string) => {
-    set((state) => ({
-      regularFilters: {
-        ...state.regularFilters,
-        filters: state.regularFilters.filters.filter((filter) => filter.id !== id),
-      },
-    }));
-  };
-
-  const updateRegularFilter = (id: string, partial: Partial<RegularFilter>) => {
-    set((state) => ({
-      regularFilters: {
-        ...state.regularFilters,
-        filters: state.regularFilters.filters.map((filter) => {
-          if (filter.id === id) {
-            return {
-              ...filter,
-              ...partial,
-            };
-          } else {
-            return filter;
-          }
-        }),
-      },
-    }));
-  };
-
-  const setExpandedRowKeys = (expendedRowKeys: string[]) => {
-    set({ expendedRowKeys });
-  };
-
-  const setSelectedRowKeys = (selectedRowKeys: string[]) => {
-    set({
-      selectedRowKeys,
-      selectedRowKeysSet: new Set(selectedRowKeys),
-    });
-  };
-
-  const setInputArgsMap = (
-    inputArgsMap:
-      | Map<string, ModifyingTaskArgsItem>
-      | ((state: Map<string, ModifyingTaskArgsItem>) => Map<string, ModifyingTaskArgsItem>)
-  ) => {
-    if (typeof inputArgsMap === "function") {
-      set((state) => ({
-        inputArgsMap: inputArgsMap(state.inputArgsMap),
-      }));
-    } else {
-      set({ inputArgsMap: inputArgsMap });
-    }
-  };
-
-  const setOutputArgsMap = (
-    outputArgsMap:
-      | Map<string, ModifyingTaskArgsItem>
-      | ((state: Map<string, ModifyingTaskArgsItem>) => Map<string, ModifyingTaskArgsItem>)
-  ) => {
-    if (typeof outputArgsMap === "function") {
-      set((state) => ({
-        outputArgsMap: outputArgsMap(state.outputArgsMap),
-      }));
-    } else {
-      set({ outputArgsMap: outputArgsMap });
-    }
-  };
-
   /**
    * Searches entries via Tauri when input directory change
    */
@@ -430,8 +302,7 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
           nodeMap,
           // only expend keys when entries count smaller than or equals 100
           expendedRowKeys: filesCount + directoriesCount <= 100 ? expendedRowKeys : [],
-          selectedRowKeys: [],
-          selectedRowKeysSet: new Set(),
+          selectedRows: [],
           inputArgsMap: new Map(),
           outputArgsMap: new Map(),
         });
@@ -442,8 +313,7 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
           directoriesCount: 0,
           nodeMap: new Map(),
           expendedRowKeys: [],
-          selectedRowKeys: [],
-          selectedRowKeysSet: new Set(),
+          selectedRows: [],
           inputArgsMap: new Map(),
           outputArgsMap: new Map(),
         });
@@ -465,38 +335,78 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
 
   /**
    * Updates task args when selected row keys change.
-   * Creates new args if one never selected before,
-   * but not deletes when unselecting.
    */
   api.subscribe((state, prevState) => {
-    if (state.selectedRowKeys !== prevState.selectedRowKeys) {
-      if (state.selectedRowKeys.length === 0) return;
+    if (state.selectedRows === prevState.selectedRows) return;
+    if (state.selectedRows.length === 0) return;
 
-      const { storage } = usePresetStore.getState();
-      const inputArgsMap = new Map(state.inputArgsMap);
-      const outputArgsMap = new Map(state.outputArgsMap);
+    const { defaultDecode, defaultEncode } = usePresetStore.getState();
+    const inputArgsMap = new Map(state.inputArgsMap);
+    const outputArgsMap = new Map(state.outputArgsMap);
 
-      state.selectedRowKeys.forEach((key) => {
-        const node = state.nodeMap.get(key);
-        if (!node || node.type !== "File") return;
+    // creates for selected
+    state.selectedRows.forEach((node) => {
+      if (!state.inputArgsMap.has(node.inputId)) {
+        inputArgsMap.set(node.inputId, {
+          id: node.inputId,
+          selection: defaultDecode ?? TaskArgsSource.Auto,
+          path: state.inputDir ? state.inputDir + node.relative : undefined,
+        });
+      }
 
-        if (!state.inputArgsMap.has(node.inputId)) {
-          inputArgsMap.set(node.inputId, {
-            id: node.inputId,
-            selection: storage.defaultDecode ?? TaskArgsSource.Auto,
-          });
+      if (!state.outputArgsMap.has(node.outputId)) {
+        outputArgsMap.set(node.outputId, {
+          id: node.outputId,
+          selection: defaultEncode ?? TaskArgsSource.Auto,
+          path: state.outputDir ? state.outputDir + node.relative : undefined,
+        });
+      }
+    });
+
+    // remove for deselected
+    const selectedIds = new Set(
+      state.selectedRows.flatMap(({ inputId, outputId }) => [inputId, outputId])
+    );
+    Array.from(state.inputArgsMap.keys()).forEach((id) => {
+      if (!selectedIds.has(id)) inputArgsMap.delete(id);
+    });
+    Array.from(state.outputArgsMap.keys()).forEach((id) => {
+      if (!selectedIds.has(id)) outputArgsMap.delete(id);
+    });
+
+    set({ inputArgsMap, outputArgsMap });
+  });
+
+  /**
+   * Replaces all output dir of existing output args
+   */
+  api.subscribe((state, prevState) => {
+    if (state.outputDir === prevState.outputDir) return;
+
+    const outputArgsMap = new Map(state.outputArgsMap);
+
+    const entries = state.outputArgsMap.entries();
+    for (let entry = entries.next(); !entry.done; entry = entries.next()) {
+      const [id, value] = entry.value;
+
+      let path: string | undefined;
+      if (state.outputDir) {
+        if (prevState.outputDir && value.path) {
+          path = value.path.replace(prevState.outputDir, state.outputDir);
+        } else {
+          path = state.outputDir + state.nodeMap.get(value.id)!.relative;
         }
+      } else {
+        path = undefined;
+      }
 
-        if (!state.outputArgsMap.has(node.outputId)) {
-          outputArgsMap.set(node.outputId, {
-            id: node.outputId,
-            selection: storage.defaultEncode ?? TaskArgsSource.Auto,
-          });
-        }
+      outputArgsMap.set(id, {
+        ...value,
+        path,
       });
-
-      set({ inputArgsMap: inputArgsMap, outputArgsMap: outputArgsMap });
     }
+
+    set({ outputArgsMap });
   });
 
   /**
@@ -520,33 +430,121 @@ export const useSearchStore = create<SearchStoreState>((set, _get, api) => {
 
   return {
     printRelativePath,
-    setPrintRelativePath,
+    setPrintRelativePath(printRelativePath) {
+      set({ printRelativePath });
+    },
     maxDepth,
-    setMaxDepth,
+    setMaxDepth(maxDepth) {
+      set({ maxDepth });
+    },
     isSearching: false,
-    setInputDirectory,
-    setOutputDirectory,
+    setInputDirectory(inputDir) {
+      set({ inputDir });
+    },
+    setOutputDirectory(outputDir) {
+      set({ outputDir });
+    },
     extensionFilters,
-    setExtensionFilterState,
-    setExtensionList,
+    setExtensionFilterState(state) {
+      set((s) => ({
+        extensionFilters: { ...s.extensionFilters, state },
+      }));
+    },
+    setExtensionList(extensions) {
+      const lowerAndDedup = Array.from(
+        new Set(extensions.map((extension) => extension.toLocaleLowerCase()))
+      );
+
+      set((state) => ({
+        extensionFilters: { ...state.extensionFilters, extensions: lowerAndDedup },
+      }));
+    },
     regularFilters,
-    toggleRegularFilter,
-    addRegularFilter,
-    removeRegularFilter,
-    updateRegularFilter,
+    toggleRegularFilter() {
+      set((state) => ({
+        regularFilters: {
+          ...state.regularFilters,
+          enabled: !state.regularFilters.enabled,
+        },
+      }));
+    },
+    addRegularFilter(initialValue) {
+      set((state) => ({
+        regularFilters: {
+          ...state.regularFilters,
+          filters: [
+            ...state.regularFilters.filters,
+            {
+              enabled: true,
+              blacklist: true,
+              regex: false,
+              directory: true,
+              file: true,
+              ...initialValue,
+              id: v4(),
+            },
+          ],
+        },
+      }));
+    },
+    removeRegularFilter(id) {
+      set((state) => ({
+        regularFilters: {
+          ...state.regularFilters,
+          filters: state.regularFilters.filters.filter((filter) => filter.id !== id),
+        },
+      }));
+    },
+    updateRegularFilter(id, partial) {
+      set((state) => ({
+        regularFilters: {
+          ...state.regularFilters,
+          filters: state.regularFilters.filters.map((filter) => {
+            if (filter.id === id) {
+              return {
+                ...filter,
+                ...partial,
+              };
+            } else {
+              return filter;
+            }
+          }),
+        },
+      }));
+    },
     root: undefined,
     filesCount: 0,
     directoriesCount: 0,
     nodeMap: new Map(),
     expendedRowKeys: [],
-    setExpandedRowKeys,
-    selectedRowKeys: [],
-    selectedRowKeysSet: new Set(),
-    setSelectedRowKeys,
+    setExpandedRowKeys(expendedRowKeys) {
+      set({ expendedRowKeys });
+    },
+    selectedRows: [],
+    selectedRowsSet: new Set(),
+    setSelectedRows(selectedRows) {
+      set({ selectedRows });
+    },
     inputArgsMap: new Map(),
-    setInputArgsMap,
+    setInputArgsMap(inputArgsMap) {
+      if (typeof inputArgsMap === "function") {
+        set((state) => ({
+          inputArgsMap: inputArgsMap(state.inputArgsMap),
+        }));
+      } else {
+        set({ inputArgsMap });
+      }
+    },
     outputArgsMap: new Map(),
-    setOutputArgsMap,
+    setOutputArgsMap(outputArgsMap) {
+      if (typeof outputArgsMap === "function") {
+        set((state) => ({
+          outputArgsMap: outputArgsMap(state.outputArgsMap),
+        }));
+      } else {
+        set({ outputArgsMap: outputArgsMap });
+      }
+    },
   };
 });
 

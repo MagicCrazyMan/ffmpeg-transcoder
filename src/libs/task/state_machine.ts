@@ -4,7 +4,6 @@ import { Task, TaskData } from ".";
 import { useAppStore } from "../../store/app";
 import { useHistoryStore } from "../../store/history";
 import { useTaskStore } from "../../store/task";
-import { TauriError } from "../../tauri/error";
 import { pauseTask, resumeTask, startTask, stopTask } from "../../tauri/task";
 import { TaskMessageRunning } from "./message";
 
@@ -41,7 +40,7 @@ export abstract class TaskState {
 
   public async error(
     task: Task,
-    reason: TauriError
+    reason: string
   ): Promise<{ nextState: TaskState; nextData: TaskData }> {
     console.error(reason);
     return {
@@ -101,7 +100,7 @@ export class Idle extends TaskState {
       };
     } catch (err) {
       return {
-        nextState: new Errored(err as TauriError),
+        nextState: new Errored(err as string),
         nextData: task.data,
       };
     }
@@ -213,7 +212,7 @@ export class Running extends TaskState {
       };
     } catch (err) {
       return {
-        nextState: new Errored(err as TauriError),
+        nextState: new Errored(err as string),
         nextData: task.data,
       };
     }
@@ -237,7 +236,7 @@ export class Running extends TaskState {
       };
     } catch (err) {
       return {
-        nextState: new Errored(err as TauriError),
+        nextState: new Errored(err as string),
         nextData: task.data,
       };
     }
@@ -288,7 +287,7 @@ export class Pausing extends TaskState {
       };
     } catch (err) {
       return {
-        nextState: new Errored(err as TauriError),
+        nextState: new Errored(err as string),
         nextData: task.data,
       };
     }
@@ -311,7 +310,7 @@ export class Pausing extends TaskState {
       };
     } catch (err) {
       return {
-        nextState: new Errored(err as TauriError),
+        nextState: new Errored(err as string),
         nextData: task.data,
       };
     }
@@ -381,9 +380,9 @@ export class Errored extends TaskState {
   public readonly editable = false;
   public readonly removable = true;
 
-  public readonly reason: TauriError;
+  public readonly reason: string;
 
-  constructor(reason: TauriError) {
+  constructor(reason: string) {
     super();
     this.reason = reason;
   }

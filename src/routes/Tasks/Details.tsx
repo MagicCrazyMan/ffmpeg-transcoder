@@ -6,7 +6,6 @@ import {
   Running as RunningState,
   TaskStateCode,
 } from "../../libs/task/state_machine";
-import { toMessage } from "../../tauri/error";
 import { sumCostTime, toDuration } from "../../utils";
 
 const Commanding = () => (
@@ -94,7 +93,7 @@ const Finished = ({ task }: { task: Task }) => {
 
 const Errored = ({ task }: { task: Task }) => (
   <Typography.Text style={{ color: "rgb(var(--danger-6))" }}>
-    {toMessage((task.state as ErroredState).reason, true)}
+    {(task.state as ErroredState).reason}
   </Typography.Text>
 );
 

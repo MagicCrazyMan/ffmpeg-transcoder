@@ -8,6 +8,14 @@ export type PresetStoreState = {
    */
   storage: PresetStorage;
   /**
+   * Default preset for decoding, sync from default decode id in storage
+   */
+  defaultDecode?: Preset;
+  /**
+   * Default preset for encoding, sync from default decode id in storage
+   */
+  defaultEncode?: Preset;
+  /**
    * Sets default preset id for decoding
    * @param id Preset id
    */
@@ -48,13 +56,13 @@ export type PresetStoreState = {
 
 type PresetStorage = {
   /**
-   * Default preset for decoding
+   * Default preset id for decoding
    */
-  defaultDecode?: string;
+  defaultDecodeId?: string;
   /**
-   * Default preset for encoding
+   * Default preset id for encoding
    */
-  defaultEncode?: string;
+  defaultEncodeId?: string;
   /**
    * Presets list
    */
@@ -74,33 +82,42 @@ const storePresetStorage = (storage: PresetStorage) => {
 /**
  * Loads presets storage from local storage.
  */
-const loadPresetStorage = (): PresetStorage => {
+const loadPresetStorage = (): {
+  defaultDecode?: Preset;
+  defaultEncode?: Preset;
+  storage: PresetStorage;
+} => {
   const defaultStorage: PresetStorage = {
     presets: [],
   };
 
   const raw = localStorage.getItem(PRESETS_LOCALSTORAGE_KEY);
-  if (!raw) return defaultStorage;
+  if (!raw) return { storage: defaultStorage };
 
   const loaded: PresetStorage = JSON.parse(raw);
 
   // verifies defaultDecode and defaultEncode id
-  if (loaded.defaultDecode)
-    loaded.defaultDecode = loaded.presets.find((preset) => preset.id === loaded.defaultDecode)
-      ? loaded.defaultDecode
-      : undefined;
-  if (loaded.defaultEncode)
-    loaded.defaultEncode = loaded.presets.find((preset) => preset.id === loaded.defaultEncode)
-      ? loaded.defaultEncode
-      : undefined;
+  let defaultDecode: Preset | undefined, defaultEncode: Preset | undefined;
+  if (loaded.defaultDecodeId) {
+    defaultDecode = loaded.presets.find((preset) => preset.id === loaded.defaultDecodeId);
+  }
+  if (loaded.defaultEncodeId) {
+    defaultEncode = loaded.presets.find((preset) => preset.id === loaded.defaultEncodeId);
+  }
 
   return {
-    ...defaultStorage,
-    ...loaded,
+    defaultDecode,
+    defaultEncode,
+    storage: {
+      ...defaultStorage,
+      ...loaded,
+    },
   };
 };
 
 export const usePresetStore = create<PresetStoreState>((set, _oget, api) => {
+  const { storage, defaultDecode, defaultEncode } = loadPresetStorage();
+
   /**
    * Subscribes state change event,
    * stores presets into local storage if presets changed.
@@ -110,12 +127,20 @@ export const usePresetStore = create<PresetStoreState>((set, _oget, api) => {
   });
 
   return {
-    storage: loadPresetStorage(),
-    setDefaultDecode(defaultDecode?: string) {
-      set(({ storage }) => ({ storage: { ...storage, defaultDecode } }));
+    storage,
+    defaultDecode,
+    defaultEncode,
+    setDefaultDecode(id?: string) {
+      set(({ storage }) => ({
+        storage: { ...storage, defaultDecodeId: id },
+        defaultDecode: storage.presets.find((preset) => preset.id === id),
+      }));
     },
-    setDefaultEncode(defaultEncode?: string) {
-      set(({ storage }) => ({ storage: { ...storage, defaultEncode } }));
+    setDefaultEncode(id?: string) {
+      set(({ storage }) => ({
+        storage: { ...storage, defaultEncodeId: id },
+        defaultEncode: storage.presets.find((preset) => preset.id === id),
+      }));
     },
     addPreset(preset: Preset) {
       set(({ storage }) => ({
@@ -180,8 +205,8 @@ export const usePresetStore = create<PresetStoreState>((set, _oget, api) => {
         storage: {
           ...storage,
           presets: storage.presets.filter((p) => p.id !== id),
-          defaultDecode: storage.defaultDecode === id ? undefined : storage.defaultDecode,
-          defaultEncode: storage.defaultEncode === id ? undefined : storage.defaultEncode,
+          defaultDecodeId: storage.defaultDecodeId === id ? undefined : storage.defaultDecodeId,
+          defaultEncodeId: storage.defaultEncodeId === id ? undefined : storage.defaultEncodeId,
         },
       }));
     },

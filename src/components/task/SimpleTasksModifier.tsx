@@ -71,7 +71,7 @@ const Footer = ({
 
 export default function SimpleTasksModifier({ visible, onVisibleChange }: SimpleTasksAddingProps) {
   const { configuration, openDialogFilters } = useAppStore();
-  const { storage } = usePresetStore();
+  const { defaultDecode, defaultEncode } = usePresetStore();
 
   const [records, setRecords] = useState<SimpleTaskArgs[]>([]);
 
@@ -99,12 +99,12 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
           input: {
             id: v4(),
             path: file,
-            selection: storage.defaultDecode ?? TaskArgsSource.Auto,
+            selection: defaultDecode ?? TaskArgsSource.Auto,
           },
           output: {
             id: v4(),
             path: defaultOutputPath,
-            selection: storage.defaultEncode ?? TaskArgsSource.Auto,
+            selection: defaultEncode ?? TaskArgsSource.Auto,
           },
         } as SimpleTaskArgs;
       });
@@ -156,13 +156,14 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
               };
             } else {
               // tries replacing extension if preset selected
-              const args = task[type];
               return {
                 ...task,
                 [type]: {
-                  ...args,
-                  selection: selection.id,
-                  path: args.path ? replaceExtension(args.path, selection) : args.path,
+                  ...task[type],
+                  selection,
+                  path: task[type].path
+                    ? replaceExtension(task[type].path!, selection)
+                    : task[type].path,
                 },
               };
             }
@@ -209,7 +210,21 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
           if (task[type].id === id) {
             return task;
           } else {
-            return { ...task, [type]: { ...task[type], selection, custom } };
+            if (selection === TaskArgsSource.Auto || selection === TaskArgsSource.Custom) {
+              return { ...task, [type]: { ...task[type], selection, custom } };
+            } else {
+              return {
+                ...task,
+                [type]: {
+                  ...task[type],
+                  selection,
+                  custom,
+                  path: task[type].path
+                    ? replaceExtension(task[type].path!, selection)
+                    : task[type].path,
+                },
+              };
+            }
           }
         })
       );
@@ -221,7 +236,7 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
    * On apply one input or output args as custom
    */
   const onConvertCustom = useCallback(
-    ({ id, selection }: ModifyingTaskArgsItem, type: "input" | "output") => {
+    ({ id, selection, custom }: ModifyingTaskArgsItem, type: "input" | "output") => {
       setRecords((state) =>
         state.map((record) => {
           if (record[type].id !== id) {
@@ -232,14 +247,17 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
               [type]: {
                 ...record[type],
                 selection: TaskArgsSource.Custom,
-                custom: storage.presets.find((preset) => preset.id === selection)?.args.join(" "),
+                custom:
+                  selection === TaskArgsSource.Auto || selection === TaskArgsSource.Custom
+                    ? custom
+                    : selection.args.join(" "),
               },
             };
           }
         })
       );
     },
-    [storage.presets, setRecords]
+    [setRecords]
   );
 
   /**

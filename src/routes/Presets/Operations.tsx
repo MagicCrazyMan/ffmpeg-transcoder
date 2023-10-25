@@ -19,8 +19,8 @@ const MarkupButton = ({
    * Finds default codec by type
    */
   const defaultCodec = useMemo(
-    () => (type === PresetType.Decode ? storage.defaultDecode : storage.defaultEncode),
-    [storage.defaultDecode, storage.defaultEncode, type]
+    () => (type === PresetType.Decode ? storage.defaultDecodeId : storage.defaultEncodeId),
+    [storage.defaultDecodeId, storage.defaultEncodeId, type]
   );
 
   /**
@@ -59,7 +59,7 @@ const MarkupButton = ({
     } else {
       setDefaultEncode(id);
     }
-  }, [defaultCodec, preset.id, setDefaultDecode, setDefaultEncode, type]);
+  }, [defaultCodec, preset, setDefaultDecode, setDefaultEncode, type]);
 
   return preset.type === type || preset.type === PresetType.Universal ? (
     <Tooltip position="left" content={tooltipContent}>

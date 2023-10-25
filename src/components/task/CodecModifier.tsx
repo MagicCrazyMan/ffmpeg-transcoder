@@ -66,7 +66,11 @@ export default function CodecModifier({
           autoWidth
           size="mini"
           className="flex-1"
-          value={record.selection}
+          value={
+            record.selection === TaskArgsSource.Auto || record.selection === TaskArgsSource.Custom
+              ? record.selection
+              : record.selection.id
+          }
           onChange={(selection: TaskArgsSource.Auto | TaskArgsSource.Custom | string) => {
             if (selection === TaskArgsSource.Auto || selection === TaskArgsSource.Custom) {
               onSelectChange(record, selection);

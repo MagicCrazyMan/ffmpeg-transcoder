@@ -38,6 +38,7 @@ export default function Directories() {
   const selectDirectory = async (type: "inputDir" | "outputDir") => {
     const dir = await open({
       title: type === "inputDir" ? "Select Input Directory" : "Select Output Directory",
+      defaultPath: type === "inputDir" ? undefined : saveDirectory,
       directory: true,
     });
 

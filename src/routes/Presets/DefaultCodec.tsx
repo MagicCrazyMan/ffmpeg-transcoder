@@ -15,8 +15,8 @@ export default function DefaultCodec({
   const { storage } = usePresetStore();
 
   const defaultCodec = useMemo(
-    () => (type === PresetType.Decode ? storage.defaultDecode : storage.defaultEncode),
-    [storage.defaultDecode, storage.defaultEncode, type]
+    () => (type === PresetType.Decode ? storage.defaultDecodeId : storage.defaultEncodeId),
+    [storage.defaultDecodeId, storage.defaultEncodeId, type]
   );
 
   const color = useMemo(

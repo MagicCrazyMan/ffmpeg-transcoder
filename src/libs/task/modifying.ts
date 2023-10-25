@@ -15,9 +15,8 @@ export type ModifyingTaskArgsItem = {
   path?: string;
   /**
    * Arguments source selection.
-   * If it is a string value, it points to a preset id.
    */
-  selection: TaskArgsSource.Auto | TaskArgsSource.Custom | string;
+  selection: TaskArgsSource.Auto | TaskArgsSource.Custom | Preset;
   /**
    * Custom args input field. If `selection` is not {@link TaskArgsSource.Custom}, `undefined`.
    */
@@ -41,7 +40,7 @@ export const toTaskArgs = ({ selection, path, custom }: ModifyingTaskArgsItem): 
   } else {
     const preset = usePresetStore
       .getState()
-      .storage.presets.find((preset) => preset.id === selection);
+      .storage.presets.find((preset) => preset.id === selection.id);
     if (preset) {
       source = TaskArgsSource.FromPreset;
       args = cloneDeep(preset);
@@ -87,7 +86,7 @@ export const fromTaskArgs = ({ path, source, args }: TaskArgsItem): ModifyingTas
         return {
           id: v4(),
           path,
-          selection: preset.id,
+          selection: preset,
         };
       } else {
         return {

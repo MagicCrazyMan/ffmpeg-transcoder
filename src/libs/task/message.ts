@@ -1,11 +1,6 @@
-import { TauriError } from "../../tauri/error";
-
 export const TASK_MESSAGE_EVENT = "transcoding";
 
-export type TaskMessage =
-  | TaskMessageRunning
-  | TaskMessageFinished
-  | TaskMessageErrored;
+export type TaskMessage = TaskMessageRunning | TaskMessageFinished | TaskMessageErrored;
 
 export type TaskMessageRunning = {
   state: "Running";
@@ -30,5 +25,5 @@ export type TaskMessageFinished = {
 export type TaskMessageErrored = {
   state: "Errored";
   id: string;
-  reason: TauriError;
+  reason: string;
 };

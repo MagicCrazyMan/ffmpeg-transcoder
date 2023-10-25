@@ -3,7 +3,6 @@ import { ExtensionFilterState, useSearchStore } from "../../store/search";
 
 /**
  * Extension filter
- * @param param0 Extension filter props
  */
 export default function ExtensionFilter() {
   const { extensionFilters, setExtensionFilterState, setExtensionList } = useSearchStore(

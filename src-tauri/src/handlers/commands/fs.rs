@@ -1,10 +1,4 @@
-use std::{
-    collections::VecDeque,
-    fs,
-    path::{PathBuf, MAIN_SEPARATOR},
-};
-
-use smallvec::SmallVec;
+use std::{collections::VecDeque, fs, path::PathBuf};
 
 use crate::handlers::error::Error;
 
@@ -15,7 +9,7 @@ pub enum SearchEntry {
         /// Canonicalize path.
         /// On Windows os, extended length path is used.
         absolute: String,
-        relative_components: SmallVec<[String; 5]>,
+        relative: String,
         name: String,
         children: Vec<SearchEntry>,
         #[serde(skip_serializing)]
@@ -25,7 +19,7 @@ pub enum SearchEntry {
         /// Canonicalize path.
         /// On Windows os, extended length path is used.
         absolute: String,
-        relative_components: SmallVec<[String; 5]>,
+        relative: String,
         name: String,
         stem: Option<String>,
         /// File extension, lowercased.
@@ -45,27 +39,21 @@ impl SearchEntry {
         let relative_slice = if search_dir == absolute {
             0..absolute.as_bytes().len()
         } else {
-            search_dir.as_bytes().len()..(absolute.as_bytes().len() - name.as_bytes().len())
+            search_dir.as_bytes().len()..absolute.as_bytes().len()
         };
-
-        let relative_components = absolute[relative_slice]
-            .split(MAIN_SEPARATOR)
-            .filter(|p| !p.is_empty())
-            .map(|p| p.to_string())
-            .collect::<SmallVec<_>>();
 
         if path.is_dir() {
             Some(SearchEntry::Directory {
+                relative: absolute[relative_slice].to_string(),
                 absolute,
-                relative_components,
                 name,
                 children: Vec::with_capacity(12),
                 path,
             })
         } else if path.is_file() {
             Some(SearchEntry::File {
+                relative: absolute[relative_slice].to_string(),
                 absolute,
-                relative_components,
                 name,
                 stem: path.file_stem().map(|s| s.to_string_lossy().to_string()),
                 extension: path
@@ -88,7 +76,6 @@ impl SearchEntry {
 #[derive(serde::Serialize)]
 pub struct Search {
     search_dir: String,
-    search_dir_components: SmallVec<[String; 5]>,
     files_count: usize,
     directories_count: usize,
     entry: SearchEntry,
@@ -113,32 +100,6 @@ pub async fn search_directory(dir: String, max_depth: Option<usize>) -> Result<S
         .map(|p| p.to_string_lossy().to_string())
     else {
         return Err(Error::directory_not_found(dir));
-    };
-
-    let search_dir_components = {
-        #[cfg(windows)]
-        {
-            // removes extends limitation path prefix for windows
-            ["\\\\?"]
-                .into_iter()
-                .chain(
-                    search_dir_absolute[4..]
-                        .split(MAIN_SEPARATOR)
-                        .into_iter()
-                        .filter(|p| !p.is_empty()),
-                )
-                .map(|p| p.to_string())
-                .collect::<SmallVec<_>>()
-        }
-
-        #[cfg(not(windows))]
-        {
-            search_dir_absolute
-                .split(MAIN_SEPARATOR)
-                .filter(|p| !p.is_empty())
-                .map(|p| p.to_string())
-                .collect::<SmallVec<_>>()
-        }
     };
 
     let Some(mut root) = SearchEntry::from_path(search_dir, &search_dir_absolute).map(|e| (e))
@@ -190,7 +151,6 @@ pub async fn search_directory(dir: String, max_depth: Option<usize>) -> Result<S
         files_count,
         directories_count,
         search_dir: search_dir_absolute,
-        search_dir_components,
         entry: root,
     })
 }

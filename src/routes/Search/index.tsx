@@ -1,5 +1,5 @@
 import { Button } from "@arco-design/web-react";
-import { sep } from "@tauri-apps/api/path";
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { TaskArgs } from "../../libs/task";
 import { toTaskArgs } from "../../libs/task/modifying";
@@ -8,7 +8,7 @@ import { useTaskStore } from "../../store/task";
 import Directories from "./Directories";
 import ExtensionFilter from "./ExtensionFilter";
 import RegularFilters from "./RegularFilters";
-import SearchFileTable from "./SearchFileTable";
+import SearchTable from "./SearchTable";
 import "./index.less";
 
 /**
@@ -17,44 +17,43 @@ import "./index.less";
  */
 export default function SearchPage() {
   const navigate = useNavigate();
-  const { outputDir, nodeMap, inputArgsMap, outputArgsMap, selectedRowKeys, setSelectedRowKeys } =
-    useSearchStore();
+  const { inputArgsMap, outputArgsMap, selectedRows, setSelectedRows } = useSearchStore();
   const { addTasks } = useTaskStore();
 
-  const onAddTasks = () => {
-    const tasArgs = selectedRowKeys.reduce((taskArgs, key) => {
-      const fileNode = nodeMap.get(key);
-      if (!fileNode || fileNode.type !== "File") return taskArgs;
+  const addable = useMemo(() => {
+    if (selectedRows.length === 0) return false;
 
-      const inputArgs = inputArgsMap.get(fileNode.inputId);
+    const pathsSet = selectedRows.reduce((paths, node) => {
+      const outputArgs = outputArgsMap.get(node.outputId);
+      if (!outputArgs || !outputArgs.path) return paths;
+
+      paths.add(outputArgs.path)
+      return paths;
+    }, new Set());
+
+    return pathsSet.size === selectedRows.length;
+  }, [outputArgsMap, selectedRows]);
+
+  /**
+   * Add Tasks
+   */
+  const onAddTasks = () => {
+    const taskArgs = selectedRows.reduce((taskArgs, node) => {
+      const inputArgs = inputArgsMap.get(node.inputId);
       if (!inputArgs) return taskArgs;
-      const outputArgs = outputArgsMap.get(fileNode.outputId);
+      const outputArgs = outputArgsMap.get(node.outputId);
       if (!outputArgs) return taskArgs;
 
       taskArgs.push({
-        inputs: [
-          toTaskArgs({
-            ...inputArgs,
-            path: fileNode.absolute,
-          }),
-        ],
-        outputs: [
-          toTaskArgs({
-            ...outputArgs,
-            path: [
-              outputDir,
-              ...fileNode.relative,
-              `${fileNode.stem ?? ""}${fileNode.extension ? `.${fileNode.extension}` : ""}`,
-            ].join(sep),
-          }),
-        ],
+        inputs: [toTaskArgs(inputArgs)],
+        outputs: [toTaskArgs(outputArgs)],
       });
 
       return taskArgs;
     }, [] as TaskArgs[]);
 
-    addTasks(...tasArgs);
-    setSelectedRowKeys([]);
+    addTasks(...taskArgs);
+    setSelectedRows([]);
     navigate("/tasks");
   };
 
@@ -74,19 +73,14 @@ export default function SearchPage() {
           </div>
 
           {/* Submit */}
-          <Button
-            type="primary"
-            className="submit"
-            disabled={selectedRowKeys.length === 0}
-            onClick={onAddTasks}
-          >
+          <Button type="primary" className="submit" disabled={!addable} onClick={onAddTasks}>
             Add Tasks
           </Button>
         </div>
 
         {/* Files Table */}
         <div className="flex-1 overflow-hidden">
-          <SearchFileTable />
+          <SearchTable />
         </div>
       </div>
     </div>
