@@ -129,8 +129,8 @@ export default function Settings() {
         onChange={onChange}
       >
         <Grid.Row gutter={8}>
+          {/* Log Level */}
           <Grid.Col span={12}>
-            {/* Log Level */}
             <Form.Item field="loglevel" label="Log Level">
               <Select>
                 <Select.Option value={LogLevel.Off}>Off</Select.Option>
@@ -156,15 +156,33 @@ export default function Settings() {
         </Grid.Row>
 
         <Grid.Row gutter={8}>
+          {/* Max Running Tasks */}
           <Grid.Col span={12}>
-            {/* Max Running Tasks */}
             <Form.Item field="maxRunning" label="Max Running Tasks">
               <InputNumber min={1}></InputNumber>
             </Form.Item>
           </Grid.Col>
-
-          <Grid.Col span={12}></Grid.Col>
         </Grid.Row>
+
+        {/* Hardware Acceleration Method */}
+        <Form.Item
+          labelCol={{ style: { flexBasis: "16rem" } }}
+          field="hwaccel"
+          label="Hardware Acceleration Method for Auto"
+          formatter={(value) => value ?? -1}
+          normalize={(selection) => (selection === -1 ? undefined : selection)}
+        >
+          <Select>
+            <Select.Option value={-1}>Disable</Select.Option>
+            {systemParticulars?.ffmpeg.hwaccels.map((method) => {
+              return (
+                <Select.Option key={method} value={method}>
+                  {method}
+                </Select.Option>
+              );
+            })}
+          </Select>
+        </Form.Item>
 
         {/* FFmpeg Program */}
         <Form.Item

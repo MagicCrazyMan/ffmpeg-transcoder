@@ -1,4 +1,6 @@
 import { DialogFilter } from "@tauri-apps/api/dialog";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { TaskArgsSource } from "./task";
 
 /**
  * Theme color mode.
@@ -54,6 +56,10 @@ export type Configuration = {
    * FFprobe binary program
    */
   ffprobe: string;
+  /**
+   * Hardware acceleration for {@link TaskArgsSource.Auto} codec
+   */
+  hwaccel?: string;
   /**
    * Theme
    */

@@ -13,6 +13,7 @@ import type {
   TaskExistingError,
   TaskNotFoundError,
 } from "./error";
+import { useAppStore } from "../store/app";
 
 type NormalizedTaskArgs = {
   inputs: NormalizedTaskArgsItem[];
@@ -26,11 +27,13 @@ type NormalizedTaskArgsItem = {
 
 const normalizeTaskArgs = ({ source, path, args }: TaskArgsItem): NormalizedTaskArgsItem => {
   switch (source) {
-    case TaskArgsSource.Auto:
+    case TaskArgsSource.Auto: {
+      const hwaccel = useAppStore.getState().configuration.hwaccel;
       return {
         path,
-        args: [],
+        args: hwaccel ? ["-hwaccel", hwaccel] : [],
       };
+    }
     case TaskArgsSource.Custom:
       return {
         path,

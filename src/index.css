@@ -7,11 +7,20 @@ body {
 
   background-color: var(--color-bg-1);
   color: var(--color-text-1);
-  
+
   color-scheme: light dark;
 }
 
 #root {
   width: 100vw;
   height: 100vh;
+}
+
+// fix unexpected styles overwriting by tailwindcss
+button.arco-switch[type="button"] {
+  background-color: var(--color-fill-4);
+}
+
+button.arco-switch[type="button"].arco-switch-checked {
+  background-color: rgb(var(--primary-6));
 }

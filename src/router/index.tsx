@@ -49,7 +49,7 @@ export const pageRoutes: PageRouteObject[] = [
     id: "history",
     path: "history",
     title: "History",
-    
+
     icon: <IconHistory />,
     async lazy() {
       const { default: Component } = await import("../routes/History");

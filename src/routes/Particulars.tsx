@@ -4,6 +4,7 @@ import FFmpegDarkThemeLogo from "../assets/ffmpeg_dark_theme.svg";
 import FFmpegLightThemeLogo from "../assets/ffmpeg_light_theme.svg";
 import { Theme } from "../libs/config";
 import { useAppStore } from "../store/app";
+import { DataType } from "@arco-design/web-react/es/Descriptions/interface";
 
 /**
  * A page informing ffmpeg and system basic information.
@@ -23,6 +24,11 @@ export default function ParticularsPage() {
     const configurations = systemParticulars.ffmpeg.banner.build_configurations.map((config) => (
       <Tag className="m-1" key={config}>
         {config}
+      </Tag>
+    ));
+    const hwaccels = systemParticulars.ffmpeg.hwaccels.map((method) => (
+      <Tag className="m-1" key={method}>
+        {method}
       </Tag>
     ));
 
@@ -57,7 +63,11 @@ export default function ParticularsPage() {
         label: "Configurations",
         value: configurations,
       },
-    ];
+      {
+        label: "Hwaccels",
+        value: hwaccels,
+      },
+    ] as DataType;
   }, [systemParticulars, currentTheme]);
 
   return (

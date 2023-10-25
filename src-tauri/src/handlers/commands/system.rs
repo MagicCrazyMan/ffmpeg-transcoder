@@ -54,6 +54,7 @@ pub struct SystemParticulars {
 pub struct FFmpegParticulars {
     banner: FFmpegBanner,
     codecs: Vec<FFmpegCodec>,
+    hwaccels: Vec<String>,
 }
 
 /// FFmpeg banner information.
@@ -101,9 +102,11 @@ pub async fn load_configuration(
     let ffmpeg = config.ffmpeg();
     let ffmpeg_banner = ffmpeg_banner(ffmpeg).await?;
     let ffmpeg_codecs = ffmpeg_codecs(ffmpeg).await?;
+    let ffmpeg_hwaccels = ffmpeg_hwaccels(ffmpeg).await?;
     let ffmpeg_particular = FFmpegParticulars {
         banner: ffmpeg_banner,
         codecs: ffmpeg_codecs,
+        hwaccels: ffmpeg_hwaccels,
     };
 
     let system_particulars = SystemParticulars {
@@ -354,4 +357,16 @@ async fn ffmpeg_codecs(ffmpeg: &str) -> Result<Vec<FFmpegCodec>, Error> {
     }
 
     Ok(codecs)
+}
+
+/// Extracts ffmpeg hard acceleration methods.
+async fn ffmpeg_hwaccels(ffmpeg: &str) -> Result<Vec<String>, Error> {
+    let output = invoke_ffmpeg(ffmpeg, with_default_args!("-hwaccels")).await?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    Ok(stdout
+        .lines()
+        .skip(1)
+        .filter(|method| !method.is_empty())
+        .map(|method| method.trim().to_string())
+        .collect())
 }
