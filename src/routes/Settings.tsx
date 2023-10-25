@@ -166,9 +166,9 @@ export default function Settings() {
 
         {/* Hardware Acceleration Method */}
         <Form.Item
-          labelCol={{ style: { flexBasis: "16rem" } }}
+          labelCol={{ style: { flexBasis: "20rem" } }}
           field="hwaccel"
-          label="Hardware Acceleration Method for Auto"
+          label="Hardware Acceleration Method for Auto Decoding"
           formatter={(value) => value ?? -1}
           normalize={(selection) => (selection === -1 ? undefined : selection)}
         >
