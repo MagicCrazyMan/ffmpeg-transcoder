@@ -135,7 +135,7 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
         }
       })
     );
-  }, []);
+  }, [setRecords]);
 
   /**
    * On args source change of input or output args
