@@ -74,7 +74,6 @@ export default function ParticularsPage() {
     <div className="p-4">
       <Descriptions
         column={1}
-        labelStyle={{ verticalAlign: "top" }}
         data={descriptionsData}
       ></Descriptions>
     </div>
