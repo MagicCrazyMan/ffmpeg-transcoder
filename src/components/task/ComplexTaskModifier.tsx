@@ -303,6 +303,20 @@ export default function ComplexTaskModifier({
   const [inputs, setInputs] = useState<ModifyingTaskArgsItem[]>([]);
   const [outputs, setOutputs] = useState<ModifyingTaskArgsItem[]>([]);
   const [modified, setModified] = useState(false);
+  const setModifiedInputs = useCallback(
+    (value: SetStateAction<ModifyingTaskArgsItem[]>) => {
+      setInputs(value);
+      setModified(true);
+    },
+    [setInputs, setModified]
+  );
+  const setModifiedOutputs = useCallback(
+    (value: SetStateAction<ModifyingTaskArgsItem[]>) => {
+      setOutputs(value);
+      setModified(true);
+    },
+    [setOutputs, setModified]
+  );
 
   /**
    * Updates inputs, outputs and modified state when task change
@@ -318,15 +332,6 @@ export default function ComplexTaskModifier({
       setModified(false);
     }
   }, [task]);
-
-  /**
-   * Reset to unmodified if inputs and outputs both fallback to empty when adding new task
-   */
-  useEffect(() => {
-    if (!task && inputs.length + outputs.length === 0) {
-      setModified(false);
-    }
-  }, [task, inputs, outputs, setModified]);
 
   /**
    * Add input files vis Tauri
@@ -345,7 +350,7 @@ export default function ComplexTaskModifier({
         path: file,
         selection: defaultDecode ?? TaskArgsSource.Auto,
       }));
-      setInputs((state) => [...state, ...inputs]);
+      setModifiedInputs((state) => [...state, ...inputs]);
     }
   };
 
@@ -365,7 +370,7 @@ export default function ComplexTaskModifier({
         path: file,
         selection: defaultEncode ?? TaskArgsSource.Auto,
       };
-      setOutputs((state) => [...state, { ...output }]);
+      setModifiedOutputs((state) => [...state, { ...output }]);
     }
   };
 
@@ -378,7 +383,7 @@ export default function ComplexTaskModifier({
       selection: defaultEncode ?? TaskArgsSource.Auto,
     };
 
-    setOutputs((state) => [...state, { ...output }]);
+    setModifiedOutputs((state) => [...state, { ...output }]);
   };
 
   return (
@@ -431,24 +436,14 @@ export default function ComplexTaskModifier({
 
       {/* Input Files Table */}
       <div className="mb-4">
-        <UniverseTable
-          type="input"
-          records={inputs}
-          setRecords={(v) => {
-            setInputs(v);
-            setModified(true);
-          }}
-        ></UniverseTable>
+        <UniverseTable type="input" records={inputs} setRecords={setModifiedInputs}></UniverseTable>
       </div>
 
       {/* Output Files Table */}
       <UniverseTable
         type="output"
         records={outputs}
-        setRecords={(v) => {
-          setOutputs(v);
-          setModified(true);
-        }}
+        setRecords={setModifiedOutputs}
       ></UniverseTable>
     </Modal>
   );
