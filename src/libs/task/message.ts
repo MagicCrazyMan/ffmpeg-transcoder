@@ -5,7 +5,7 @@ export type TaskMessage = TaskMessageRunning | TaskMessageFinished | TaskMessage
 export type TaskMessageRunning = {
   state: "Running";
   id: string;
-  total_duration: number;
+  progress_type: TaskProgressType;
   raw: string[];
   frame?: number;
   fps?: number;
@@ -26,4 +26,21 @@ export type TaskMessageErrored = {
   state: "Errored";
   id: string;
   reason: string;
+};
+
+export type TaskProgressType = TaskProgressTypeUnknown| TaskProgressTypeByDuration | TaskProgressTypeByFileSize;
+
+export type TaskProgressTypeByDuration = {
+  type: "ByDuration"
+  total: number
+};
+
+export type TaskProgressTypeByFileSize = {
+  type: "ByFileSize"
+  total: number
+};
+
+export type TaskProgressTypeUnknown = {
+  type: "Unknown";
+  total: number;
 };

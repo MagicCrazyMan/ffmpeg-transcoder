@@ -27,7 +27,7 @@ use crate::{
     with_default_args,
 };
 
-use super::task::Task;
+use super::{message::ProgressType, task::Task};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TaskStateCode {
@@ -61,9 +61,9 @@ pub trait TaskState: Send {
 pub struct Idle;
 
 impl Idle {
-    /// Finds max duration from all inputs.
-    async fn find_max_duration(task: &Task) -> Result<f64, Error> {
-        let mut input_max_duration: f64 = 0.0;
+    /// Finds progress type.
+    async fn find_progress_type(task: &Task) -> Result<ProgressType, Error> {
+        let mut input_max_duration: Option<f64> = None;
 
         // find max duration(clipping applied) from all inputs
         for input in task.data.args.inputs.iter() {
@@ -142,11 +142,15 @@ impl Idle {
                 (Some(ss), Some(_), None, None) => duration - ss.min(duration),
             };
 
-            input_max_duration = input_max_duration.max(duration);
+            input_max_duration = if let Some(input_max_duration) = input_max_duration {
+                Some(input_max_duration.max(duration))
+            } else {
+                Some(duration)
+            }
         }
 
         // find min duration from all outputs
-        let mut output_min_duration: f64 = input_max_duration;
+        let mut output_min_duration: Option<f64> = input_max_duration;
         for output in task.data.args.outputs.iter() {
             // -sseof not works on output
             let (ss, _, to, t) = Self::find_clipping_args(&output.args);
@@ -155,16 +159,28 @@ impl Idle {
                 (_, _, Some(t)) => t,
                 (None, Some(to), None) => to,
                 // ffmpeg prints nothing before reaching -ss position
-                (Some(ss), None, None) => input_max_duration - ss,
+                (Some(ss), None, None) => {
+                    if let Some(input_max_duration) = input_max_duration {
+                        input_max_duration - ss
+                    } else {
+                        continue;
+                    }
+                }
                 (Some(ss), Some(to), None) => to - ss,
             };
 
-            if duration < output_min_duration {
-                output_min_duration = duration
+            output_min_duration = if let Some(output_min_duration) = output_min_duration {
+                Some(output_min_duration.min(duration))
+            } else {
+                Some(duration)
             }
         }
 
-        Ok(input_max_duration.min(output_min_duration))
+        match (input_max_duration, output_min_duration) {
+            (None, None) => Ok(ProgressType::Unknown), // returns unknown if no any duration found
+            (None, Some(total)) | (Some(total), None) => Ok(ProgressType::ByDuration { total }),
+            (Some(i), Some(o)) => Ok(ProgressType::ByDuration { total: i.min(o) }),
+        }
     }
 
     /// Finds arguments that used for clipping, in (-ss, -sseof, -to, -t) order.
@@ -345,7 +361,7 @@ impl TaskState for Idle {
 
     async fn start(self: Box<Self>, task: Task) -> Box<dyn TaskState> {
         // find maximum duration from all inputs
-        let total_duration = match Idle::find_max_duration(&task).await {
+        let progress_type = match Idle::find_progress_type(&task).await {
             Ok(total_duration) => total_duration,
             Err(err) => return Box::new(Errored::from_err(err)),
         };
@@ -379,11 +395,11 @@ impl TaskState for Idle {
             Arc::clone(&process),
             watchdog_cancellations.clone(),
             task.clone(),
-            total_duration,
+            progress_type,
         );
 
         let next_state = Box::new(Running {
-            total_duration,
+            progress_type,
             process,
             watchdog_cancellations,
             watchdog_handle,
@@ -431,7 +447,7 @@ impl TaskState for Idle {
 }
 
 pub struct Running {
-    total_duration: f64,
+    progress_type: ProgressType,
     process: Arc<Mutex<Child>>,
     watchdog_cancellations: (CancellationToken, CancellationToken),
     watchdog_handle: JoinHandle<()>,
@@ -481,7 +497,7 @@ impl TaskState for Running {
         info!("[{}] task pause", task.data.id);
 
         Box::new(Pausing {
-            total_duration: self.total_duration,
+            progress_type: self.progress_type,
             process,
         })
     }
@@ -533,7 +549,7 @@ impl TaskState for Running {
 }
 
 pub struct Pausing {
-    total_duration: f64,
+    progress_type: ProgressType,
     process: Arc<Mutex<Child>>,
 }
 
@@ -583,13 +599,13 @@ impl TaskState for Pausing {
             Arc::clone(&process),
             watchdog_cancellations.clone(),
             task.clone(),
-            self.total_duration,
+            self.progress_type,
         );
 
         info!("[{}] task resume", task.data.id);
 
         Box::new(Running {
-            total_duration: self.total_duration,
+            progress_type: self.progress_type,
             process,
             watchdog_cancellations,
             watchdog_handle,
@@ -781,7 +797,7 @@ fn start_capture(
     stderr: ChildStderr,
     watchdog_cancellations: (CancellationToken, CancellationToken),
     task: Task,
-    total_duration: f64,
+    progress_type: ProgressType,
 ) -> (
     JoinHandle<(ChildStdout, Result<bool, Error>)>,
     JoinHandle<(ChildStderr, Result<(), Error>)>,
@@ -792,7 +808,7 @@ fn start_capture(
     let stdout_handle = tokio::spawn(async move {
         let mut line = String::new();
         let mut reader = BufReader::new(stdout);
-        let mut message = TaskRunningMessage::new(task.data.id.to_string(), total_duration);
+        let mut message = TaskRunningMessage::new(task.data.id.to_string(), progress_type);
         let result = loop {
             // check state
             if state_cloned.lock().await.as_ref().unwrap().code() != TaskStateCode::Running {
@@ -946,7 +962,7 @@ fn start_watchdog(
     process: Arc<Mutex<Child>>,
     watchdog_cancellations: (CancellationToken, CancellationToken),
     task: Task,
-    total_duration: f64,
+    progress_type: ProgressType,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
         info!("[{}] start subprocess output capturing", task.data.id);
@@ -967,7 +983,7 @@ fn start_watchdog(
             stderr,
             watchdog_cancellations,
             task.clone(),
-            total_duration,
+            progress_type,
         );
 
         // waits for watchdog finished or process killed

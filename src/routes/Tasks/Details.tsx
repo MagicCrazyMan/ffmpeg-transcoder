@@ -1,12 +1,95 @@
-import { Progress as ProgressBar, Typography } from "@arco-design/web-react";
+import { Progress, Typography } from "@arco-design/web-react";
 import { Task } from "../../libs/task";
+import { TaskMessageRunning } from "../../libs/task/message";
 import {
   Errored as ErroredState,
-  Pausing as PausingState,
   Running as RunningState,
   TaskStateCode,
 } from "../../libs/task/state_machine";
 import { sumCostTime, toDuration } from "../../libs/utils";
+
+const ProgressBar = ({
+  task,
+  pausing,
+  message,
+}: {
+  task: Task;
+  pausing?: boolean;
+  message?: TaskMessageRunning;
+}) => {
+  if (!message) return <Typography.Text style={{ color: "rgb(var(--primary-5))" }}>Preparing</Typography.Text>;
+
+  switch (message.progress_type.type) {
+    case "Unknown":
+      return (
+        <Progress
+          animation={pausing ? false : true}
+          status={pausing ? "warning" : "normal"}
+          className="my-1"
+          strokeWidth={20}
+          percent={100}
+        />
+      );
+    case "ByDuration": {
+      const total = message.progress_type.total;
+      const output = (message.output_time_ms ?? 0) / 1000000;
+      const percent = total === 0 ? 0 : (output / total) * 100;
+
+      // prints eta and speed
+      let etaHint = "";
+      if (message.speed) {
+        const speed = message.speed;
+        const eta = (total - output) / speed;
+        etaHint = `ETA ${toDuration(eta, false)} ${speed.toFixed(2)}x`;
+      }
+
+      // prints total cost time
+      const costHint = toDuration(sumCostTime(task.data.durations), false);
+
+      return (
+        <div>
+          <Progress
+            animation={pausing ? false : true}
+            status={pausing ? "warning" : "normal"}
+            className="my-1"
+            strokeWidth={20}
+            percent={percent}
+            formatText={(percent) => `${percent.toFixed(2)}%`}
+          />
+          <div style={{ color: "var(--color-text-2)" }}>
+            {costHint} {etaHint}
+          </div>
+        </div>
+      );
+    }
+    case "ByFileSize": {
+      const total = message.progress_type.total;
+      const output = message.total_size ?? 0;
+      const percent = total === 0 ? 0 : (output / total) * 100;
+
+      // prints speed
+      const speedHint = message.speed ? `${message.speed.toFixed(2)}x` : "";
+      // prints total cost time
+      const costHint = toDuration(sumCostTime(task.data.durations), false);
+
+      return (
+        <div>
+          <Progress
+            animation={pausing ? false : true}
+            status={pausing ? "warning" : "normal"}
+            className="my-1"
+            strokeWidth={20}
+            percent={percent}
+            formatText={(percent) => `${percent.toFixed(2)}%`}
+          />
+          <div style={{ color: "var(--color-text-2)" }}>
+            {costHint} {speedHint}
+          </div>
+        </div>
+      );
+    }
+  }
+};
 
 const Commanding = () => (
   <Typography.Text style={{ color: "rgb(var(--primary-5))" }}>Commanding</Typography.Text>
@@ -18,64 +101,13 @@ const Queueing = () => (
   <Typography.Text style={{ color: "rgb(var(--warning-6))" }}>In Queue</Typography.Text>
 );
 
-const Running = ({ task }: { task: Task }) => {
-  const lastMessage = (task.state as RunningState).lastMessage;
+const Running = ({ task }: { task: Task }) => (
+  <ProgressBar task={task} message={(task.state as RunningState).lastMessage} />
+);
 
-  const total = lastMessage?.total_duration ?? 0;
-  const output = (lastMessage?.output_time_ms ?? 0) / 1000000;
-  const percent = total === 0 ? 0 : (output / total) * 100;
-
-  // prints eta and speed
-  let etaHint = "";
-  if (lastMessage?.speed) {
-    const speed = lastMessage.speed;
-    const eta = (total - output) / speed;
-    etaHint = `ETA ${toDuration(eta, false)} ${speed.toFixed(2)}x`;
-  }
-
-  // prints total cost time
-  const costHint = toDuration(sumCostTime(task.data.durations), false);
-
-  return (
-    <div>
-      <ProgressBar
-        animation
-        className="my-1"
-        strokeWidth={20}
-        percent={percent}
-        formatText={(percent) => `${percent.toFixed(2)}%`}
-      />
-      <div style={{ color: "var(--color-text-2)" }}>
-        {costHint} {etaHint}
-      </div>
-    </div>
-  );
-};
-
-const Pausing = ({ task }: { task: Task }) => {
-  const lastMessage = (task.state as PausingState).lastMessage;
-  if (lastMessage) {
-    const total = lastMessage.total_duration ?? 0;
-    const output = (lastMessage.output_time_ms ?? 0) / 1000000;
-    const percent = total === 0 ? 0 : (output / total) * 100;
-    const costHint = toDuration(sumCostTime(task.data.durations), false);
-
-    return (
-      <div>
-        <ProgressBar
-          status="warning"
-          className="my-1"
-          strokeWidth={20}
-          percent={percent}
-          formatText={(percent) => `${percent.toFixed(2)}%`}
-        />
-        <div style={{ color: "var(--color-text-2)" }}>{costHint}</div>
-      </div>
-    );
-  } else {
-    return <Typography.Text style={{ color: "rgb(var(--warning-6))" }}>Pausing</Typography.Text>;
-  }
-};
+const Pausing = ({ task }: { task: Task }) => (
+  <ProgressBar pausing task={task} message={(task.state as RunningState).lastMessage} />
+);
 
 const Stopped = ({ task }: { task: Task }) => {
   const costHint = toDuration(sumCostTime(task.data.durations), false);
