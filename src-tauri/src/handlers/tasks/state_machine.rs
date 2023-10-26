@@ -63,7 +63,7 @@ pub struct Idle;
 impl Idle {
     /// Finds max duration from all inputs.
     async fn find_max_duration(task: &Task) -> Result<f64, Error> {
-        let mut max_duration: f64 = 0.0;
+        let mut input_max_duration: f64 = 0.0;
 
         // find max duration(clipping applied) from all inputs
         for input in task.data.args.inputs.iter() {
@@ -142,25 +142,29 @@ impl Idle {
                 (Some(ss), Some(_), None, None) => duration - ss.min(duration),
             };
 
-            max_duration = max_duration.max(duration);
+            input_max_duration = input_max_duration.max(duration);
         }
 
-        // find duration limitations from all outputs
+        // find min duration from all outputs
+        let mut output_min_duration: f64 = input_max_duration;
         for output in task.data.args.outputs.iter() {
-            let (ss, _, to, t) = Self::find_clipping_args(&output.args); // -sseof not works on output
-            match (ss, to, t) {
-                (None, None, None) => todo!(),
-                (None, None, Some(_)) => todo!(),
-                (None, Some(_), None) => todo!(),
-                (None, Some(_), Some(_)) => todo!(),
-                (Some(_), None, None) => todo!(),
-                (Some(_), None, Some(_)) => todo!(),
-                (Some(_), Some(_), None) => todo!(),
-                (Some(_), Some(_), Some(_)) => todo!(),
+            // -sseof not works on output
+            let (ss, _, to, t) = Self::find_clipping_args(&output.args);
+            let duration = match (ss, to, t) {
+                (None, None, None) => continue,
+                (_, _, Some(t)) => t,
+                (None, Some(to), None) => to,
+                // ffmpeg prints nothing before reaching -ss position
+                (Some(ss), None, None) => input_max_duration - ss,
+                (Some(ss), Some(to), None) => to - ss,
+            };
+
+            if duration < output_min_duration {
+                output_min_duration = duration
             }
         }
 
-        Ok(max_duration)
+        Ok(input_max_duration.min(output_min_duration))
     }
 
     /// Finds arguments that used for clipping, in (-ss, -sseof, -to, -t) order.
