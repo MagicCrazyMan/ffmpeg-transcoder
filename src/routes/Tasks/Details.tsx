@@ -20,7 +20,7 @@ const ProgressBar = ({
   if (!message) return <Typography.Text style={{ color: "rgb(var(--primary-5))" }}>Preparing</Typography.Text>;
 
   switch (message.progress_type.type) {
-    case "Unknown":
+    case "Unspecified":
       return (
         <Progress
           animation={pausing ? false : true}
@@ -31,15 +31,15 @@ const ProgressBar = ({
         />
       );
     case "ByDuration": {
-      const total = message.progress_type.total;
-      const output = (message.output_time_ms ?? 0) / 1000000;
-      const percent = total === 0 ? 0 : (output / total) * 100;
+      const duration = message.progress_type.duration;
+      const output_duration = (message.output_time_ms ?? 0) / 1000000;
+      const percent = duration === 0 ? 0 : (output_duration / duration) * 100;
 
       // prints eta and speed
       let etaHint = "";
       if (message.speed) {
         const speed = message.speed;
-        const eta = (total - output) / speed;
+        const eta = (duration - output_duration) / speed;
         etaHint = `ETA ${toDuration(eta, false)} ${speed.toFixed(2)}x`;
       }
 
@@ -63,9 +63,9 @@ const ProgressBar = ({
       );
     }
     case "ByFileSize": {
-      const total = message.progress_type.total;
-      const output = message.total_size ?? 0;
-      const percent = total === 0 ? 0 : (output / total) * 100;
+      const size = message.progress_type.size;
+      const output_size = message.total_size ?? 0;
+      const percent = size === 0 ? 0 : (output_size / size) * 100;
 
       // prints speed
       const speedHint = message.speed ? `${message.speed.toFixed(2)}x` : "";

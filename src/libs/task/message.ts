@@ -28,19 +28,18 @@ export type TaskMessageErrored = {
   reason: string;
 };
 
-export type TaskProgressType = TaskProgressTypeUnknown| TaskProgressTypeByDuration | TaskProgressTypeByFileSize;
+export type TaskProgressType = TaskProgressTypeUnspecified| TaskProgressTypeByDuration | TaskProgressTypeByFileSize;
 
 export type TaskProgressTypeByDuration = {
   type: "ByDuration"
-  total: number
+  duration: number
 };
 
 export type TaskProgressTypeByFileSize = {
   type: "ByFileSize"
-  total: number
+  size: number
 };
 
-export type TaskProgressTypeUnknown = {
-  type: "Unknown";
-  total: number;
+export type TaskProgressTypeUnspecified = {
+  type: "Unspecified";
 };
