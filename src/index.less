@@ -1,0 +1,8 @@
+// fix unexpected styles overwriting by tailwindcss
+button[type="button"].arco-switch {
+  background-color: var(--color-fill-4);
+}
+
+button[type="button"].arco-switch.arco-switch-checked {
+  background-color: rgb(var(--primary-6));
+}
