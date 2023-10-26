@@ -1,8 +1,13 @@
-use std::{path::PathBuf, process::Stdio, sync::Arc};
+use std::{
+    ffi::OsStr,
+    path::PathBuf,
+    process::Stdio,
+    sync::{Arc, OnceLock},
+};
 
 use async_trait::async_trait;
 use log::{info, trace, warn};
-use serde_json::{Map, Value};
+use regex::Regex;
 use tauri::Manager;
 use tokio::{
     fs,
@@ -13,10 +18,13 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 
-use crate::handlers::{
-    commands::process::{create_process, invoke_ffprobe_json_metadata},
-    error::Error,
-    tasks::message::{TaskMessage, TaskRunningMessage, TASK_MESSAGE_EVENT},
+use crate::{
+    handlers::{
+        commands::process::{create_process, invoke_ffprobe},
+        error::Error,
+        tasks::message::{TaskMessage, TaskRunningMessage, TASK_MESSAGE_EVENT},
+    },
+    with_default_args,
 };
 
 use super::task::Task;
@@ -53,51 +61,250 @@ pub trait TaskState: Send {
 pub struct Idle;
 
 impl Idle {
+    /// Finds max duration from all inputs.
     async fn find_max_duration(task: &Task) -> Result<f64, Error> {
-        // find maximum duration from all inputs
-        let mut total_duration = 0.0;
+        let mut max_duration: f64 = 0.0;
+
+        // find max duration(clipping applied) from all inputs
         for input in task.data.args.inputs.iter() {
-            let raw = invoke_ffprobe_json_metadata(&task.data.ffprobe_program, &input.path).await?;
-            let obj: Map<String, Value> = match serde_json::from_str(&raw) {
-                Ok(obj) => obj,
-                Err(_) => continue,
+            let raw = invoke_ffprobe(
+                &task.data.ffprobe_program,
+                with_default_args!(
+                    "-show_entries",
+                    "format=duration",
+                    "-of",
+                    "csv=p=0",
+                    &input.path
+                ),
+            )
+            .await?;
+
+            let Ok(duration) = String::from_utf8_lossy(&raw.stdout).trim().parse::<f64>() else {
+                continue;
             };
 
-            // extract duration from format
-            if let Some(Value::Object(format)) = obj.get("format") {
-                if let Some(Value::String(duration)) = format.get("duration") {
-                    if let Ok(duration) = duration.parse::<f64>() {
-                        if duration > total_duration {
-                            total_duration = duration;
+            // applies clipping
+            let duration = match Self::find_clipping_args(&input.args) {
+                (None, None, None, None) => duration,
+                (None, None, _, Some(t)) => t.min(duration),
+                (None, None, Some(to), None) => to.min(duration),
+                (None, Some(sseof), None, None) => {
+                    if sseof > 0.0 {
+                        0.0 // error
+                    } else {
+                        duration + sseof
+                    }
+                }
+                (None, Some(sseof), _, Some(t)) => {
+                    if sseof > 0.0 {
+                        0.0 // error
+                    } else {
+                        let ss = duration + sseof;
+                        let to = (ss + t).min(duration);
+
+                        to - ss
+                    }
+                }
+                (None, Some(sseof), Some(to), None) => {
+                    if sseof > 0.0 {
+                        0.0 // error
+                    } else {
+                        let ss = duration + sseof;
+                        let to = to.min(duration);
+
+                        if ss > to {
+                            sseof.abs()
+                        } else {
+                            to - ss
                         }
                     }
                 }
-            }
-
-            // extract duration from streams
-            let Some(Value::Array(streams)) = obj.get("streams") else {
-                continue;
-            };
-            for stream in streams {
-                let Value::Object(stream) = stream else {
-                    continue;
-                };
-
-                let Some(Value::String(duration)) = stream.get("duration") else {
-                    continue;
-                };
-
-                let Ok(duration) = duration.parse::<f64>() else {
-                    continue;
-                };
-
-                if duration > total_duration {
-                    total_duration = duration;
+                (Some(ss), None, None, None) => duration - ss,
+                (Some(ss), _, _, Some(t)) => {
+                    let ss = ss.min(duration);
+                    let to = (ss + t).min(duration);
+                    to - ss
                 }
+                (Some(ss), _, Some(to), None) => {
+                    if ss > to {
+                        0.0 // error
+                    } else {
+                        if ss < 0.0 {
+                            // strange behavior done by ffmpeg, i don't know why as well
+                            ss.abs() * 2.0 + to
+                        } else {
+                            let ss = ss.min(duration);
+                            let to = to.min(duration);
+                            to - ss
+                        }
+                    }
+                }
+                (Some(ss), Some(_), None, None) => duration - ss.min(duration),
+            };
+
+            max_duration = max_duration.max(duration);
+        }
+
+        // find duration limitations from all outputs
+        for output in task.data.args.outputs.iter() {
+            let (ss, _, to, t) = Self::find_clipping_args(&output.args); // -sseof not works on output
+            match (ss, to, t) {
+                (None, None, None) => todo!(),
+                (None, None, Some(_)) => todo!(),
+                (None, Some(_), None) => todo!(),
+                (None, Some(_), Some(_)) => todo!(),
+                (Some(_), None, None) => todo!(),
+                (Some(_), None, Some(_)) => todo!(),
+                (Some(_), Some(_), None) => todo!(),
+                (Some(_), Some(_), Some(_)) => todo!(),
             }
         }
 
-        Ok(total_duration)
+        Ok(max_duration)
+    }
+
+    /// Finds arguments that used for clipping, in (-ss, -sseof, -to, -t) order.
+    fn find_clipping_args<I, S>(args: I) -> (Option<f64>, Option<f64>, Option<f64>, Option<f64>)
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<OsStr>,
+    {
+        let mut ss: Option<f64> = None;
+        let mut sseof: Option<f64> = None;
+        let mut to: Option<f64> = None;
+        let mut t: Option<f64> = None;
+
+        let mut iter = args.into_iter();
+        while let Some(arg) = iter.next() {
+            let arg = arg.as_ref().to_string_lossy();
+            let arg = arg.as_ref();
+
+            let value = match arg {
+                "-ss" | "-sseof" | "-to" | "-t" => {
+                    let Some(value) = iter.next() else {
+                        break;
+                    };
+                    value
+                }
+                _ => {
+                    continue;
+                }
+            };
+
+            match arg {
+                "-ss" => {
+                    ss = Self::extract_duration(value);
+                }
+                "-sseof" => {
+                    sseof = Self::extract_duration(value);
+                }
+                "-to" => {
+                    to = Self::extract_duration(value);
+                }
+                "-t" => {
+                    t = Self::extract_duration(value);
+                }
+                _ => {}
+            };
+        }
+
+        (ss, sseof, to, t)
+    }
+
+    /// Extracts duration in seconds from value.
+    ///
+    /// Sees [FFmpeg document](https://ffmpeg.org/ffmpeg-utils.html#time-duration-syntax)
+    /// and [FFmpeg utils](https://ffmpeg.org/ffmpeg-utils.html#time-duration-syntax)
+    /// for more details.
+    fn extract_duration<S: AsRef<OsStr>>(value: S) -> Option<f64> {
+        static DURATION_TYPE1_EXTRACTOR: &'static str =
+            r"^(-?)(?:(\d+):{1})?(\d{1,2}):(\d{1,2})(?:\.{1}(\d+))?$";
+        static DURATION_TYPE2_EXTRACTOR: &'static str = r"^(-?)(\d+)(?:\.{1}(\d+))?(s|ms|us?)?$";
+        static DURATION_TYPE1_REGEX: OnceLock<Regex> = OnceLock::new();
+        static DURATION_TYPE2_REGEX: OnceLock<Regex> = OnceLock::new();
+
+        let value = value.as_ref().to_string_lossy();
+        let value = value.as_ref();
+
+        // tries to extract duration by type 1
+        let duration_type1_regex =
+            DURATION_TYPE1_REGEX.get_or_init(|| Regex::new(DURATION_TYPE1_EXTRACTOR).unwrap());
+        let duration = duration_type1_regex.captures(value).and_then(|caps| {
+            if let (negative, hours, Some(mins), Some(secs), milliseconds) = (
+                caps.get(1)
+                    .map(|value| if value.as_str() == "-" { true } else { false }),
+                caps.get(2)
+                    .and_then(|value| value.as_str().parse::<f64>().ok()),
+                caps.get(3)
+                    .and_then(|value| value.as_str().parse::<f64>().ok()),
+                caps.get(4)
+                    .and_then(|value| value.as_str().parse::<f64>().ok()),
+                caps.get(5)
+                    .and_then(|value| value.as_str().parse::<f64>().ok()),
+            ) {
+                let mut secs = hours.unwrap_or(0.0) * 3600.0
+                    + mins * 60.0
+                    + secs
+                    + milliseconds.unwrap_or(0.0) / 1000.0;
+
+                if negative.unwrap_or(false) {
+                    secs = -secs
+                }
+
+                Some(secs)
+            } else {
+                None
+            }
+        });
+
+        if duration.is_some() {
+            return duration;
+        }
+
+        // tries to extract duration by type 2
+        enum Unit {
+            Second,
+            Milliseconds,
+            Microseconds,
+            Unknown,
+        }
+        let duration_type2_regex =
+            DURATION_TYPE2_REGEX.get_or_init(|| Regex::new(DURATION_TYPE2_EXTRACTOR).unwrap());
+        let duration = duration_type2_regex.captures(value).and_then(|caps| {
+            if let (negative, Some(integer), decimals, unit) = (
+                caps.get(1)
+                    .map(|value| if value.as_str() == "-" { true } else { false }),
+                caps.get(2)
+                    .and_then(|value| value.as_str().parse::<f64>().ok()),
+                caps.get(3)
+                    .and_then(|value| value.as_str().parse::<f64>().ok()),
+                caps.get(4)
+                    .map(|value| match value.as_str() {
+                        "s" => Unit::Second,
+                        "ms" => Unit::Milliseconds,
+                        "us" => Unit::Microseconds,
+                        _ => Unit::Unknown,
+                    })
+                    .unwrap_or(Unit::Second),
+            ) {
+                let mut secs = match unit {
+                    Unit::Second => integer + decimals.unwrap_or(0.0),
+                    Unit::Milliseconds => (integer + decimals.unwrap_or(0.0)) / 1000.0,
+                    Unit::Microseconds => (integer + decimals.unwrap_or(0.0)) / 1000000.0,
+                    Unit::Unknown => return None,
+                };
+
+                if negative.unwrap_or(false) {
+                    secs = -secs
+                }
+
+                Some(secs)
+            } else {
+                None
+            }
+        });
+
+        duration
     }
 
     /// Creates parent directories for all output paths.
