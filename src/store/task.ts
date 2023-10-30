@@ -262,10 +262,7 @@ const handleTaskMessage: EventCallback<TaskMessage> = async (event) => {
   const message = event.payload;
 
   const task = tasks.find((task) => task.id === message.id);
-  if (!task) return;
-
-  console.log(message);
-  
+  if (!task) return;  
 
   let nextTask: Task | undefined;
   // overwrite frontend state by message from backend

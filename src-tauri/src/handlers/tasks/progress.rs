@@ -22,6 +22,7 @@ use super::task::Task;
 pub enum ProgressType {
     ByDuration { duration: f64 },
     ByFileSize { size: usize },
+    Auto { duration: f64, file_size: usize },
     Unspecified,
 }
 
@@ -40,25 +41,61 @@ enum OutputProgressSource {
     Unspecified,
 }
 
-/// Finds progress type. Following rules below in order:
+/// Finds progress type. Following procedures lists below:
 ///
-/// 1. For both input and output progress sources, ignores `Unspecified`.
-/// 2. If input progress sources are all [`FileSize`](OutputProgressSource::FileSize),
-/// 2. If output progress sources are all [`FileSize`](OutputProgressSource::FileSize),
-/// returns [`ProgressType::ByFileSize`] with file sizes summing up.
-/// 3. If output progress sources are all [`Duration`](OutputProgressSource::Duration),
-/// returns [`ProgressType::ByDuration`] with the maximum duration.
-/// 4. If output progress sources are all [`AddDuration`](OutputProgressSource::AddDuration):
-///     1. If input progress sources have any [`Duration`](InputProgressSource::Duration),
-///     finds the maximum input duration and applies offset to the input duration,
-///     then returns [`ProgressType::ByDuration`]
-///     2. Returns [`ProgressType::Unspecified`] if having no input duration.
-/// 5. Returns [`ProgressType::Unspecified`] for all situations else.
+/// - Collects input and output information
+///     - For both input and output progress sources, ignores `Unspecified`.
+///     - For inputs:
+///         1. If input progress sources have any [`Duration`](InputProgressSource::Duration),
+///         keeps `input_duration` with maximum duration.
+///         2. Ignores all situations else.
+///     - For outputs:
+///         1. If output progress sources are all [`FileSize`](OutputProgressSource::FileSize),
+///         keeps `output_file_size` with file sizes summing up.
+///         2. If output progress sources are all [`Duration`](OutputProgressSource::Duration),
+///         keeps `output_duration` with the maximum duration.
+///         3. If output progress sources are all [`DurationOffset`](OutputProgressSource::DurationOffset):
+///             1. If input progress sources have any [`Duration`](InputProgressSource::Duration),
+///             finds the maximum input duration and applies offset to the input duration,
+///             then keeps it in `output_duration`.
+///         4. Ignores all situations else.
+///  - Determines progress type
+///     1. If no field available, returns [`ProgressType::Unspecified`].
+///     2. If only `input_duration` available, returns [`ProgressType::ByDuration`].
+///     3. If only `output_duration` available, returns [`ProgressType::ByDuration`].
+///     4. If only `output_file_size` available, returns [`ProgressType::ByFileSize`].
+///     5. If both `input_duration` and `output_duration` available,
+///     returns [`ProgressType::ByDuration`] with the smaller one.
+///     6. If both `input_duration` and `output_file_size` available, returns [`ProgressType::Auto`].
+///     7. If both `output_duration` and `output_file_size` available, returns [`ProgressType::Auto`].
+///     8. If all three fields available, returns [`ProgressType::Auto`] with the smallest duration and file size.
+///
 pub async fn find_progress_type(task: &Task) -> Result<ProgressType, Error> {
+    let mut input_progress_sources = Vec::with_capacity(task.data.args.inputs.len());
     let mut output_progress_sources = Vec::with_capacity(task.data.args.outputs.len());
+    for input in task.data.args.inputs.iter() {
+        let progress_type = find_input_progress_sources(&task.data.ffprobe_program, input).await?;
+        input_progress_sources.push(progress_type);
+    }
     for output in task.data.args.outputs.iter() {
         output_progress_sources.push(find_output_progress_sources(output));
     }
+
+    let mut output_file_size: Option<usize> = None;
+    let mut output_duration: Option<f64> = None;
+    let input_duration =
+        input_progress_sources
+            .iter()
+            .fold(None as Option<f64>, |mut max, source| {
+                match source {
+                    InputProgressSource::Duration(d) => match max {
+                        Some(m) => max = Some(m.max(*d)),
+                        None => max = Some(*d),
+                    },
+                    InputProgressSource::Unspecified => {}
+                }
+                return max;
+            });
 
     let (durations, offsets, sizes) = output_progress_sources.iter().fold(
         (
@@ -78,46 +115,35 @@ pub async fn find_progress_type(task: &Task) -> Result<ProgressType, Error> {
     );
 
     if sizes.len() != 0 && durations.len() == 0 && offsets.len() == 0 {
-        Ok(ProgressType::ByFileSize {
-            size: sizes.iter().sum(),
-        })
+        output_file_size = Some(sizes.iter().sum());
     } else if sizes.len() == 0 && durations.len() != 0 && offsets.len() == 0 {
-        Ok(ProgressType::ByDuration {
-            duration: durations.iter().max().unwrap().0,
-        })
+        output_duration = Some(durations.iter().max().unwrap().0);
     } else if durations.len() == 0 && sizes.len() == 0 && offsets.len() != 0 {
-        let mut input_progress_sources = Vec::with_capacity(task.data.args.inputs.len());
-
-        for input in task.data.args.inputs.iter() {
-            let progress_type =
-                find_input_progress_sources(&task.data.ffprobe_program, input).await?;
-            input_progress_sources.push(progress_type);
-        }
-
-        let max_duration =
-            input_progress_sources
-                .iter()
-                .fold(None as Option<f64>, |mut max, source| {
-                    match source {
-                        InputProgressSource::Duration(d) => match max {
-                            Some(m) => max = Some(m.max(*d)),
-                            None => max = Some(*d),
-                        },
-                        InputProgressSource::Unspecified => {}
-                    }
-                    return max;
-                });
-
-        if let Some(max_duration) = max_duration {
+        if let Some(input_duration) = input_duration {
             let offset = offsets.iter().max().unwrap().0;
-            Ok(ProgressType::ByDuration {
-                duration: max_duration - offset,
-            })
-        } else {
-            Ok(ProgressType::Unspecified)
+            output_duration = Some(input_duration - offset);
         }
-    } else {
-        Ok(ProgressType::Unspecified)
+    }
+
+    match (output_file_size, output_duration, input_duration) {
+        (None, None, None) => Ok(ProgressType::Unspecified),
+        (None, None, Some(duration)) | (None, Some(duration), None) => {
+            Ok(ProgressType::ByDuration { duration })
+        }
+        (None, Some(output_duration), Some(input_duration)) => Ok(ProgressType::ByDuration {
+            duration: f64::min(output_duration, input_duration),
+        }),
+        (Some(size), None, None) => Ok(ProgressType::ByFileSize { size }),
+        (Some(size), None, Some(duration)) | (Some(size), Some(duration), None) => {
+            Ok(ProgressType::Auto {
+                duration,
+                file_size: size,
+            })
+        }
+        (Some(size), Some(output_duration), Some(input_duration)) => Ok(ProgressType::Auto {
+            duration: f64::min(output_duration, input_duration),
+            file_size: size,
+        }),
     }
 }
 

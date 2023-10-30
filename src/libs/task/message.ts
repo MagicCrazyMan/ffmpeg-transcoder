@@ -28,16 +28,26 @@ export type TaskMessageErrored = {
   reason: string;
 };
 
-export type TaskProgressType = TaskProgressTypeUnspecified| TaskProgressTypeByDuration | TaskProgressTypeByFileSize;
+export type TaskProgressType =
+  | TaskProgressTypeUnspecified
+  | TaskProgressTypeByDuration
+  | TaskProgressTypeByFileSize
+  | TaskProgressTypeAuto;
 
 export type TaskProgressTypeByDuration = {
-  type: "ByDuration"
-  duration: number
+  type: "ByDuration";
+  duration: number;
 };
 
 export type TaskProgressTypeByFileSize = {
-  type: "ByFileSize"
-  size: number
+  type: "ByFileSize";
+  size: number;
+};
+
+export type TaskProgressTypeAuto = {
+  type: "Auto";
+  duration: number;
+  file_size: number;
 };
 
 export type TaskProgressTypeUnspecified = {

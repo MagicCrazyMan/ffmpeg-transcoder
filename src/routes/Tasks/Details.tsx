@@ -17,7 +17,8 @@ const ProgressBar = ({
   pausing?: boolean;
   message?: TaskMessageRunning;
 }) => {
-  if (!message) return <Typography.Text style={{ color: "rgb(var(--primary-5))" }}>Preparing</Typography.Text>;
+  if (!message)
+    return <Typography.Text style={{ color: "rgb(var(--primary-5))" }}>Preparing</Typography.Text>;
 
   switch (message.progress_type.type) {
     case "Unspecified":
@@ -66,6 +67,39 @@ const ProgressBar = ({
       const size = message.progress_type.size;
       const output_size = message.total_size ?? 0;
       const percent = size === 0 ? 0 : (output_size / size) * 100;
+
+      // prints speed
+      const speedHint = message.speed ? `${message.speed.toFixed(2)}x` : "";
+      // prints total cost time
+      const costHint = toDuration(sumCostTime(task.data.durations), false);
+
+      return (
+        <div>
+          <Progress
+            animation={pausing ? false : true}
+            status={pausing ? "warning" : "normal"}
+            className="my-1"
+            strokeWidth={20}
+            percent={percent}
+            formatText={(percent) => `${percent.toFixed(2)}%`}
+          />
+          <div style={{ color: "var(--color-text-2)" }}>
+            {costHint} {speedHint}
+          </div>
+        </div>
+      );
+    }
+    case "Auto": {
+      // for auto progress, prints the largest percentage
+      const file_size = message.progress_type.file_size;
+      const output_file_size = message.total_size ?? 0;
+      const file_percent = file_size === 0 ? 0 : (output_file_size / file_size) * 100;
+
+      const duration = message.progress_type.duration;
+      const output_duration = (message.output_time_ms ?? 0) / 1000000;
+      const duration_percent = duration === 0 ? 0 : (output_duration / duration) * 100;
+
+      const percent = Math.max(file_percent, duration_percent);
 
       // prints speed
       const speedHint = message.speed ? `${message.speed.toFixed(2)}x` : "";
