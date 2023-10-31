@@ -11,7 +11,7 @@ use tokio::sync::Mutex;
 
 use crate::handlers::commands::{
     fs::search_directory,
-    system::{load_configuration, verify_ffmpeg, verify_ffprobe, verify_directory},
+    system::{load_configuration, verify_directory, verify_ffmpeg, verify_ffprobe},
     task::{media_metadata, pause_task, resume_task, start_task, stop_task},
 };
 
