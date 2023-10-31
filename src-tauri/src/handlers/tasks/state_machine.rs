@@ -5,7 +5,7 @@ use log::{info, trace, warn};
 use tauri::Manager;
 use tokio::{
     fs,
-    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
+    io::{AsyncBufReadExt, BufReader},
     process::{Child, ChildStderr, ChildStdout},
     sync::Mutex,
     task::JoinHandle,
@@ -206,6 +206,7 @@ impl TaskState for Running {
         let process = self.process;
         #[cfg(windows)]
         {
+            use tokio::io::AsyncWriteExt;
             if let Err(err) = process
                 .lock()
                 .await
@@ -306,6 +307,7 @@ impl TaskState for Pausing {
 
         #[cfg(windows)]
         {
+            use tokio::io::AsyncWriteExt;
             if let Err(err) = process
                 .lock()
                 .await
