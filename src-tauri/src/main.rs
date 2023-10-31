@@ -39,6 +39,7 @@ fn start_app() -> Result<(), tauri::Error> {
                 .targets([
                     LogTarget::Folder(PathBuf::from("logs")),
                     LogTarget::Stdout,
+                    LogTarget::Stderr,
                     LogTarget::Webview,
                 ])
                 .level(LevelFilter::Debug)
