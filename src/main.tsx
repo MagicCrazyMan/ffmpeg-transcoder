@@ -7,19 +7,18 @@ import "./index.less";
 import { router } from "./router/index.tsx";
 
 /**
- * Disable contextmenu
+ * Disable contextmenu and F5 in production mode
  */
-document.addEventListener("contextmenu", (e) => {
-  e.preventDefault();
-});
-/**
- * Disable F5
- */
-document.addEventListener("keydown", (e) => {
-  if (e.key === "F5") {
+if (import.meta.env.PROD) {
+  document.addEventListener("contextmenu", (e) => {
     e.preventDefault();
-  }
-});
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "F5") {
+      e.preventDefault();
+    }
+  });
+}
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
