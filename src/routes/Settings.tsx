@@ -49,10 +49,8 @@ export default function Settings() {
 
     if (path) {
       formInstance.current?.setFieldValue("ffmpeg", path as string);
-      formInstance.current?.validate(["ffmpeg"]).then((value) => {
-        updateConfiguration({
-          ffmpeg: value.ffmpeg as string,
-        });
+      onChange({
+        ffmpeg: path as string,
       });
     }
   };

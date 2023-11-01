@@ -131,9 +131,9 @@ impl Task {
                 .await,
         );
 
+        info!("[{}] task errored: {}", self.data.id, reason);
+
         self.remove().await;
         self.send_message(TaskMessage::errored(self.data.id.clone(), reason));
-
-        info!("[{}] task errored", self.data.id);
     }
 }
