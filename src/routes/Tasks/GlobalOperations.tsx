@@ -10,10 +10,10 @@ import {
 import { useTaskStore } from "../../store/task";
 
 export default function GlobalOperations({
-  setSimpleTasksAddingVisible,
+  setSimpleTasksModifierVisible,
   setComplexTaskModifierVisible,
 }: {
-  setSimpleTasksAddingVisible: (visible: boolean) => void;
+  setSimpleTasksModifierVisible: (visible: boolean) => void;
   setComplexTaskModifierVisible: (visible: boolean) => void;
 }) {
   const { startAllTasks, pauseAllTasks, stopAllTasks, removeAllTasks } = useTaskStore();
@@ -22,24 +22,28 @@ export default function GlobalOperations({
     <div>
       <Space>
         {/* Add Multiple Simple Tasks Button */}
-        <Tooltip content="Add Multiple Simple Tasks">
-          <Button
-            shape="circle"
-            type="primary"
-            icon={<IconPlus />}
-            onClick={() => setSimpleTasksAddingVisible(true)}
-          ></Button>
-        </Tooltip>
+        <div id="SimpleTasksModifier">
+          <Tooltip content="Add Multiple Simple Tasks">
+            <Button
+              shape="circle"
+              type="primary"
+              icon={<IconPlus />}
+              onClick={() => setSimpleTasksModifierVisible(true)}
+            ></Button>
+          </Tooltip>
+        </div>
 
         {/* Add or Modify Complex Task Button */}
-        <Tooltip content="Add Complex Task">
-          <Button
-            shape="circle"
-            type="primary"
-            icon={<IconSubscribeAdd />}
-            onClick={() => setComplexTaskModifierVisible(true)}
-          ></Button>
-        </Tooltip>
+        <div id="ComplexTasksModifier">
+          <Tooltip content="Add Complex Task">
+            <Button
+              shape="circle"
+              type="primary"
+              icon={<IconSubscribeAdd />}
+              onClick={() => setComplexTaskModifierVisible(true)}
+            ></Button>
+          </Tooltip>
+        </div>
 
         <Divider type="vertical"></Divider>
 

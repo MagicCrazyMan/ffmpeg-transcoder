@@ -17,17 +17,17 @@ use crate::handlers::commands::{
 
 pub mod handlers;
 
-#[derive(Clone, serde::Serialize)]
-struct Payload {
-    args: Vec<String>,
-    cwd: String,
-}
-
 /// Starts application.
 fn start_app() -> Result<(), tauri::Error> {
     tauri::Builder::default()
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
+            #[derive(Clone, serde::Serialize)]
+            struct Payload {
+                args: Vec<String>,
+                cwd: String,
+            }
+
             app.emit("single-instance", Payload { args: argv, cwd })
                 .unwrap();
         }))
@@ -44,7 +44,7 @@ fn start_app() -> Result<(), tauri::Error> {
                     Target::new(TargetKind::Webview),
                 ])
                 .level(LevelFilter::Debug)
-                .max_file_size(500)
+                .max_file_size(512)
                 .rotation_strategy(RotationStrategy::KeepOne)
                 .build(),
         )

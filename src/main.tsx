@@ -20,6 +20,15 @@ document.addEventListener("keydown", (e) => {
     e.preventDefault();
   }
 });
+/**
+ * Disable opening any file using drag and drop
+ */
+document.addEventListener("dragover", (e: DragEvent) => {
+  e.preventDefault();
+});
+document.addEventListener("drop", (e: DragEvent) => {
+  e.preventDefault();
+});
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

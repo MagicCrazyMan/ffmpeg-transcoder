@@ -336,9 +336,9 @@ export default function ComplexTaskModifier({
   /**
    * Add input files vis Tauri
    */
-  const addInputFiles = async () => {
+  const addInputs = async () => {
     const files = (await open({
-      title: "Add Input Files",
+      title: "Select Input Files",
       filters: openDialogFilters,
       directory: false,
       multiple: true,
@@ -357,9 +357,9 @@ export default function ComplexTaskModifier({
   /**
    * Add output files vis Tauri
    */
-  const addOutputFile = async () => {
+  const addOutput = async () => {
     const file = await save({
-      title: "Add Output File",
+      title: "Select Output File",
       defaultPath: configuration.saveDirectory,
       filters: saveDialogFilters,
     });
@@ -419,13 +419,13 @@ export default function ComplexTaskModifier({
       {/* Buttons */}
       <Space className="mb-4">
         {/* Add Input Files Button */}
-        <Button size="small" type="primary" onClick={addInputFiles}>
-          Add Input Files
+        <Button size="small" type="primary" onClick={addInputs}>
+          Add Inputs
         </Button>
 
         {/* Add Output File Button */}
-        <Button size="small" type="primary" onClick={addOutputFile}>
-          Add Output File
+        <Button size="small" type="primary" onClick={addOutput}>
+          Add Output
         </Button>
 
         {/* Add NULL Output Button */}
