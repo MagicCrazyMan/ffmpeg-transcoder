@@ -13,7 +13,7 @@ pub enum Error {
         #[serde(skip_serializing)]
         raw_error: Box<dyn std::error::Error + Send>,
     },
-    ProcessUnexpectedKilled,
+    FFmpegUnexpectedKilled,
     FFmpegNotFound {
         #[serde(skip_serializing)]
         program: String,
@@ -40,6 +40,13 @@ pub enum Error {
     FFprobeRuntimeError {
         reason: String,
     },
+    #[cfg(unix)]
+    FFmpegPidNotFound,
+    #[cfg(unix)]
+    FFmpegSignalError {
+        #[serde(skip_serializing)]
+        raw_error: nix::errno::Errno,
+    },
     DirectoryNotFound {
         path: String,
     },
@@ -65,8 +72,8 @@ impl Error {
         }
     }
 
-    pub fn process_unexpected_killed() -> Self {
-        Self::ProcessUnexpectedKilled
+    pub fn ffmpeg_unexpected_killed() -> Self {
+        Self::FFmpegUnexpectedKilled
     }
 
     pub fn ffmpeg_not_found<S>(program: S) -> Self
@@ -185,30 +192,30 @@ impl Display for Error {
             Error::Internal { raw_error, .. } => {
                 f.write_fmt(format_args!("internal error: {}", raw_error))
             }
-            Error::ProcessUnexpectedKilled => f.write_str("process unexpected killed"),
+            Error::FFmpegUnexpectedKilled => f.write_str("ffmpeg unexpected killed"),
             Error::FFmpegNotFound { program, .. } => {
-                f.write_fmt(format_args!("ffmpeg binary not found: \"{}\"", program))
+                f.write_fmt(format_args!("ffmpeg binary not found: {}", program))
             }
             Error::FFprobeNotFound { program, .. } => {
-                f.write_fmt(format_args!("ffprobe binary not found: \"{}\"", program))
+                f.write_fmt(format_args!("ffprobe binary not found: {}", program))
             }
             Error::FFmpegUnavailable {
                 program, raw_error, ..
             } => match raw_error {
                 Some(err) => f.write_fmt(format_args!(
-                    "ffmpeg binary unavailable: \"{}\" {}",
+                    "ffmpeg binary unavailable: {} {}",
                     program, err
                 )),
-                None => f.write_fmt(format_args!("ffmpeg binary unavailable: \"{}\"", program,)),
+                None => f.write_fmt(format_args!("ffmpeg binary unavailable: {}", program,)),
             },
             Error::FFprobeUnavailable {
                 program, raw_error, ..
             } => match raw_error {
                 Some(err) => f.write_fmt(format_args!(
-                    "ffprobe binary unavailable: \"{}\" {}",
+                    "ffprobe binary unavailable: {} {}",
                     program, err
                 )),
-                None => f.write_fmt(format_args!("ffprobe binary unavailable: \"{}\"", program,)),
+                None => f.write_fmt(format_args!("ffprobe binary unavailable: {}", program,)),
             },
             Error::FFmpegRuntimeError { reason } => {
                 f.write_fmt(format_args!("ffmpeg runtime error: {}", reason))
@@ -216,20 +223,27 @@ impl Display for Error {
             Error::FFprobeRuntimeError { reason } => {
                 f.write_fmt(format_args!("ffprobe runtime error: {}", reason))
             }
+            #[cfg(unix)]
+            Error::FFmpegPidNotFound => f.write_str("failed to get pid of ffmpeg process"),
+            #[cfg(unix)]
+            Error::FFmpegSignalError { raw_error } => f.write_fmt(format_args!(
+                "failed to send signal to ffmpeg process: {}",
+                raw_error
+            )),
             Error::DirectoryNotFound { path, .. } => {
-                f.write_fmt(format_args!("directory not found: \"{}\"", path))
+                f.write_fmt(format_args!("directory not found: {}", path))
             }
             Error::TaskNotFound { id, .. } => {
-                f.write_fmt(format_args!("task with specified id not found: \"{}\"", id))
+                f.write_fmt(format_args!("task with specified id not found: {}", id))
             }
             Error::TaskExisting { id, .. } => {
-                f.write_fmt(format_args!("task with specified id is existing: \"{}\"", id))
+                f.write_fmt(format_args!("task with specified id is existing: {}", id))
             }
             Error::ConfigurationNotLoaded => f.write_str("configuration not loaded"),
             Error::ConfigurationUnavailable { reasons } => {
                 #[cfg(windows)]
                 static LINE_ENDING: &'static str = "\r\n";
-                #[cfg(not(windows))]
+                #[cfg(unix)]
                 static LINE_ENDING: &'static str = "\n";
 
                 f.write_fmt(format_args!(

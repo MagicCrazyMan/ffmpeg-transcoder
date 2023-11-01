@@ -4,6 +4,7 @@ export type TauriError =
   | FFprobeNotFoundError
   | FFmpegUnavailableError
   | FFprobeUnavailableError
+  | FFmpegUnexpectedKilledError
   | FFmpegRuntimeError
   | FFprobeRuntimeError
   | DirectoryNotFoundError
@@ -30,6 +31,10 @@ export type FFmpegUnavailableError = {
 
 export type FFprobeUnavailableError = {
   type: "FFprobeUnavailable";
+};
+
+export type FFmpegUnexpectedKilledError = {
+  type: "FFmpegUnexpectedKilled";
 };
 
 export type FFmpegRuntimeError = {
@@ -91,6 +96,8 @@ export const toMessage: ErrorToMessage = (error, printKeywords = false) => {
       return "ffmpeg program unavailable";
     case "FFprobeUnavailable":
       return "ffprobe program unavailable";
+    case "FFmpegUnexpectedKilled":
+      return "ffmpeg un expected killed";
     case "FFmpegRuntimeError":
       return printKeywords ? (error as FFmpegRuntimeError).reason : "ffmpeg runtime error";
     case "FFprobeRuntimeError":

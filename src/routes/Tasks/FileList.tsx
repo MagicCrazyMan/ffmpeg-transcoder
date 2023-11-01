@@ -8,16 +8,32 @@ import { TaskStateCode } from "../../libs/task/state_machine";
 import { useAppStore } from "../../store/app";
 
 const showInExplorer = async (path: string, osType: OsType) => {
-  if (osType === "Windows_NT") {
-    const command = new Command("explorer", ["/select,", path]);
-    await command.spawn();
+  switch (osType) {
+    case "Windows_NT": {
+      const command = new Command("explorer", ["/select,", path]);
+      await command.spawn();
+      break;
+    }
+    default:
+      return;
   }
 };
 
 const ShowInExplorerButton = ({ path }: { path: string }) => {
   const osType = useAppStore((state) => state.osType);
 
-  return osType === "Windows_NT" ? (
+  let onClick: () => void;
+  switch (osType) {
+    case "Windows_NT":
+      onClick = () => {
+        showInExplorer(path, osType);
+      };
+      break;
+    default:
+      return;
+  }
+
+  return (
     <Button
       size="mini"
       type="text"
@@ -25,10 +41,10 @@ const ShowInExplorerButton = ({ path }: { path: string }) => {
       icon={<IconFolder />}
       onClick={(e) => {
         e.stopPropagation();
-        showInExplorer(path, osType);
+        onClick();
       }}
     ></Button>
-  ) : null;
+  );
 };
 
 const OpenFileButton = ({ path }: { path: string }) => {

@@ -220,8 +220,27 @@ impl TaskState for Running {
             }
         }
 
-        #[cfg(not(windows))]
-        {}
+        #[cfg(unix)]
+        {
+            use nix::{
+                sys::signal::{self, Signal},
+                unistd::Pid,
+            };
+
+            let pid = match process
+                .lock()
+                .await
+                .id()
+                .and_then(|pid| pid.try_into().ok())
+            {
+                Some(pid) => pid,
+                None => return Box::new(Errored::from_err(Error::FFmpegPidNotFound)),
+            };
+
+            if let Err(raw_error) = signal::kill(Pid::from_raw(pid), Signal::SIGSTOP) {
+                return Box::new(Errored::from_err(Error::FFmpegSignalError { raw_error }));
+            }
+        }
 
         info!("[{}] task pause", task.data.id);
 
@@ -321,8 +340,27 @@ impl TaskState for Pausing {
             }
         }
 
-        #[cfg(not(windows))]
-        {}
+        #[cfg(unix)]
+        {
+            use nix::{
+                sys::signal::{self, Signal},
+                unistd::Pid,
+            };
+
+            let pid = match process
+                .lock()
+                .await
+                .id()
+                .and_then(|pid| pid.try_into().ok())
+            {
+                Some(pid) => pid,
+                None => return Box::new(Errored::from_err(Error::FFmpegPidNotFound)),
+            };
+
+            if let Err(raw_error) = signal::kill(Pid::from_raw(pid), Signal::SIGCONT) {
+                return Box::new(Errored::from_err(Error::FFmpegSignalError { raw_error }));
+            }
+        }
 
         let watchdog_cancellations = (CancellationToken::new(), CancellationToken::new());
         let watchdog_handle = start_watchdog(
@@ -555,7 +593,7 @@ fn start_capture(
                         Ok(len) => len,
                         Err(err) => {
                             match err.kind() {
-                                std::io::ErrorKind::UnexpectedEof => break Err(Error::process_unexpected_killed()),
+                                std::io::ErrorKind::UnexpectedEof => break Err(Error::ffmpeg_unexpected_killed()),
                                 _ => break Err(Error::internal(err)),
                             }
                         },
@@ -565,7 +603,7 @@ fn start_capture(
 
             // should stop or reach eof
             if len == 0 {
-                break Err(Error::process_unexpected_killed());
+                break Err(Error::ffmpeg_unexpected_killed());
             }
 
             let trimmed_line = line.trim();
@@ -672,7 +710,16 @@ fn start_capture(
         if len == 0 {
             (reader.into_inner(), Ok(()))
         } else {
-            (reader.into_inner(), Err(Error::ffmpeg_runtime_error(line)))
+            let line = line.trim();
+
+            // checks ignore list
+            // any stderr starts with text in ignore list does not regard as error
+            static STARTS_WITH_IGNORES: [&'static str; 2] = ["x264", "x265"];
+            if STARTS_WITH_IGNORES.iter().any(|str| line.starts_with(str)) {
+                (reader.into_inner(), Ok(()))
+            } else {
+                (reader.into_inner(), Err(Error::ffmpeg_runtime_error(line)))
+            }
         }
     });
 
@@ -730,7 +777,7 @@ fn start_watchdog(
                         if status.success() {
                             ProcessStatus::Exit
                         } else {
-                            ProcessStatus::Killed(Error::process_unexpected_killed())
+                            ProcessStatus::Killed(Error::ffmpeg_unexpected_killed())
                         }
                     },
                     Err(err) => ProcessStatus::Killed(Error::internal(err))
@@ -765,6 +812,7 @@ fn start_watchdog(
                         return;
                     }
                 };
+
                 process.stdout = Some(stdout);
                 process.stderr = Some(stderr);
                 process.stdin = Some(stdin);
