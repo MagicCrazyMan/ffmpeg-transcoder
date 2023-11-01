@@ -44,7 +44,7 @@ const EditingNameCell = ({ submit }: { submit: () => void }) => {
 const RemarkCell = ({ preset }: { preset: PresetInTable }) => (
   <div className="inline-block">{preset.remark ?? ""}</div>
 );
-const EditingRemarkCell = ({ submit }: { submit: () => void }) => {
+const EditingRemarkCell = ({ submit, preset }: { submit: () => void; preset: PresetInTable }) => {
   return (
     <Form.Item
       field="remark"
@@ -52,7 +52,7 @@ const EditingRemarkCell = ({ submit }: { submit: () => void }) => {
       labelCol={{ span: 0 }}
       wrapperCol={{ span: 24 }}
     >
-      <Input.TextArea autoFocus autoSize onPressEnter={submit} />
+      <Input.TextArea autoSize autoFocus={!!preset.id} onPressEnter={submit} />
     </Form.Item>
   );
 };
@@ -98,7 +98,13 @@ const ArgumentsCell = ({ preset }: { preset: PresetInTable }) => {
     </Space>
   );
 };
-const EditingArgumentsCell = ({ submit, preset }: { submit: () => void; preset: PresetInTable }) => {
+const EditingArgumentsCell = ({
+  submit,
+  preset,
+}: {
+  submit: () => void;
+  preset: PresetInTable;
+}) => {
   return (
     <Form.Item
       field="args"
@@ -110,7 +116,7 @@ const EditingArgumentsCell = ({ submit, preset }: { submit: () => void; preset: 
       labelCol={{ span: 0 }}
       wrapperCol={{ span: 24 }}
     >
-      <Input.TextArea allowClear autoSize autoFocus={!preset.id} onPressEnter={submit} />
+      <Input.TextArea allowClear autoSize autoFocus={!!preset.id} onPressEnter={submit} />
     </Form.Item>
   );
 };
@@ -136,7 +142,7 @@ const EditingExtensionCell = ({
         labelCol={{ span: 0 }}
         wrapperCol={{ span: 24 }}
       >
-        <Input autoFocus onPressEnter={submit} />
+        <Input autoFocus={!!preset.id} onPressEnter={submit} />
       </Form.Item>
     );
   }
@@ -222,7 +228,7 @@ export default function EditableCell(props: CellProps) {
         cell = <EditingExtensionCell submit={submit} preset={rowData} />;
         break;
       case "remark":
-        cell = <EditingRemarkCell submit={submit} />;
+        cell = <EditingRemarkCell submit={submit} preset={rowData} />;
         break;
     }
 

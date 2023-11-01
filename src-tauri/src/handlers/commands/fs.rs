@@ -1,5 +1,7 @@
 use std::{collections::VecDeque, fs, path::PathBuf};
 
+use tokio::io::AsyncWriteExt;
+
 use crate::handlers::error::Error;
 
 #[derive(serde::Serialize)]
@@ -135,4 +137,21 @@ pub async fn search_directory(dir: String, max_depth: Option<usize>) -> Result<S
     }
 
     Ok(root)
+}
+
+/// Writes text content to specified path.
+#[tauri::command]
+pub async fn write_text_file(path: String, content: String) -> Result<(), Error> {
+    let mut file = tokio::fs::OpenOptions::new()
+        .create(true)
+        .append(false)
+        .write(true)
+        .open(path)
+        .await
+        .or_else(|err| Err(Error::io(err)))?;
+    file.write_all(content.as_bytes())
+        .await
+        .or_else(|err| Err(Error::io(err)))?;
+
+    Ok(())
 }

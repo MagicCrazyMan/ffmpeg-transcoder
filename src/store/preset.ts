@@ -1,6 +1,6 @@
-import { v4 } from "uuid";
+import { v4, validate } from "uuid";
 import { create } from "zustand";
-import { Preset } from "../libs/preset";
+import { Preset, PresetType } from "../libs/preset";
 
 export type PresetStoreState = {
   /**
@@ -52,6 +52,13 @@ export type PresetStoreState = {
    * @param id Preset id
    */
   removePreset: (id: string) => void;
+  /**
+   * Imports presets from object.
+   * Error throws if object is not a valid {@link PresetStorage} object.
+   * @param input Object
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  importPresets: (input: any) => void;
 };
 
 type PresetStorage = {
@@ -112,6 +119,94 @@ const loadPresetStorage = (): {
       ...defaultStorage,
       ...loaded,
     },
+  };
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const verify = (input: any) => {
+  const maps = new Map<string, Preset>();
+  let defaultDecodeId: string | undefined;
+  let defaultEncodeId: string | undefined;
+  let presets: Preset[] | undefined;
+  for (const [k, v] of Object.entries(input)) {
+    switch (k) {
+      case "defaultDecodeId": {
+        if (typeof v === "string" && validate(v)) {
+          defaultDecodeId = v;
+          break;
+        } else {
+          throw new Error(`invalid default decode preset id ${v}`);
+        }
+      }
+      case "defaultEncodeId": {
+        if (typeof v === "string" && validate(v)) {
+          defaultEncodeId = v;
+          break;
+        } else {
+          throw new Error(`invalid default encode preset id ${v}`);
+        }
+      }
+      case "presets": {
+        if (!Array.isArray(v)) throw new Error(`invalid presets list`);
+        for (let i = 0; i < v.length; i++) {
+          const item = v[i];
+          if (typeof item["id"] !== "string" || !validate(item["id"]))
+            throw new Error(`invalid id of preset at index ${i}`);
+
+          if (
+            item["type"] !== PresetType.Decode &&
+            item["type"] !== PresetType.Encode &&
+            item["type"] !== PresetType.Universal
+          )
+            throw new Error(`invalid type of preset at index ${i}`);
+
+          if (typeof item["id"] !== "string" || !validate(item["id"]))
+            throw new Error(`invalid id of preset at index ${i}`);
+
+          if (typeof item["name"] !== "undefined" && typeof item["name"] !== "string")
+            throw new Error(`invalid name of preset at index ${i}`);
+
+          if (!Array.isArray(item["args"])) throw new Error(`invalid args of preset at index ${i}`);
+
+          if (typeof item["remark"] !== "undefined" && typeof item["remark"] !== "string")
+            throw new Error(`invalid remark of preset at index ${i}`);
+
+          if (typeof item["extension"] !== "undefined" && typeof item["extension"] !== "string")
+            throw new Error(`invalid extension of preset at index ${i}`);
+
+          maps.set(item["id"], item);
+        }
+        presets = v;
+
+        break;
+      }
+      default:
+        console.warn(`unknown field ${k}`);
+        break;
+    }
+  }
+
+  let defaultDecode: Preset | undefined;
+  let defaultEncode: Preset | undefined;
+  if (defaultDecodeId) {
+    defaultDecode = maps.get(defaultDecodeId);
+    if (!defaultDecode)
+      throw new Error(`default decode preset with id ${defaultDecodeId} not found in presets list`);
+  }
+  if (defaultEncodeId) {
+    defaultEncode = maps.get(defaultEncodeId);
+    if (!defaultEncode)
+      throw new Error(`default encode preset with id ${defaultEncodeId} not found in presets list`);
+  }
+
+  return {
+    storage: {
+      defaultDecodeId,
+      defaultEncodeId,
+      presets,
+    } as PresetStorage,
+    defaultDecode,
+    defaultEncode,
   };
 };
 
@@ -208,6 +303,15 @@ export const usePresetStore = create<PresetStoreState>((set, _oget, api) => {
           defaultDecodeId: storage.defaultDecodeId === id ? undefined : storage.defaultDecodeId,
           defaultEncodeId: storage.defaultEncodeId === id ? undefined : storage.defaultEncodeId,
         },
+      }));
+    },
+    importPresets(input) {
+      const { storage, defaultDecode, defaultEncode } = verify(input);
+      set((state) => ({
+        ...state,
+        storage,
+        defaultDecode,
+        defaultEncode,
       }));
     },
   };

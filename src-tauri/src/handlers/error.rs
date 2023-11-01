@@ -13,6 +13,9 @@ pub enum Error {
         #[serde(skip_serializing)]
         raw_error: Box<dyn std::error::Error + Send>,
     },
+    Io {
+        reason: String,
+    },
     FFmpegUnexpectedKilled,
     FFmpegNotFound {
         #[serde(skip_serializing)]
@@ -69,6 +72,12 @@ impl Error {
     {
         Self::Internal {
             raw_error: Box::new(raw_error),
+        }
+    }
+
+    pub fn io(error: std::io::Error) -> Self {
+        Self::Io {
+            reason: error.to_string(),
         }
     }
 
@@ -192,6 +201,7 @@ impl Display for Error {
             Error::Internal { raw_error, .. } => {
                 f.write_fmt(format_args!("internal error: {}", raw_error))
             }
+            Error::Io { reason } => reason.fmt(f),
             Error::FFmpegUnexpectedKilled => f.write_str("ffmpeg unexpected killed"),
             Error::FFmpegNotFound { program, .. } => {
                 f.write_fmt(format_args!("ffmpeg binary not found: {}", program))

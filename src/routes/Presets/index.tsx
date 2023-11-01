@@ -1,5 +1,4 @@
-import { Button, Table, TableColumnProps, Tooltip } from "@arco-design/web-react";
-import { IconPlus } from "@arco-design/web-react/icon";
+import { Table, TableColumnProps } from "@arco-design/web-react";
 import {
   Dispatch,
   ReactNode,
@@ -16,6 +15,7 @@ import { Preset, PresetType } from "../../libs/preset";
 import { usePresetStore } from "../../store/preset";
 import DefaultCodec from "./DefaultCodec";
 import EditableCell from "./EditableCell";
+import GlobalOperations from "./GlobalOperations";
 import Operations from "./Operations";
 import { DragHandlerAnchor, DraggableContainer, DraggableEditableRow } from "./Sortable";
 
@@ -146,22 +146,8 @@ export default function PresetsPage() {
       }}
     >
       <div className="p-4 flex flex-col gap-4">
-        {/* Add Preset */}
-        <Tooltip content="Add New Preset">
-          <Button
-            shape="circle"
-            type="primary"
-            icon={<IconPlus />}
-            disabled={!!addingPreset}
-            onClick={(e) => {
-              e.stopPropagation(); // stop propagation to prevent form validation
-              setAddingPreset({
-                type: PresetType.Universal,
-                args: [],
-              });
-            }}
-          ></Button>
-        </Tooltip>
+        {/* Global Operations */}
+        <GlobalOperations />
 
         {/* Presets Table */}
         <Table

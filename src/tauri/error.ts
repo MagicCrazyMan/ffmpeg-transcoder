@@ -1,5 +1,6 @@
 export type TauriError =
   | InternalError
+  | IoError
   | FFmpegNotFoundError
   | FFprobeNotFoundError
   | FFmpegUnavailableError
@@ -15,6 +16,11 @@ export type TauriError =
 
 export type InternalError = {
   type: "Internal";
+};
+
+export type IoError = {
+  type: "Io";
+  reason: string;
 };
 
 export type FFmpegNotFoundError = {
@@ -88,6 +94,8 @@ export const toMessage: ErrorToMessage = (error, printKeywords = false) => {
   switch (error.type) {
     case "Internal":
       return "Interval Error";
+    case "Io":
+      return printKeywords ? `${(error as IoError).reason}` : "Io Error";
     case "FFmpegNotFound":
       return "ffmpeg program not found";
     case "FFprobeNotFound":

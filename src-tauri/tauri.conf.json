@@ -13,7 +13,6 @@
   },
   "tauri": {
     "allowlist": {
-      "all": false,
       "shell": {
         "all": true,
         "scope": [{
@@ -23,10 +22,6 @@
         }]
       },
       "dialog": {
-        "all": false,
-        "ask": false,
-        "confirm": false,
-        "message": false,
         "open": true,
         "save": true
       },
