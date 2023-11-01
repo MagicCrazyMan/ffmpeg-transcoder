@@ -55,10 +55,12 @@ export type PresetStoreState = {
   /**
    * Imports presets from object.
    * Error throws if object is not a valid {@link PresetStorage} object.
+   *
    * @param input Object
+   * @param override Override or append to current presets
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  importPresets: (input: any) => void;
+  importPresets: (input: any, override: boolean) => void;
 };
 
 type PresetStorage = {
@@ -123,7 +125,9 @@ const loadPresetStorage = (): {
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const verify = (input: any) => {
+const verify = (input: any, currentPresets?: Preset[]) => {
+  const exists = new Set(currentPresets?.map(({ id }) => id));
+
   const maps = new Map<string, Preset>();
   let defaultDecodeId: string | undefined;
   let defaultEncodeId: string | undefined;
@@ -150,8 +154,12 @@ const verify = (input: any) => {
         if (!Array.isArray(v)) throw new Error(`invalid presets list`);
         for (let i = 0; i < v.length; i++) {
           const item = v[i];
+
           if (typeof item["id"] !== "string" || !validate(item["id"]))
             throw new Error(`invalid id of preset at index ${i}`);
+
+          if (maps.has(item["id"]) || exists.has(item["id"]))
+            throw new Error(`duplicated id of preset at index ${i}`);
 
           if (
             item["type"] !== PresetType.Decode &&
@@ -186,31 +194,36 @@ const verify = (input: any) => {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const result: any = {
+    storage: {
+      presets,
+    },
+  };
+
   let defaultDecode: Preset | undefined;
   let defaultEncode: Preset | undefined;
   if (defaultDecodeId) {
     defaultDecode = maps.get(defaultDecodeId);
     if (!defaultDecode)
       throw new Error(`default decode preset with id ${defaultDecodeId} not found in presets list`);
+
+    result.storage.defaultDecodeId = defaultDecodeId;
+    result.defaultDecode = defaultDecode;
   }
   if (defaultEncodeId) {
     defaultEncode = maps.get(defaultEncodeId);
     if (!defaultEncode)
       throw new Error(`default encode preset with id ${defaultEncodeId} not found in presets list`);
+
+    result.storage.defaultEncodeId = defaultEncodeId;
+    result.defaultEncode = defaultEncode;
   }
 
-  return {
-    storage: {
-      defaultDecodeId,
-      defaultEncodeId,
-      presets,
-    } as PresetStorage,
-    defaultDecode,
-    defaultEncode,
-  };
+  return result as { storage: PresetStorage; defaultDecode?: Preset; defaultEncode?: Preset };
 };
 
-export const usePresetStore = create<PresetStoreState>((set, _oget, api) => {
+export const usePresetStore = create<PresetStoreState>((set, get, api) => {
   const { storage, defaultDecode, defaultEncode } = loadPresetStorage();
 
   /**
@@ -225,19 +238,19 @@ export const usePresetStore = create<PresetStoreState>((set, _oget, api) => {
     storage,
     defaultDecode,
     defaultEncode,
-    setDefaultDecode(id?: string) {
+    setDefaultDecode(id) {
       set(({ storage }) => ({
         storage: { ...storage, defaultDecodeId: id },
         defaultDecode: storage.presets.find((preset) => preset.id === id),
       }));
     },
-    setDefaultEncode(id?: string) {
+    setDefaultEncode(id) {
       set(({ storage }) => ({
         storage: { ...storage, defaultEncodeId: id },
         defaultEncode: storage.presets.find((preset) => preset.id === id),
       }));
     },
-    addPreset(preset: Preset) {
+    addPreset(preset) {
       set(({ storage }) => ({
         storage: {
           ...storage,
@@ -245,7 +258,7 @@ export const usePresetStore = create<PresetStoreState>((set, _oget, api) => {
         },
       }));
     },
-    duplicatePreset(id: string) {
+    duplicatePreset(id) {
       set(({ storage }) => {
         const presets = storage.presets.reduce((nPresets, preset) => {
           nPresets.push(preset);
@@ -264,7 +277,7 @@ export const usePresetStore = create<PresetStoreState>((set, _oget, api) => {
         return { storage: { ...storage, presets } };
       });
     },
-    movePreset(from: number, to: number) {
+    movePreset(from, to) {
       if (from === to) return;
 
       set(({ storage }) => {
@@ -287,7 +300,7 @@ export const usePresetStore = create<PresetStoreState>((set, _oget, api) => {
         return { storage: { ...storage, presets } };
       });
     },
-    updatePreset(id: string, preset: Partial<Preset>) {
+    updatePreset(id, preset) {
       set(({ storage }) => ({
         storage: {
           ...storage,
@@ -295,7 +308,7 @@ export const usePresetStore = create<PresetStoreState>((set, _oget, api) => {
         },
       }));
     },
-    removePreset(id: string) {
+    removePreset(id) {
       set(({ storage }) => ({
         storage: {
           ...storage,
@@ -305,11 +318,18 @@ export const usePresetStore = create<PresetStoreState>((set, _oget, api) => {
         },
       }));
     },
-    importPresets(input) {
-      const { storage, defaultDecode, defaultEncode } = verify(input);
+    importPresets(input, override) {
+      const { storage, defaultDecode, defaultEncode } = verify(
+        input,
+        override ? undefined : get().storage.presets
+      );
       set((state) => ({
         ...state,
-        storage,
+        storage: {
+          ...state.storage,
+          ...storage,
+          presets: override ? storage.presets : [...state.storage.presets, ...storage.presets],
+        },
         defaultDecode,
         defaultEncode,
       }));

@@ -1,5 +1,5 @@
 import { Button, Divider, Message, Space, Tooltip } from "@arco-design/web-react";
-import { IconDownload, IconPlus, IconUpload } from "@arco-design/web-react/icon";
+import { IconDownload, IconImport, IconPlus, IconUpload } from "@arco-design/web-react/icon";
 import { save } from "@tauri-apps/api/dialog";
 import { join } from "@tauri-apps/api/path";
 import { useContext, useMemo } from "react";
@@ -49,7 +49,7 @@ export default function GlobalOperations() {
     }
   };
 
-  const imports = () => {
+  const imports = (override: boolean) => {
     const fileSelector = document.createElement("input");
     fileSelector.type = "file";
     fileSelector.accept = "application/json";
@@ -58,7 +58,7 @@ export default function GlobalOperations() {
       if (!file) return;
 
       try {
-        importPresets(JSON.parse(await file.text()));
+        importPresets(JSON.parse(await file.text()), override);
         Message.success("successfully import presets");
       } catch (err) {
         Message.error((err as Error).message);
@@ -86,20 +86,37 @@ export default function GlobalOperations() {
 
         <Divider type="vertical" />
 
-        {/* Import Presets */}
-        <Tooltip content="Import Presets">
-          <Button
-            shape="circle"
-            type="default"
-            status="success"
-            icon={<IconDownload />}
-            disabled={isAdding}
-            onClick={(e) => {
-              e.stopPropagation();
-              imports();
-            }}
-          ></Button>
-        </Tooltip>
+        <Button.Group>
+          {/* Import & Override Presets */}
+          <Tooltip content="Import and Override Presets">
+            <Button
+              shape="round"
+              type="default"
+              status="success"
+              icon={<IconDownload />}
+              disabled={isAdding}
+              onClick={(e) => {
+                e.stopPropagation();
+                imports(true);
+              }}
+            ></Button>
+          </Tooltip>
+
+          {/* Import & Append Presets */}
+          <Tooltip content="Import and Append Presets">
+            <Button
+              shape="round"
+              type="default"
+              status="success"
+              icon={<IconImport />}
+              disabled={isAdding}
+              onClick={(e) => {
+                e.stopPropagation();
+                imports(false);
+              }}
+            ></Button>
+          </Tooltip>
+        </Button.Group>
 
         {/* Export Presets */}
         <Tooltip content="Export Presets">
