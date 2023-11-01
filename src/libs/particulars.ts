@@ -5,7 +5,7 @@ export type SystemParticulars = {
 
 export type FFmpegParticulars = {
   banner: FFmpegBanner;
-  codecs: FFmpegCodec;
+  codecs: FFmpegCodec[];
   hwaccels: string[];
 };
 
