@@ -1,11 +1,11 @@
-import { Descriptions, Image, Table, TableColumnProps, Tag } from "@arco-design/web-react";
+import { Descriptions, Image, Input, Table, TableColumnProps, Tag } from "@arco-design/web-react";
 import { DataType } from "@arco-design/web-react/es/Descriptions/interface";
 import { useMemo } from "react";
 import FFmpegDarkThemeLogo from "../assets/ffmpeg_dark_theme.svg";
 import FFmpegLightThemeLogo from "../assets/ffmpeg_light_theme.svg";
 import { Theme } from "../libs/config";
-import { useAppStore } from "../store/app";
 import { FFmpegCodec, FFmpegCodecType } from "../libs/particulars";
+import { useAppStore } from "../store/app";
 
 const createLibrariesDescription = (libraries: Record<string, number[]>) => {
   return Object.entries(libraries).map(([lib, [a, b, c, d, e, f]]) => (
@@ -37,8 +37,52 @@ const createCodecsDescription = (codecs: FFmpegCodec[]) => {
       title: "Name",
       dataIndex: "name",
       sorter: (a: FFmpegCodec, b: FFmpegCodec) => a.name.localeCompare(b.name),
+      filterDropdown: ({ filterKeys, setFilterKeys, confirm }) => {
+        return (
+          <div className="arco-table-custom-filter">
+            <Input.Search
+              autoFocus
+              allowClear
+              searchButton
+              placeholder="Please enter name"
+              value={filterKeys?.[0] ?? ""}
+              onChange={(value) => {
+                setFilterKeys?.(value ? [value] : []);
+              }}
+              onSearch={() => {
+                confirm?.();
+              }}
+            />
+          </div>
+        );
+      },
+      onFilter: (value: string, row: FFmpegCodec) => row.name.toLocaleLowerCase().includes(value),
     },
-    { title: "Description", dataIndex: "description" },
+    {
+      title: "Description",
+      dataIndex: "description",
+      filterDropdown: ({ filterKeys, setFilterKeys, confirm }) => {
+        return (
+          <div className="arco-table-custom-filter">
+            <Input.Search
+              autoFocus
+              allowClear
+              searchButton
+              placeholder="Please enter name"
+              value={filterKeys?.[0] ?? ""}
+              onChange={(value) => {
+                setFilterKeys?.(value ? [value] : []);
+              }}
+              onSearch={() => {
+                confirm?.();
+              }}
+            />
+          </div>
+        );
+      },
+      onFilter: (value: string, row: FFmpegCodec) =>
+        row.description.toLocaleLowerCase().includes(value),
+    },
     {
       title: "Type",
       render(_col, item) {
