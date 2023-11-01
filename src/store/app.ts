@@ -1,6 +1,6 @@
-import { DialogFilter } from "@tauri-apps/api/dialog";
 import { listen } from "@tauri-apps/api/event";
-import { OsType, type as getOsType } from "@tauri-apps/api/os";
+import { DialogFilter } from "@tauri-apps/plugin-dialog";
+import { OsType, type as getOsType } from "@tauri-apps/plugin-os";
 import { cloneDeep } from "lodash";
 import { create } from "zustand";
 import { Configuration, LogLevel, OpenFileFilters, Theme } from "../libs/config";

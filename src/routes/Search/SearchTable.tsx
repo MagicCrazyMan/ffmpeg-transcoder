@@ -69,12 +69,12 @@ const OutputCell = ({ node }: { node: SearchEntryNode }) => {
     let path: string | undefined;
 
     if (storage.printRelativePath) {
-      value = value.startsWith(sep) ? value : sep + value;
+      value = value.startsWith(sep()) ? value : sep() + value;
       path = outputDir + value;
     } else {
       if (value.startsWith(outputDir)) {
         const relative = value.replace(outputDir, "");
-        value = relative.startsWith(sep) ? value : outputDir + sep + relative;
+        value = relative.startsWith(sep()) ? value : outputDir + sep() + relative;
         path = value;
       } else {
         // if value do not starts with output dir, restricts to output dir

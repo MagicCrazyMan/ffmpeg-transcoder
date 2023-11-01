@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api";
+import { invoke } from "@tauri-apps/api/primitives";
 import { Configuration } from "../libs/config";
 import { SystemParticulars } from "../libs/particulars";
 

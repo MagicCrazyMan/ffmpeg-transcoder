@@ -1,15 +1,15 @@
 import { Button, Space, Typography } from "@arco-design/web-react";
 import { IconFolder, IconPlayArrow } from "@arco-design/web-react/icon";
-import { OsType } from "@tauri-apps/api/os";
-import { Command, open } from "@tauri-apps/api/shell";
+import { OsType } from "@tauri-apps/plugin-os";
+import { Command, open } from "@tauri-apps/plugin-shell";
 import { useMemo } from "react";
 import { Task } from "../../libs/task";
 import { TaskStateCode } from "../../libs/task/state_machine";
 import { useAppStore } from "../../store/app";
 
 const showInExplorer = async (path: string, osType: OsType) => {
-  if (osType === "Windows_NT") {
-    const command = new Command("explorer", ["/select,", path]);
+  if (osType === "windows") {
+    const command = Command.create("explorer", ["/select,", path]);
     await command.spawn();
   }
 };
@@ -17,7 +17,7 @@ const showInExplorer = async (path: string, osType: OsType) => {
 const ShowInExplorerButton = ({ path }: { path: string }) => {
   const osType = useAppStore((state) => state.osType);
 
-  return osType === "Windows_NT" ? (
+  return osType === "windows" ? (
     <Button
       size="mini"
       type="text"

@@ -1,7 +1,7 @@
 import { Button, Modal, Popconfirm, Space, Table, TableColumnProps } from "@arco-design/web-react";
 import { IconDelete } from "@arco-design/web-react/icon";
-import { open } from "@tauri-apps/api/dialog";
 import { join, sep } from "@tauri-apps/api/path";
+import { open } from "@tauri-apps/plugin-dialog";
 import { useCallback, useMemo, useState } from "react";
 import { v4 } from "uuid";
 import { Preset, PresetType } from "../../libs/preset";
@@ -93,7 +93,7 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
       const promises = files.map(async (file) => {
         let defaultOutputPath: string | undefined;
         if (configuration.saveDirectory) {
-          const filename = file.split(sep).pop();
+          const filename = file.split(sep()).pop();
           if (filename) defaultOutputPath = await join(configuration.saveDirectory, filename);
         }
 
@@ -119,23 +119,26 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
   /**
    * On select output files vis Tauri
    */
-  const onOutputFileChange = useCallback((id: string, path?: string) => {
-    setRecords((state) =>
-      state.map((task) => {
-        if (task.id === id) {
-          return {
-            ...task,
-            output: {
-              ...task.output,
-              path,
-            },
-          };
-        } else {
-          return task;
-        }
-      })
-    );
-  }, [setRecords]);
+  const onOutputFileChange = useCallback(
+    (id: string, path?: string) => {
+      setRecords((state) =>
+        state.map((task) => {
+          if (task.id === id) {
+            return {
+              ...task,
+              output: {
+                ...task.output,
+                path,
+              },
+            };
+          } else {
+            return task;
+          }
+        })
+      );
+    },
+    [setRecords]
+  );
 
   /**
    * On args source change of input or output args

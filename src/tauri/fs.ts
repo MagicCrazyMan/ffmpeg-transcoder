@@ -1,6 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-import { invoke } from "@tauri-apps/api";
+import { invoke } from "@tauri-apps/api/primitives";
 import { SearchDirectory } from "../libs/search";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { DirectoryNotFoundError } from "./error";
 
 /**

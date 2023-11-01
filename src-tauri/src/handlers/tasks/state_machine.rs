@@ -621,7 +621,7 @@ fn start_capture(
 
                         // send message if a single frame collected
                         if let Some(msg) = msg {
-                            match task.data.app_handle.emit_all(TASK_MESSAGE_EVENT, &msg) {
+                            match task.data.app_handle.emit(TASK_MESSAGE_EVENT, &msg) {
                                 Ok(_) => trace!("[{}] send message to frontend", task.data.id),
                                 Err(err) => break Err(Error::internal(err)),
                             }

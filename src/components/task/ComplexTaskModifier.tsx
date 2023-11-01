@@ -1,6 +1,6 @@
 import { Button, Modal, Popconfirm, Space, Table, TableColumnProps } from "@arco-design/web-react";
 import { IconDelete } from "@arco-design/web-react/icon";
-import { open, save } from "@tauri-apps/api/dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
 import { v4 } from "uuid";
 import { Preset, PresetType } from "../../libs/preset";

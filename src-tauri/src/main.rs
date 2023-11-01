@@ -6,7 +6,7 @@ use std::{path::PathBuf, sync::Arc};
 use handlers::{config::Config, tasks::store::TaskStore};
 use log::{error, LevelFilter};
 use tauri::Manager;
-use tauri_plugin_log::{LogTarget, RotationStrategy};
+use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 use tokio::sync::Mutex;
 
 use crate::handlers::commands::{
@@ -28,19 +28,20 @@ fn start_app() -> Result<(), tauri::Error> {
     tauri::Builder::default()
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
-            println!("{}, {argv:?}, {cwd}", app.package_info().name);
-
-            app.emit_all("single-instance", Payload { args: argv, cwd })
+            app.emit("single-instance", Payload { args: argv, cwd })
                 .unwrap();
         }))
         .plugin(
             tauri_plugin_log::Builder::default()
                 .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseUtc)
                 .targets([
-                    LogTarget::Folder(PathBuf::from("logs")),
-                    LogTarget::Stdout,
-                    LogTarget::Stderr,
-                    LogTarget::Webview,
+                    Target::new(TargetKind::Folder {
+                        path: PathBuf::from("logs"),
+                        file_name: None,
+                    }),
+                    Target::new(TargetKind::Stdout),
+                    Target::new(TargetKind::Stderr),
+                    Target::new(TargetKind::Webview),
                 ])
                 .level(LevelFilter::Debug)
                 .max_file_size(500)

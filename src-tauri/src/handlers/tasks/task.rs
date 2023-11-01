@@ -85,7 +85,7 @@ impl Task {
 
     fn send_message(&self, payload: TaskMessage<'_>) {
         // send message to frontend
-        if let Err(err) = self.data.app_handle.emit_all(TASK_MESSAGE_EVENT, payload) {
+        if let Err(err) = self.data.app_handle.emit(TASK_MESSAGE_EVENT, payload) {
             error!(
                 "[{}] failed to send message to frontend: {}",
                 self.data.id, err

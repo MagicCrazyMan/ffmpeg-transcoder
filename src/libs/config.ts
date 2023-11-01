@@ -1,4 +1,4 @@
-import { DialogFilter } from "@tauri-apps/api/dialog";
+import { DialogFilter } from "@tauri-apps/plugin-dialog";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { TaskArgsSource } from "./task";
 

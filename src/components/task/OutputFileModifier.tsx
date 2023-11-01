@@ -1,6 +1,6 @@
 import { Button, Input } from "@arco-design/web-react";
 import { IconFolder } from "@arco-design/web-react/icon";
-import { save } from "@tauri-apps/api/dialog";
+import { save } from "@tauri-apps/plugin-dialog";
 import { useCallback } from "react";
 import { TaskArgsSource } from "../../libs/task";
 import { ModifyingTaskArgsItem } from "../../libs/task/modifying";

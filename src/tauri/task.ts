@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { invoke } from "@tauri-apps/api";
+import { invoke } from "@tauri-apps/api/primitives";
 import { Metadata } from "../libs/metadata";
 import { Preset } from "../libs/preset";
 import { TaskArgs, TaskArgsItem, TaskArgsSource } from "../libs/task";
+import { useAppStore } from "../store/app";
 import type {
   ConfigurationNotLoadedError,
   FFmpegNotFoundError,
@@ -13,7 +14,6 @@ import type {
   TaskExistingError,
   TaskNotFoundError,
 } from "./error";
-import { useAppStore } from "../store/app";
 
 type NormalizedTaskArgs = {
   inputs: NormalizedTaskArgsItem[];

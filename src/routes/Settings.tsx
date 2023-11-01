@@ -8,7 +8,7 @@ import {
   Select,
 } from "@arco-design/web-react";
 import { IconFile, IconFolder } from "@arco-design/web-react/icon";
-import { open } from "@tauri-apps/api/dialog";
+import { open } from "@tauri-apps/plugin-dialog";
 import { useEffect, useRef, useState } from "react";
 import { unstable_useBlocker } from "react-router-dom";
 import { Configuration, LogLevel, Theme } from "../libs/config";
@@ -42,13 +42,13 @@ export default function Settings() {
    * Selects FFmoeg program
    */
   const selectFFmpeg = async () => {
-    const path = await open({
+    const file = await open({
       title: "Select FFmpeg Program",
       multiple: false,
     });
 
-    if (path) {
-      formInstance.current?.setFieldValue("ffmpeg", path as string);
+    if (file) {
+      formInstance.current?.setFieldValue("ffmpeg", file.path);
       formInstance.current?.validate(["ffmpeg"]).then((value) => {
         updateConfiguration({
           ffmpeg: value.ffmpeg as string,
@@ -61,13 +61,13 @@ export default function Settings() {
    * Selects FFprobe program
    */
   const selectFFprobe = async () => {
-    const path = await open({
+    const file = await open({
       title: "Select FFprobe Program",
       multiple: false,
     });
 
-    if (path) {
-      formInstance.current?.setFieldValue("ffprobe", path as string);
+    if (file) {
+      formInstance.current?.setFieldValue("ffprobe", file.path);
       formInstance.current?.validate(["ffprobe"]).then((value) => {
         updateConfiguration({
           ffprobe: value.ffprobe as string,

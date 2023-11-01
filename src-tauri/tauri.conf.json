@@ -11,35 +11,19 @@
     "productName": "ffmpeg-transcoder",
     "version": "0.0.0"
   },
-  "tauri": {
-    "allowlist": {
-      "all": false,
-      "shell": {
-        "all": true,
-        "scope": [{
-          "name": "explorer",
+  "plugins": {
+    "shell": {
+      "scope": [
+        {
+          "args": true,
           "cmd": "explorer",
-          "args": true
-        }]
-      },
-      "dialog": {
-        "all": false,
-        "ask": false,
-        "confirm": false,
-        "message": false,
-        "open": true,
-        "save": true
-      },
-      "window": {
-        "all": true
-      },
-      "os": {
-        "all": true
-      },
-      "path": {
-        "all": true
-      }
-    },
+          "name": "explorer",
+          "sidecar": false
+        }
+      ]
+    }
+  },
+  "tauri": {
     "bundle": {
       "active": true,
       "category": "DeveloperTool",
@@ -48,8 +32,6 @@
         "depends": []
       },
       "externalBin": [],
-      "targets": "all",
-      "identifier": "magiccrazyman.club",
       "icon": [
         "icons/32x32.png",
         "icons/128x128.png",
@@ -57,6 +39,7 @@
         "icons/icon.icns",
         "icons/icon.ico"
       ],
+      "identifier": "magiccrazyman.club",
       "longDescription": "",
       "macOS": {
         "entitlements": null,
@@ -67,6 +50,7 @@
       },
       "resources": [],
       "shortDescription": "",
+      "targets": "all",
       "windows": {
         "certificateThumbprint": null,
         "digestAlgorithm": "sha256",
@@ -78,17 +62,13 @@
     },
     "windows": [
       {
-        "url": "/tasks",
         "fullscreen": false,
+        "height": 720,
         "resizable": true,
         "title": "FFmpeg Transcoder",
-        "width": 1024,
-        "height": 720
+        "url": "/tasks",
+        "width": 1024
       }
-    ],
-    "systemTray": {
-      "iconPath": "icons/icon.ico",
-      "iconAsTemplate": true
-    }
+    ]
   }
 }

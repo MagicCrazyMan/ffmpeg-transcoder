@@ -1,6 +1,6 @@
 import { Button, Form, FormInstance, Input, InputNumber, RulesProps } from "@arco-design/web-react";
 import { IconFolder } from "@arco-design/web-react/icon";
-import { open } from "@tauri-apps/api/dialog";
+import { open } from "@tauri-apps/plugin-dialog";
 import { useMemo, useRef } from "react";
 import { useAppStore } from "../../store/app";
 import { useSearchStore } from "../../store/search";
