@@ -1,3 +1,23 @@
+body {
+  margin: 0;
+  padding: 0;
+
+  background-color: var(--color-bg-1);
+  color: var(--color-text-1);
+
+  color-scheme: light dark;
+}
+
+#root {
+  width: 100vw;
+  height: 100vh;
+}
+
+// fix text ellipse of sidebar menu when collapsed in Linux 
+.arco-menu-collapse .arco-menu-item {
+  text-overflow: clip;
+}
+
 // fix unexpected styles overwriting by tailwindcss
 button[type="button"].arco-switch {
   background-color: var(--color-fill-4);
