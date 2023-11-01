@@ -6,6 +6,7 @@ import {
   Icon,
   Layout,
   Menu,
+  Message,
   Spin,
 } from "@arco-design/web-react";
 import enUS from "@arco-design/web-react/es/locale/en-US";
@@ -133,6 +134,20 @@ const SidebarUtilities = () => {
  */
 const MainPage = () => {
   const [collapsed, setCollapse] = useState(true);
+
+  /**
+   * Listens all unhandled rejection and pop error message
+   */
+  useEffect(() => {
+    const handler = (e: PromiseRejectionEvent) => {
+      Message.error(e.reason);
+    };
+    window.addEventListener("unhandledrejection", handler);
+
+    return () => {
+      window.removeEventListener("unhandledrejection", handler);
+    };
+  });
 
   return (
     <Layout className="h-full">
