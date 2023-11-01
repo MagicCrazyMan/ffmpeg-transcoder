@@ -140,7 +140,7 @@ const MainPage = () => {
    */
   useEffect(() => {
     const handler = (e: PromiseRejectionEvent) => {
-      Message.error(e.reason);
+      Message.error(e.reason instanceof Error ? e.reason.message : e.reason);
     };
     window.addEventListener("unhandledrejection", handler);
 

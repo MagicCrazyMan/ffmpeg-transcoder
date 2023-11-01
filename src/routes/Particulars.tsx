@@ -137,6 +137,7 @@ const createCodecsDescription = (codecs: FFmpegCodec[]) => {
       virtualized
       pagination={false}
       size="mini"
+      rowKey="name"
       columns={codecsColumns}
       data={codecs}
       scroll={{ y: "30rem" }}
