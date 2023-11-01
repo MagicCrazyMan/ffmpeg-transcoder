@@ -153,7 +153,7 @@ const Stopped = ({ task }: { task: Task }) => {
 const Finished = ({ task }: { task: Task }) => {
   const costHint = toDuration(sumCostTime(task.data.durations), false);
   return (
-    <Typography.Text style={{ color: "rgb(var(--success-6))" }}>Cost {costHint}</Typography.Text>
+    <Typography.Text style={{ color: "rgb(var(--success-6))" }}>Completed in {costHint}</Typography.Text>
   );
 };
 
