@@ -35,6 +35,23 @@ export type TaskStoreState = {
    */
   stopTask: (id: string) => Promise<void>;
   /**
+   * Finishes a task by id.
+   *
+   * Do not use this method,
+   * only finish message from backend should finish a task.
+   * @param id Task id
+   */
+  finishTask: (id: string) => Promise<void>;
+  /**
+   * Errors a task by id.
+   *
+   * Do not use this method,
+   * only error message from backend should error a task.
+   * @param id Task id
+   * @param reason Error reason
+   */
+  errorTask: (id: string, reason: string) => Promise<void>;
+  /**
    * Removes a task by id
    * @param id Task id
    */
@@ -71,7 +88,11 @@ export type TaskStoreState = {
 export const useTaskStore = create<TaskStoreState>((set, get) => {
   const getTask = (id: string) => get().tasks.find((task) => task.id === id);
 
-  const toState = async (id: string | Task, action: "start" | "pause" | "stop") => {
+  const toState = async (
+    id: string | Task,
+    action: "start" | "pause" | "stop" | "finish" | "error",
+    errorReason = "unknown reason"
+  ) => {
     const task = typeof id === "string" ? getTask(id) : id;
     if (!task || task.data.commanding) return;
 
@@ -91,25 +112,26 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
       }),
     }));
 
-    let nextState: TaskState;
-    let nextData: Partial<TaskData>;
+    let next: { nextState: TaskState; nextData: Partial<TaskData> };
     switch (action) {
       case "start": {
-        const next = await task.state.start(task);
-        nextState = next.nextState;
-        nextData = next.nextData;
+        next = await task.state.start(task);
         break;
       }
       case "pause": {
-        const next = await task.state.pause(task);
-        nextState = next.nextState;
-        nextData = next.nextData;
+        next = await task.state.pause(task);
         break;
       }
       case "stop": {
-        const next = await task.state.stop(task);
-        nextState = next.nextState;
-        nextData = next.nextData;
+        next = await task.state.stop(task);
+        break;
+      }
+      case "finish": {
+        next = await task.state.finish(task);
+        break;
+      }
+      case "error": {
+        next = await task.state.error(task, errorReason);
         break;
       }
     }
@@ -121,10 +143,10 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
             ...t,
             data: {
               ...t.data,
-              ...nextData,
+              ...next.nextData,
               commanding: false,
             },
-            state: nextState,
+            state: next.nextState,
           };
         } else {
           return t;
@@ -182,6 +204,14 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
     },
     async stopTask(id: string) {
       await toState(id, "stop");
+      await startNextQueueing();
+    },
+    async finishTask(id: string) {
+      await toState(id, "finish");
+      await startNextQueueing();
+    },
+    async errorTask(id: string, reason: string) {
+      await toState(id, "error", reason);
       await startNextQueueing();
     },
     removeTask(id: string) {

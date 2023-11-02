@@ -34,7 +34,14 @@ const HISTORIES_LOCALSTORAGE_KEY = "histories";
  * @param storage History storage
  */
 const storeHistoriesStorage = (storage: HistoryStorage) => {
-  localStorage.setItem(HISTORIES_LOCALSTORAGE_KEY, JSON.stringify(storage));
+  const s = {
+    ...storage,
+    tasks: storage.tasks.map((task) => ({
+      ...task,
+      creationTime: task.creationTime.toISOString(),
+    })),
+  };
+  localStorage.setItem(HISTORIES_LOCALSTORAGE_KEY, JSON.stringify(s));
 };
 
 /**

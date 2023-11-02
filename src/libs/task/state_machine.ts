@@ -44,7 +44,6 @@ export abstract class TaskState {
     task: Task,
     reason: string
   ): Promise<{ nextState: TaskState; nextData: TaskData }> {
-    console.error(reason);
     return {
       nextState: new Errored(reason),
       nextData: task.data,
@@ -90,7 +89,7 @@ export class Idle extends TaskState {
 
       useHistoryStore.getState().addHistoryTasks({
         id: v4(),
-        creationTime: task.data.creationTime,
+        creationTime: dayjs(task.data.creationTime),
         args: task.data.args,
       });
 
@@ -250,7 +249,16 @@ export class Running extends TaskState {
   public async finish(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }> {
     return {
       nextState: new Finished(),
-      nextData: task.data,
+      nextData: {
+        ...task.data,
+        durations: task.data.durations.map((duration, index, arr) => {
+          if (index < arr.length - 1) {
+            return duration;
+          } else {
+            return [duration[0], dayjs()];
+          }
+        }),
+      },
     };
   }
 }
