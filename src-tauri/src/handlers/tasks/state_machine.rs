@@ -1,4 +1,4 @@
-use std::{path::PathBuf, process::Stdio, sync::Arc};
+use std::{path::PathBuf, process::Stdio, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use log::{info, trace, warn};
@@ -772,6 +772,8 @@ fn start_watchdog(
                 }
             },
             status = process.wait() => {
+                // waits for 50 milliseconds to ensure stderr finish first
+                tokio::time::sleep(Duration::from_millis(50)).await;
                 match status {
                     Ok(status) => {
                         if status.success() {
