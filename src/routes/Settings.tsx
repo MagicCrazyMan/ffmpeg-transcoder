@@ -11,7 +11,7 @@ import { IconFile, IconFolder } from "@arco-design/web-react/icon";
 import { open } from "@tauri-apps/api/dialog";
 import { useEffect, useRef, useState } from "react";
 import { unstable_useBlocker } from "react-router-dom";
-import { Configuration, LogLevel, Theme } from "../libs/config";
+import { Configuration, ExitAction, LogLevel, Theme } from "../libs/config";
 import { useAppStore } from "../store/app";
 import {
   FFmpegNotFoundError,
@@ -143,7 +143,11 @@ export default function Settings() {
 
           {/* Theme Switcher */}
           <Grid.Col span={12}>
-            <Form.Item labelCol={{ style: { flexBasis: "4rem" } }} field="theme" label="Theme">
+            <Form.Item
+              labelCol={{ style: { flexBasis: "fit-content", textAlign: "left" } }}
+              field="theme"
+              label="Theme"
+            >
               <Select>
                 <Select.Option value={Theme.Dark}>Dark</Select.Option>
                 <Select.Option value={Theme.Light}>Light</Select.Option>
@@ -153,11 +157,26 @@ export default function Settings() {
           </Grid.Col>
         </Grid.Row>
 
+        {/* Max Running Tasks */}
         <Grid.Row gutter={8}>
-          {/* Max Running Tasks */}
           <Grid.Col span={12}>
             <Form.Item field="maxRunning" label="Max Running Tasks">
               <InputNumber min={1}></InputNumber>
+            </Form.Item>
+          </Grid.Col>
+
+          {/* Exit Action */}
+          <Grid.Col span={12}>
+            <Form.Item
+              labelCol={{ style: { flexBasis: "fit-content", textAlign: "left" } }}
+              field="exitAction"
+              label="Exit Action"
+            >
+              <Select>
+                <Select.Option value={ExitAction.Exit}>Exit Program</Select.Option>
+                <Select.Option value={ExitAction.Hide}>Hide Window</Select.Option>
+                <Select.Option value={ExitAction.Ask}>Ask</Select.Option>
+              </Select>
             </Form.Item>
           </Grid.Col>
         </Grid.Row>

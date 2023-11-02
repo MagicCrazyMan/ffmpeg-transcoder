@@ -19,6 +19,9 @@ import { pageRoutes } from "../router";
 import { useAppStore } from "../store/app";
 import { useTaskStore } from "../store/task";
 import { loadConfiguration } from "../tauri/system";
+import "../libs/system_tray";
+import "../libs/safe_exit";
+import "../libs/task/message";
 
 /**
  * Sidebar menu

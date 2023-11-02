@@ -40,6 +40,12 @@ export enum LogLevel {
   Trace = "TRACE",
 }
 
+export enum ExitAction {
+  Ask = "0",
+  Exit = "1",
+  Hide = "2",
+}
+
 /**
  * App configuration
  */
@@ -80,4 +86,8 @@ export type Configuration = {
    * File filters for save dialog
    */
   saveFileFilters: DialogFilter[];
+  /**
+   * Action when click exit button
+   */
+  exitAction: ExitAction;
 };

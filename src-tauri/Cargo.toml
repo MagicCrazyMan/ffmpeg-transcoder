@@ -24,6 +24,7 @@ tauri = { version = "1.4", features = [
     "dialog-save",
     "window-all",
     "dialog-open",
+    "process-exit"
 ] }
 tauri-plugin-log = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }

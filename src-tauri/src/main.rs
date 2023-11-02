@@ -5,6 +5,8 @@ use std::{path::PathBuf, sync::Arc};
 
 use handlers::{config::Config, tasks::store::TaskStore};
 use log::{error, LevelFilter};
+use safe_exit::{prevent_main_window_close, confirm_exit};
+use system_tray::{system_tray, system_tray_event};
 use tauri::Manager;
 use tauri_plugin_log::{LogTarget, RotationStrategy};
 use tokio::sync::Mutex;
@@ -16,6 +18,8 @@ use crate::handlers::commands::{
 };
 
 pub mod handlers;
+pub mod safe_exit;
+pub mod system_tray;
 
 #[derive(Clone, serde::Serialize)]
 struct Payload {
@@ -47,6 +51,9 @@ fn start_app() -> Result<(), tauri::Error> {
         )
         .manage(Arc::new(Mutex::new(None as Option<Config>)))
         .manage(TaskStore::new())
+        .system_tray(system_tray())
+        .on_system_tray_event(system_tray_event)
+        .on_window_event(prevent_main_window_close)
         .invoke_handler(tauri::generate_handler![
             verify_ffmpeg,
             verify_ffprobe,
@@ -60,7 +67,10 @@ fn start_app() -> Result<(), tauri::Error> {
             pause_task,
             resume_task,
         ])
-        .run(tauri::generate_context!())
+        .build(tauri::generate_context!())?
+        .run(confirm_exit);
+
+    Ok(())
 }
 
 #[derive(serde::Serialize)]

@@ -3,7 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { OsType, type as getOsType } from "@tauri-apps/api/os";
 import { cloneDeep } from "lodash";
 import { create } from "zustand";
-import { Configuration, LogLevel, OpenFileFilters, Theme } from "../libs/config";
+import { Configuration, ExitAction, LogLevel, OpenFileFilters, Theme } from "../libs/config";
 import { SystemParticulars } from "../libs/particulars";
 
 export type AppState = {
@@ -73,6 +73,7 @@ const loadConfigurationStorage = (): ConfigurationStorage => {
 };
 
 const DEFAULT_CONFIGURATION: Configuration = {
+  exitAction: ExitAction.Ask,
   loglevel: LogLevel.Info,
   ffmpeg: "ffmpeg",
   ffprobe: "ffprobe",

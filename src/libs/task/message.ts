@@ -1,3 +1,7 @@
+import { listen } from "@tauri-apps/api/event";
+import { useTaskStore } from "../../store/task";
+import { Errored, Finished, Running } from "./state_machine";
+
 export const TASK_MESSAGE_EVENT = "transcoding";
 
 export type TaskMessage = TaskMessageRunning | TaskMessageFinished | TaskMessageErrored;
@@ -53,3 +57,30 @@ export type TaskProgressTypeAuto = {
 export type TaskProgressTypeUnspecified = {
   type: "Unspecified";
 };
+
+/**
+ * Starts listening task messages from backend.
+ */
+listen<TaskMessage>(TASK_MESSAGE_EVENT, async (event) => {
+  const { tasks, updateTask, startNextQueueing } = useTaskStore.getState();
+
+  const message = event.payload;
+
+  const task = tasks.find((task) => task.id === message.id);
+  if (!task) return;
+
+  // overwrite frontend state by message from backend
+  switch (message.state) {
+    case "Running":
+      updateTask(message.id, { state: new Running(message) });
+      break;
+    case "Errored":
+      updateTask(message.id, { state: new Errored(message.reason) });
+      await startNextQueueing();
+      break;
+    case "Finished":
+      updateTask(message.id, { state: new Finished() });
+      await startNextQueueing();
+      break;
+  }
+});

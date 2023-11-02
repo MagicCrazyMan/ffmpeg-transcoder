@@ -15,11 +15,13 @@
     "allowlist": {
       "shell": {
         "all": true,
-        "scope": [{
-          "name": "explorer",
-          "cmd": "explorer",
-          "args": true
-        }]
+        "scope": [
+          {
+            "name": "explorer",
+            "cmd": "explorer",
+            "args": true
+          }
+        ]
       },
       "dialog": {
         "open": true,
@@ -33,6 +35,9 @@
       },
       "path": {
         "all": true
+      },
+      "process": {
+        "exit": true
       }
     },
     "bundle": {
@@ -73,6 +78,7 @@
     },
     "windows": [
       {
+        "label": "main",
         "url": "/tasks",
         "fullscreen": false,
         "resizable": true,

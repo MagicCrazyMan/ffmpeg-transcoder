@@ -1,16 +1,7 @@
-import { EventCallback, listen } from "@tauri-apps/api/event";
 import { v4 } from "uuid";
 import { create } from "zustand";
-import { Task, TaskData, TaskArgs } from "../libs/task";
-import { TASK_MESSAGE_EVENT, TaskMessage } from "../libs/task/message";
-import {
-  Errored,
-  Finished,
-  Idle,
-  Running,
-  TaskState,
-  TaskStateCode,
-} from "../libs/task/state_machine";
+import { Task, TaskArgs, TaskData } from "../libs/task";
+import { Idle, TaskState, TaskStateCode } from "../libs/task/state_machine";
 
 export type TaskStoreState = {
   /**
@@ -71,6 +62,10 @@ export type TaskStoreState = {
    * Stops all removable tasks.
    */
   removeAllTasks: () => void;
+  /**
+   * Starts next queueing task
+   */
+  startNextQueueing: () => Promise<void>;
 };
 
 export const useTaskStore = create<TaskStoreState>((set, get) => {
@@ -136,18 +131,11 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
         }
       }),
     }));
+  };
 
-    // starts next task if some tasks in queueing
-    switch (action) {
-      case "start":
-        break;
-      case "pause":
-      case "stop": {
-        const nextTask = get().tasks.find((task) => task.state.code === TaskStateCode.Queueing);
-        if (nextTask) await toState(nextTask.id, "start");
-        break;
-      }
-    }
+  const startNextQueueing = async () => {
+    const nextTask = get().tasks.find((task) => task.state.code === TaskStateCode.Queueing);
+    if (nextTask) await toState(nextTask.id, "start");
   };
 
   return {
@@ -190,9 +178,11 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
     },
     async pauseTask(id: string) {
       await toState(id, "pause");
+      await startNextQueueing();
     },
     async stopTask(id: string) {
       await toState(id, "stop");
+      await startNextQueueing();
     },
     removeTask(id: string) {
       if (getTask(id)?.state.removable) {
@@ -249,43 +239,6 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
         tasks: tasks.filter(({ id }) => !removable.has(id)),
       }));
     },
+    startNextQueueing,
   };
 });
-
-/**
- * Handles task message
- * @param event Tauri event carrying task message
- */
-const handleTaskMessage: EventCallback<TaskMessage> = async (event) => {
-  const { tasks, updateTask, startTask } = useTaskStore.getState();
-
-  const message = event.payload;
-
-  const task = tasks.find((task) => task.id === message.id);
-  if (!task) return;  
-
-  let nextTask: Task | undefined;
-  // overwrite frontend state by message from backend
-  switch (message.state) {
-    case "Running":
-      updateTask(message.id, { state: new Running(message) });
-      break;
-    case "Errored":
-      updateTask(message.id, { state: new Errored(message.reason) });
-      nextTask = tasks.find((task) => task.state.code === TaskStateCode.Queueing);
-      break;
-    case "Finished":
-      updateTask(message.id, { state: new Finished() });
-      nextTask = tasks.find((task) => task.state.code === TaskStateCode.Queueing);
-      break;
-  }
-
-  // starts next task if some tasks in queueing
-  if (nextTask) await startTask(nextTask.id);
-};
-
-/**
- * Starts listening task messages from backend.
- * @param updateTask Updater.
- */
-listen<TaskMessage>(TASK_MESSAGE_EVENT, handleTaskMessage);

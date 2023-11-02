@@ -85,9 +85,9 @@ const FileItem = ({
 
       {/* File Name */}
       {path ? (
-        <Typography.Text className="flex-1">{path}</Typography.Text>
+        <Typography.Text>{path}</Typography.Text>
       ) : (
-        <Typography.Text type="warning" className="flex-1">
+        <Typography.Text type="warning" className="italic">
           NULL
         </Typography.Text>
       )}
