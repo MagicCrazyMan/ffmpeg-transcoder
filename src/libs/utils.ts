@@ -71,3 +71,25 @@ export const sumCostTime = (durations: [Dayjs, Dayjs | undefined][]) => {
     }
   }, 0);
 };
+
+/**
+ * Moves a item in an array from index to another index.
+ * @param array Array
+ * @param from From index
+ * @param to To index
+ * @returns New array
+ */
+export const moveArrayItem = <T>(array: T[], from: number, to: number) => {
+  if (from === to) return [...array];
+
+  if (from > to) {
+    return [...array.slice(0, to), array[from], ...array.slice(to, from), ...array.slice(from + 1)];
+  } else {
+    return [
+      ...array.slice(0, from),
+      ...array.slice(from + 1, to + 1),
+      array[from],
+      ...array.slice(to + 1),
+    ];
+  }
+};

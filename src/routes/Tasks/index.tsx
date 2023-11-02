@@ -1,5 +1,8 @@
 import { Table, TableColumnProps } from "@arco-design/web-react";
-import { useState } from "react";
+import { ComponentsProps } from "@arco-design/web-react/es/Table/interface";
+import { IconDragDotVertical } from "@arco-design/web-react/icon";
+import { ReactNode, useMemo, useState } from "react";
+import { SortableContainer, SortableElement, SortableHandle } from "react-sortable-hoc";
 import ComplexTaskModifier from "../../components/task/ComplexTaskModifier";
 import SimpleTasksModifier from "../../components/task/SimpleTasksModifier";
 import { Task } from "../../libs/task";
@@ -9,12 +12,26 @@ import FilesList from "./FileList";
 import GlobalOperations from "./GlobalOperations";
 import RowOperations from "./RowOperations";
 import Status from "./Status";
+import { TaskStateCode } from "../../libs/task/state_machine";
+
+const DragHandle = SortableHandle(() => (
+  <IconDragDotVertical
+    style={{
+      cursor: "move",
+      color: "#555",
+    }}
+  />
+));
+const SortableWrapper = SortableContainer((props: { children: ReactNode }) => <tbody {...props} />);
+const SortableItem = SortableElement((props: { children: ReactNode[]; className: string }) => (
+  <tr {...props} />
+));
 
 /**
  * Page managing tasks queue.
  */
 export default function QueuePage() {
-  const tasks = useTaskStore((state) => state.tasks);
+  const { tasks, moveTask } = useTaskStore();
 
   const [complexTaskModifierVisible, setComplexTaskModifierVisible] = useState(false);
   const [simpleTasksAddingVisible, setSimpleTasksAddingVisible] = useState(false);
@@ -23,6 +40,65 @@ export default function QueuePage() {
   const onModify = (task: Task) => {
     setModifyingTask(task);
     setComplexTaskModifierVisible(true);
+  };
+
+  const isTaskRunning = useMemo(
+    () => tasks.some((task) => task.state.code === TaskStateCode.Running),
+    [tasks]
+  );
+
+  const onSortEnd = ({ oldIndex, newIndex }: { oldIndex: number; newIndex: number }) => {
+    moveTask(oldIndex, newIndex);
+  };
+
+  const DraggableContainer = (props: { children: ReactNode[] }) => (
+    <SortableWrapper
+      useDragHandle
+      onSortEnd={onSortEnd}
+      helperContainer={() => document.querySelector(".draggable-table table tbody")!}
+      updateBeforeSortStart={({ node }) => {
+        const tds = node.querySelectorAll("td");
+        tds.forEach((td) => {
+          td.style.width = td.clientWidth + "px";
+        });
+      }}
+      {...props}
+    />
+  );
+  const DraggableRow = (props: {
+    children: ReactNode[];
+    className: string;
+    index: number;
+    record: Task;
+  }) => {
+    const { index, ...rest } = props;
+    return <SortableItem index={index} {...rest} />;
+  };
+
+  const components: ComponentsProps = {
+    header: {
+      operations: () => [
+        {
+          node: <th />,
+          width: 40,
+        },
+      ],
+    },
+    body: {
+      operations: () => [
+        {
+          // only sortable when no task is running
+          node: (
+            <td>
+              <div className="arco-table-cell">{isTaskRunning ? null : <DragHandle />}</div>
+            </td>
+          ),
+          width: 40,
+        },
+      ],
+      tbody: DraggableContainer,
+      row: DraggableRow,
+    },
   };
 
   const tableCols: TableColumnProps<Task>[] = [
@@ -74,8 +150,10 @@ export default function QueuePage() {
         pagination={false}
         size="mini"
         rowKey="id"
-        columns={tableCols}
         data={tasks}
+        columns={tableCols}
+        components={components}
+        className="draggable-table"
         rowClassName={() => "h-12"}
         scroll={{ x: "1200px", y: "calc(100vh - 112px)" }}
       ></Table>

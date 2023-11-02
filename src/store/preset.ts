@@ -1,6 +1,7 @@
 import { v4, validate } from "uuid";
 import { create } from "zustand";
 import { Preset, PresetType } from "../libs/preset";
+import { moveArrayItem } from "../libs/utils";
 
 export type PresetStoreState = {
   /**
@@ -31,7 +32,7 @@ export type PresetStoreState = {
    */
   addPreset: (preset: Preset) => void;
   /**
-   * Swaps two presets by ids
+   * Moves a preset from index to another index
    * @param i1 Index of preset 1
    * @param i2 Index of preset 2
    */
@@ -279,25 +280,8 @@ export const usePresetStore = create<PresetStoreState>((set, get, api) => {
     },
     movePreset(from, to) {
       if (from === to) return;
-
       set(({ storage }) => {
-        let presets: Preset[];
-        if (from > to) {
-          presets = [
-            ...storage.presets.slice(0, to),
-            storage.presets[from],
-            ...storage.presets.slice(to, from),
-            ...storage.presets.slice(from + 1),
-          ];
-        } else {
-          presets = [
-            ...storage.presets.slice(0, from),
-            ...storage.presets.slice(from + 1, to + 1),
-            storage.presets[from],
-            ...storage.presets.slice(to + 1),
-          ];
-        }
-        return { storage: { ...storage, presets } };
+        return { storage: { ...storage, presets: moveArrayItem(storage.presets, from, to) } };
       });
     },
     updatePreset(id, preset) {

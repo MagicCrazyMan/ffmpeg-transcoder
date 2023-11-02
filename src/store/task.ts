@@ -2,6 +2,7 @@ import { v4 } from "uuid";
 import { create } from "zustand";
 import { Task, TaskArgs, TaskData } from "../libs/task";
 import { Idle, TaskState, TaskStateCode } from "../libs/task/state_machine";
+import { moveArrayItem } from "../libs/utils";
 
 export type TaskStoreState = {
   /**
@@ -63,6 +64,12 @@ export type TaskStoreState = {
    * @returns
    */
   resetTask: (id: string) => void;
+  /**
+   * Moves a task from index to another index
+   * @param from From index
+   * @param to To index
+   */
+  moveTask: (from: number, to: number) => void;
   /**
    * Starts all tasks.
    */
@@ -242,6 +249,14 @@ export const useTaskStore = create<TaskStoreState>((set, get) => {
           }),
         }));
       }
+    },
+    moveTask(from, to) {
+      if (from === to) return;
+
+      set((state) => ({
+        ...state,
+        tasks: moveArrayItem(state.tasks, from, to),
+      }));
     },
     async startAllTasks() {
       for (const task of get().tasks) {
