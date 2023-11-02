@@ -1,4 +1,5 @@
-import { Button, ButtonProps } from "@arco-design/web-react";
+import { Button, ButtonProps, Tooltip, TooltipProps } from "@arco-design/web-react";
+import { IconMosaic } from "@arco-design/web-react/icon";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { v4 } from "uuid";
 import "./index.less";
@@ -6,8 +7,7 @@ import "./index.less";
 export type CollapsibleButtonProps = {
   disabled?: boolean;
   size?: "mini" | "small" | "default" | "large";
-  anchor: Omit<ButtonProps, "disabled" | "shape" | "size">;
-  buttons?: Omit<ButtonProps, "disabled" | "shape" | "size">[];
+  buttons?: (Omit<ButtonProps, "disabled" | "shape" | "size"> & { tooltip?: TooltipProps })[];
 };
 
 export default function CollapsibleButtonGroup(props: CollapsibleButtonProps) {
@@ -28,31 +28,33 @@ export default function CollapsibleButtonGroup(props: CollapsibleButtonProps) {
         return "0 12px";
     }
   }, [size]);
-  const anchor = useMemo(
-    () => (
-      <Button
-        {...props.anchor}
-        style={{ ...props.anchor.style, padding }}
-        disabled={disabled}
-        size={size}
-        shape="round"
-      />
-    ),
-    [disabled, padding, props.anchor, size]
-  );
   const buttons = useMemo(
     () =>
-      props.buttons?.map((props) => (
-        <Button
-          {...props}
-          id={v4()}
-          style={{ ...props.style }}
-          disabled={disabled}
-          size={size}
-          shape="round"
-        />
-      )),
-    [disabled, props.buttons, size]
+      props.buttons?.map((props, index) => {
+        const key = v4();
+        const button = (
+          <Button
+            {...props}
+            key={key}
+            shape="round"
+            style={index === 0 ? { ...props.style, padding } : props.style}
+            icon={index === 0 ? props.icon ?? <IconMosaic /> : props.icon}
+            disabled={disabled}
+            size={size}
+          />
+        );
+
+        if (props.tooltip) {
+          return (
+            <Tooltip {...props.tooltip} key={key}>
+              {button}
+            </Tooltip>
+          );
+        } else {
+          return button;
+        }
+      }),
+    [disabled, padding, props.buttons, size]
   );
 
   const [width, setWidth] = useState<number | undefined>(undefined);
@@ -91,10 +93,7 @@ export default function CollapsibleButtonGroup(props: CollapsibleButtonProps) {
       className={`arco-btn-size-${size} arco-btn-icon-only arco-btn-shape-round collapse-btn`}
     >
       <div ref={inner} className="collapse-btn-inner">
-        <Button.Group>
-          {anchor}
-          {buttons}
-        </Button.Group>
+        <Button.Group>{buttons}</Button.Group>
       </div>
     </div>
   );

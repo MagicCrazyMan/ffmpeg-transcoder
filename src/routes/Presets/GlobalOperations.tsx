@@ -90,13 +90,25 @@ export default function GlobalOperations() {
         {/* Import  Presets */}
         <CollapsibleButtonGroup
           disabled={isAdding}
-          anchor={{
-            icon: <IconDownload />,
-            status: "success",
-            children: "Append",
-            onClick: () => imports(false),
-          }}
-          buttons={[{ status: "warning", children: "Override", onClick: () => imports(true) }]}
+          buttons={[
+            {
+              status: "success",
+              children: "Append",
+              icon: <IconDownload />,
+              tooltip: {
+                content: "Import & Append Presets"
+              },
+              onClick: () => imports(false),
+            },
+            {
+              status: "danger",
+              children: "Override",
+              tooltip: {
+                content: "Import & Override Presets"
+              },
+              onClick: () => imports(true),
+            },
+          ]}
         />
 
         {/* Export Presets */}
