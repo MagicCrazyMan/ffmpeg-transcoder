@@ -1,6 +1,7 @@
 import { cloneDeep } from "lodash";
 import { create } from "zustand";
 import { HistoryTask } from "../libs/history";
+import dayjs from "dayjs";
 
 export type HistoryState = {
   /**
@@ -46,7 +47,17 @@ const loadHistoriesStorage = (): HistoryStorage => {
   };
 
   const raw = localStorage.getItem(HISTORIES_LOCALSTORAGE_KEY);
-  return raw ? { ...defaultStorage, ...JSON.parse(raw) } : defaultStorage;
+  if (!raw) return defaultStorage;
+
+  const parsed = JSON.parse(raw);
+  // converts all string time value to dayjs instance
+  if (Array.isArray(parsed?.tasks)) {
+    parsed.tasks.forEach((item: Partial<HistoryTask>) => {
+      if (item.creationTime) item.creationTime = dayjs(item.creationTime);
+    });
+  }
+
+  return { ...defaultStorage, ...parsed };
 };
 
 export const useHistoryStore = create<HistoryState>((set, _get, api) => {

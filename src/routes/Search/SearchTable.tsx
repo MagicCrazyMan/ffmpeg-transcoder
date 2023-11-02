@@ -45,7 +45,6 @@ const OutputCell = ({ node }: { node: SearchEntryNode }) => {
 
   if (!outputDir) return;
   if (node.type !== "File") return;
-  console.log(selectedRowKeysSet.has(node.absolute));
 
   if (!selectedRowKeysSet.has(node.absolute)) return;
 
@@ -103,8 +102,6 @@ const OutputCell = ({ node }: { node: SearchEntryNode }) => {
         onChange={onChange}
       />
     );
-  } else {
-    return <Input size="mini" value="NULL" onChange={onChange} />;
   }
 };
 

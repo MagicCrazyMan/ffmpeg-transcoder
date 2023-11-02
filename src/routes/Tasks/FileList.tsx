@@ -3,6 +3,7 @@ import { IconFolder, IconPlayArrow } from "@arco-design/web-react/icon";
 import { OsType } from "@tauri-apps/api/os";
 import { Command, open } from "@tauri-apps/api/shell";
 import { useMemo } from "react";
+import NULLPath from "../../components/NULLPath";
 import { Task } from "../../libs/task";
 import { TaskStateCode } from "../../libs/task/state_machine";
 import { useAppStore } from "../../store/app";
@@ -84,13 +85,7 @@ const FileItem = ({
       ) : null}
 
       {/* File Name */}
-      {path ? (
-        <Typography.Text>{path}</Typography.Text>
-      ) : (
-        <Typography.Text type="warning" className="italic">
-          NULL
-        </Typography.Text>
-      )}
+      {path ? <Typography.Text>{path}</Typography.Text> : <NULLPath />}
     </Space>
   );
 };

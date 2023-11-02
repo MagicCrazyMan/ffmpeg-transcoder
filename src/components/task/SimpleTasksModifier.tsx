@@ -12,6 +12,7 @@ import { usePresetStore } from "../../store/preset";
 import { useTaskStore } from "../../store/task";
 import CodecModifier from "./CodecModifier";
 import OutputFileModifier from "./OutputFileModifier";
+import NULLPath from "../NULLPath";
 
 export type SimpleTasksAddingProps = {
   visible: boolean;
@@ -277,7 +278,7 @@ export default function SimpleTasksModifier({ visible, onVisibleChange }: Simple
     () => [
       {
         title: "Input File",
-        render: (_col, task) => task.input.path ?? "NULL",
+        render: (_col, task) => task.input.path ?? <NULLPath />,
       },
       {
         title: "Decode Arguments",

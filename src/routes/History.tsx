@@ -3,13 +3,14 @@ import { IconDelete, IconPlus } from "@arco-design/web-react/icon";
 import dayjs from "dayjs";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import NULLPath from "../components/NULLPath";
 import { HistoryTask } from "../libs/history";
 import { TaskArgsItem } from "../libs/task";
 import { useHistoryStore } from "../store/history";
 import { useTaskStore } from "../store/task";
 
 const FileItem = ({ path }: { path?: string }) => {
-  return <span className="flex-1">{path ?? "NULL"}</span>;
+  return <span className="flex-1">{path ?? <NULLPath />}</span>;
 };
 
 const FilesList = ({ args }: { args: TaskArgsItem[] }) => {
@@ -58,6 +59,8 @@ export default function HistoryPage() {
     {
       title: "Creation Time",
       render: (_, task) => dayjs(task.creationTime).format("YYYY-MM-DD HH:ss:mm"),
+      sorter: (a: HistoryTask, b: HistoryTask) => a.creationTime.diff(b.creationTime),
+      defaultSortOrder: "descend",
     },
     {
       title: "Operations",

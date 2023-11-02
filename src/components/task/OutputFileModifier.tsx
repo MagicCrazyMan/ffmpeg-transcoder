@@ -44,6 +44,7 @@ export default function OutputFileModifier({
     <div className="flex gap-2 items-center">
       {/* File Name */}
       <Input
+        allowClear
         size="mini"
         style={{ margin: "0" }}
         beforeStyle={{ padding: "0" }}

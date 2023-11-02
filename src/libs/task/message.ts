@@ -1,4 +1,12 @@
 import { listen } from "@tauri-apps/api/event";
+import {
+  isPermissionGranted,
+  requestPermission,
+  sendNotification,
+} from "@tauri-apps/api/notification";
+import { EOL } from "@tauri-apps/api/os";
+import { appWindow } from "@tauri-apps/api/window";
+import { Task } from ".";
 import { useTaskStore } from "../../store/task";
 import { Errored, Finished, Running } from "./state_machine";
 
@@ -58,6 +66,46 @@ export type TaskProgressTypeUnspecified = {
   type: "Unspecified";
 };
 
+const checkNotifyPermission = async () => {
+  if (await appWindow.isFocused()) return false;
+
+  let permissionGranted = await isPermissionGranted();
+  if (!permissionGranted) {
+    const permission = await requestPermission();
+    permissionGranted = permission === "granted";
+  }
+
+  return permissionGranted;
+};
+
+const finishNotify = async (task: Task) => {
+  // build message body
+  const inputs =
+    task.data.args.inputs.length > 1
+      ? task.data.args.inputs
+          .slice(0, 1)
+          .map(({ path }) => `- ${path} ... and more`)
+          .join(EOL)
+      : task.data.args.inputs.map(({ path }) => `- ${path}`).join(EOL);
+  const middle = "to";
+  const outputs =
+    task.data.args.outputs.length > 1
+      ? task.data.args.outputs
+          .slice(0, 1)
+          .map(({ path }) => `- ${path ?? "NULL"} ... and more`)
+          .join(EOL)
+      : task.data.args.outputs.map(({ path }) => `- ${path ?? "NULL"}`).join(EOL);
+
+  sendNotification({
+    title: "Task Finished",
+    body: [inputs, middle, outputs].join(EOL),
+  });
+};
+
+const errorNotify = async (reason: string) => {
+  sendNotification({ title: "Task Errored", body: reason });
+};
+
 /**
  * Starts listening task messages from backend.
  */
@@ -77,10 +125,18 @@ listen<TaskMessage>(TASK_MESSAGE_EVENT, async (event) => {
     case "Errored":
       updateTask(message.id, { state: new Errored(message.reason) });
       await startNextQueueing();
+
+      if (await checkNotifyPermission()) {
+        await errorNotify(message.reason);
+      }
       break;
     case "Finished":
       updateTask(message.id, { state: new Finished() });
       await startNextQueueing();
+
+      if (await checkNotifyPermission()) {
+        await finishNotify(task);
+      }
       break;
   }
 });

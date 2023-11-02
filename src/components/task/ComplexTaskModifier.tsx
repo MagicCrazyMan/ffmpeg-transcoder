@@ -14,6 +14,7 @@ import {
 import { useAppStore } from "../../store/app";
 import { usePresetStore } from "../../store/preset";
 import { useTaskStore } from "../../store/task";
+import NULLPath from "../NULLPath";
 import CodecModifier from "./CodecModifier";
 import OutputFileModifier from "./OutputFileModifier";
 
@@ -168,7 +169,7 @@ const UniverseTable = ({
         ellipsis: true,
         render: (_col, record) => {
           if (type === "input") {
-            return record.path ?? "NULL";
+            return record.path ?? <NULLPath />;
           } else {
             return (
               <OutputFileModifier
