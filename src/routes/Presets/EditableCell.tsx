@@ -176,6 +176,9 @@ export default function EditableCell(props: CellProps) {
         }
 
         setEditing(false);
+      })
+      .catch((err) => {
+        console.error(err);
       });
   }, [getForm, onHandleSave, rowData]);
 
