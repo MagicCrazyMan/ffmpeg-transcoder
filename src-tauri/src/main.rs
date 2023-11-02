@@ -5,7 +5,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use handlers::{config::Config, tasks::store::TaskStore};
 use log::{error, LevelFilter};
-use safe_exit::{prevent_main_window_close, confirm_exit};
+use safe_exit::prevent_main_window_close;
 use system_tray::{system_tray, system_tray_event};
 use tauri::Manager;
 use tauri_plugin_log::{LogTarget, RotationStrategy};
@@ -67,10 +67,7 @@ fn start_app() -> Result<(), tauri::Error> {
             pause_task,
             resume_task,
         ])
-        .build(tauri::generate_context!())?
-        .run(confirm_exit);
-
-    Ok(())
+        .run(tauri::generate_context!())
 }
 
 #[derive(serde::Serialize)]

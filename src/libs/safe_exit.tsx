@@ -1,6 +1,5 @@
 import { Button, Checkbox, Modal, Typography } from "@arco-design/web-react";
 import { listen } from "@tauri-apps/api/event";
-import { exit } from "@tauri-apps/api/process";
 import { appWindow } from "@tauri-apps/api/window";
 import { useAppStore } from "../store/app";
 import { useTaskStore } from "../store/task";
@@ -33,12 +32,12 @@ const onExit = async () => {
           maskClosable: false,
         });
         await useTaskStore.getState().stopAllTasks();
-        await exit(0);
+        await appWindow.close();
       },
     });
   } else {
-    // exit directly otherwise
-    await exit(0);
+    // close directly otherwise
+    await appWindow.close();
   }
 };
 
@@ -107,7 +106,7 @@ const onAsk = async () => {
               maskClosable: false,
             });
             await useTaskStore.getState().stopAllTasks();
-            await exit(0);
+            await appWindow.close();
           }}
         >
           Exit

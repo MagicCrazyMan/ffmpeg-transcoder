@@ -8,8 +8,7 @@
     "withGlobalTauri": false
   },
   "package": {
-    "productName": "ffmpeg-transcoder",
-    "version": "0.0.0"
+    "productName": "FFmpeg Transcoder"
   },
   "tauri": {
     "allowlist": {
@@ -60,7 +59,7 @@
         "icons/icon.icns",
         "icons/icon.ico"
       ],
-      "longDescription": "",
+      "longDescription": "FFmpeg Transcoder",
       "macOS": {
         "entitlements": null,
         "exceptionDomain": "",
@@ -69,7 +68,7 @@
         "signingIdentity": null
       },
       "resources": [],
-      "shortDescription": "",
+      "shortDescription": "FFmpeg Transcoder",
       "windows": {
         "certificateThumbprint": null,
         "digestAlgorithm": "sha256",

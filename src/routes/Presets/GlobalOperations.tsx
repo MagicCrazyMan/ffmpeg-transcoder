@@ -108,7 +108,7 @@ export default function GlobalOperations() {
           buttons={[
             {
               status: "success",
-              children: "Append",
+              children: "APPEND",
               icon: <IconDownload />,
               tooltip: {
                 content: "Import & Append Presets",
@@ -117,7 +117,7 @@ export default function GlobalOperations() {
             },
             {
               status: "danger",
-              children: "Override",
+              children: "OVERRIDE",
               tooltip: {
                 content: "Import & Override Presets",
               },
