@@ -87,30 +87,6 @@ export default function GlobalOperations() {
 
         <Divider type="vertical" />
 
-        {/* Import  Presets */}
-        <CollapsibleButtonGroup
-          disabled={isAdding}
-          buttons={[
-            {
-              status: "success",
-              children: "Append",
-              icon: <IconDownload />,
-              tooltip: {
-                content: "Import & Append Presets"
-              },
-              onClick: () => imports(false),
-            },
-            {
-              status: "danger",
-              children: "Override",
-              tooltip: {
-                content: "Import & Override Presets"
-              },
-              onClick: () => imports(true),
-            },
-          ]}
-        />
-
         {/* Export Presets */}
         <Tooltip content="Export Presets">
           <Button
@@ -125,6 +101,30 @@ export default function GlobalOperations() {
             }}
           ></Button>
         </Tooltip>
+
+        {/* Import  Presets */}
+        <CollapsibleButtonGroup
+          disabled={isAdding}
+          buttons={[
+            {
+              status: "success",
+              children: "Append",
+              icon: <IconDownload />,
+              tooltip: {
+                content: "Import & Append Presets",
+              },
+              onClick: () => imports(false),
+            },
+            {
+              status: "danger",
+              children: "Override",
+              tooltip: {
+                content: "Import & Override Presets",
+              },
+              onClick: () => imports(true),
+            },
+          ]}
+        />
       </Space>
     </>
   );
