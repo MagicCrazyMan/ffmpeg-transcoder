@@ -30,6 +30,8 @@ export abstract class TaskState {
 
   public abstract readonly removable: boolean;
 
+  public abstract readonly resetable: boolean;
+
   public abstract start(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }>;
 
   public abstract pause(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }>;
@@ -73,6 +75,7 @@ export class Idle extends TaskState {
   public readonly stoppable = false;
   public readonly editable = true;
   public readonly removable = true;
+  public readonly resetable = false;
 
   public async start(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }> {
     if (isOverflow()) {
@@ -134,11 +137,12 @@ export class Idle extends TaskState {
  */
 export class Queueing extends TaskState {
   public readonly code = TaskStateCode.Queueing;
-  public readonly startable = true;
+  public readonly startable = false;
   public readonly pauseable = true;
   public readonly stoppable = true;
   public readonly editable = false;
   public readonly removable = false;
+  public readonly resetable = false;
 
   public readonly previousState: Idle | Pausing;
 
@@ -178,6 +182,7 @@ export class Running extends TaskState {
   public readonly stoppable = true;
   public readonly editable = false;
   public readonly removable = false;
+  public readonly resetable = false;
 
   public lastMessage?: TaskMessageRunning;
 
@@ -260,6 +265,7 @@ export class Pausing extends TaskState {
   public readonly stoppable = true;
   public readonly editable = false;
   public readonly removable = false;
+  public readonly resetable = false;
 
   public lastMessage?: TaskMessageRunning;
 
@@ -335,6 +341,7 @@ export class Stopped extends TaskState {
   public readonly stoppable = false;
   public readonly editable = false;
   public readonly removable = true;
+  public readonly resetable = true;
 
   public async start(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }> {
     console.warn("Attempting to start a stopped task");
@@ -379,6 +386,7 @@ export class Errored extends TaskState {
   public readonly stoppable = false;
   public readonly editable = false;
   public readonly removable = true;
+  public readonly resetable = true;
 
   public readonly reason: string;
 
@@ -430,6 +438,7 @@ export class Finished extends TaskState {
   public readonly stoppable = false;
   public readonly editable = false;
   public readonly removable = true;
+  public readonly resetable = true;
 
   public async start(task: Task): Promise<{ nextState: TaskState; nextData: TaskData }> {
     console.warn("Attempting to start a finished task");

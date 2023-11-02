@@ -145,7 +145,7 @@ export default function Operations({
         {task.state.pauseable ? <PauseButton task={task} /> : <TableIconPlaceholder />}
         {task.state.stoppable ? <StopButton task={task} /> : <TableIconPlaceholder />}
         {task.state.removable ? <RemoveButton task={task} /> : <TableIconPlaceholder />}
-        {task.state.removable ? <ResetButton task={task} /> : <TableIconPlaceholder />}
+        {task.state.resetable ? <ResetButton task={task} /> : <TableIconPlaceholder />}
         {task.state.editable ? (
           <ModifyButton task={task} onModify={onModify} />
         ) : (
