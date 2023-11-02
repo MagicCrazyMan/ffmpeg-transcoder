@@ -1,9 +1,10 @@
 import { Button, Divider, Message, Space, Tooltip } from "@arco-design/web-react";
-import { IconDownload, IconImport, IconPlus, IconUpload } from "@arco-design/web-react/icon";
+import { IconDownload, IconPlus, IconUpload } from "@arco-design/web-react/icon";
 import { save } from "@tauri-apps/api/dialog";
 import { join } from "@tauri-apps/api/path";
 import { useContext, useMemo } from "react";
 import { PresetContext } from ".";
+import CollapsibleButtonGroup from "../../components/CollapsibleButtonGroup";
 import { PresetType } from "../../libs/preset";
 import { useAppStore } from "../../store/app";
 import { usePresetStore } from "../../store/preset";
@@ -86,37 +87,17 @@ export default function GlobalOperations() {
 
         <Divider type="vertical" />
 
-        <Button.Group>
-          {/* Import & Override Presets */}
-          <Tooltip content="Import and Override Presets">
-            <Button
-              shape="round"
-              type="default"
-              status="success"
-              icon={<IconDownload />}
-              disabled={isAdding}
-              onClick={(e) => {
-                e.stopPropagation();
-                imports(true);
-              }}
-            ></Button>
-          </Tooltip>
-
-          {/* Import & Append Presets */}
-          <Tooltip content="Import and Append Presets">
-            <Button
-              shape="round"
-              type="default"
-              status="success"
-              icon={<IconImport />}
-              disabled={isAdding}
-              onClick={(e) => {
-                e.stopPropagation();
-                imports(false);
-              }}
-            ></Button>
-          </Tooltip>
-        </Button.Group>
+        {/* Import  Presets */}
+        <CollapsibleButtonGroup
+          disabled={isAdding}
+          anchor={{
+            icon: <IconDownload />,
+            status: "success",
+            children: "Append",
+            onClick: () => imports(false),
+          }}
+          buttons={[{ status: "warning", children: "Override", onClick: () => imports(true) }]}
+        />
 
         {/* Export Presets */}
         <Tooltip content="Export Presets">
